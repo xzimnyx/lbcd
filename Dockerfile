@@ -38,4 +38,4 @@ VOLUME ["/root/.btcd"]
 
 EXPOSE 8333 8334
 
-ENTRYPOINT ["btcd"]
+ENTRYPOINT ["chain"]
