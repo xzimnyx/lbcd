@@ -72,8 +72,8 @@ func calcMinRequiredTxRelayFee(serializedSize int64, minRelayTxFee btcutil.Amoun
 
 	// Set the minimum fee to the maximum possible value if the calculated
 	// fee is not in the valid range for monetary amounts.
-	if minFee < 0 || minFee > btcutil.MaxSatoshi {
-		minFee = btcutil.MaxSatoshi
+	if minFee < 0 || minFee > (btcutil.MaxSatoshi*1000) {
+		minFee = (btcutil.MaxSatoshi * 1000)
 	}
 
 	return minFee

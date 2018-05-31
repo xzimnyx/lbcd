@@ -237,10 +237,10 @@ func CheckTransactionSanity(tx *btcutil.Tx) error {
 				"value of %v", satoshi)
 			return ruleError(ErrBadTxOutValue, str)
 		}
-		if satoshi > btcutil.MaxSatoshi {
+		if satoshi > (btcutil.MaxSatoshi * 1000) {
 			str := fmt.Sprintf("transaction output value of %v is "+
 				"higher than max allowed value of %v", satoshi,
-				btcutil.MaxSatoshi)
+				(btcutil.MaxSatoshi * 1000))
 			return ruleError(ErrBadTxOutValue, str)
 		}
 
@@ -251,14 +251,14 @@ func CheckTransactionSanity(tx *btcutil.Tx) error {
 		if totalSatoshi < 0 {
 			str := fmt.Sprintf("total value of all transaction "+
 				"outputs exceeds max allowed value of %v",
-				btcutil.MaxSatoshi)
+				(btcutil.MaxSatoshi * 1000))
 			return ruleError(ErrBadTxOutValue, str)
 		}
-		if totalSatoshi > btcutil.MaxSatoshi {
+		if totalSatoshi > (btcutil.MaxSatoshi * 1000) {
 			str := fmt.Sprintf("total value of all transaction "+
 				"outputs is %v which is higher than max "+
 				"allowed value of %v", totalSatoshi,
-				btcutil.MaxSatoshi)
+				(btcutil.MaxSatoshi * 1000))
 			return ruleError(ErrBadTxOutValue, str)
 		}
 	}
@@ -919,11 +919,11 @@ func CheckTransactionInputs(tx *btcutil.Tx, txHeight int32, utxoView *UtxoViewpo
 				"value of %v", btcutil.Amount(originTxSatoshi))
 			return 0, ruleError(ErrBadTxOutValue, str)
 		}
-		if originTxSatoshi > btcutil.MaxSatoshi {
+		if originTxSatoshi > (btcutil.MaxSatoshi * 1000) {
 			str := fmt.Sprintf("transaction output value of %v is "+
 				"higher than max allowed value of %v",
 				btcutil.Amount(originTxSatoshi),
-				btcutil.MaxSatoshi)
+				(btcutil.MaxSatoshi * 1000))
 			return 0, ruleError(ErrBadTxOutValue, str)
 		}
 
@@ -933,11 +933,11 @@ func CheckTransactionInputs(tx *btcutil.Tx, txHeight int32, utxoView *UtxoViewpo
 		lastSatoshiIn := totalSatoshiIn
 		totalSatoshiIn += originTxSatoshi
 		if totalSatoshiIn < lastSatoshiIn ||
-			totalSatoshiIn > btcutil.MaxSatoshi {
+			totalSatoshiIn > (btcutil.MaxSatoshi*1000) {
 			str := fmt.Sprintf("total value of all transaction "+
 				"inputs is %v which is higher than max "+
 				"allowed value of %v", totalSatoshiIn,
-				btcutil.MaxSatoshi)
+				(btcutil.MaxSatoshi * 1000))
 			return 0, ruleError(ErrBadTxOutValue, str)
 		}
 	}
