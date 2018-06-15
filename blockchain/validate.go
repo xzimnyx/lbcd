@@ -291,6 +291,16 @@ func CheckTransactionSanity(tx *btcutil.Tx) error {
 				(btcutil.MaxSatoshi * 1000))
 			return ruleError(ErrBadTxOutValue, str)
 		}
+		if txscript.ClaimScriptSize(txOut.PkScript) > txscript.MaxClaimScriptSize {
+			str := fmt.Sprintf("claimscript exceeds max size of %v",
+				txscript.MaxClaimScriptSize)
+			return ruleError(ErrBadTxOutValue, str)
+		}
+		if txscript.ClaimNameSize(txOut.PkScript) > txscript.MaxClaimNameSize {
+			str := fmt.Sprintf("claim name  exceeds max size of %v",
+				txscript.MaxClaimNameSize)
+			return ruleError(ErrBadTxOutValue, str)
+		}
 	}
 
 	// Check for duplicate transaction inputs.
