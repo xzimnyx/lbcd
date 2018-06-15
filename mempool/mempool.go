@@ -963,7 +963,7 @@ func (mp *TxPool) maybeAcceptTransaction(tx *btcutil.Tx, isNew, rateLimit, rejec
 	// Perform preliminary sanity checks on the transaction.  This makes
 	// use of blockchain which contains the invariant rules for what
 	// transactions are allowed into blocks.
-	err := blockchain.CheckTransactionSanity(tx)
+	err := blockchain.CheckTransactionSanity(tx, true)
 	if err != nil {
 		if cerr, ok := err.(blockchain.RuleError); ok {
 			return nil, nil, chainRuleError(cerr)
@@ -1151,6 +1151,14 @@ func (mp *TxPool) maybeAcceptTransaction(tx *btcutil.Tx, isNew, rateLimit, rejec
 	if serializedSize >= (DefaultBlockPrioritySize-1000) && txFee < minFee {
 		str := fmt.Sprintf("transaction %v has %d fees which is under "+
 			"the required amount of %d", txHash, txFee,
+			minFee)
+		return nil, nil, txRuleError(wire.RejectInsufficientFee, str)
+	}
+
+	minFee = txscript.CalcMinClaimTrieFee(tx.MsgTx(), txscript.MinFeePerNameclaimChar)
+	if txFee < minFee {
+		str := fmt.Sprintf("transaction %v has %d fees which is under "+
+			"the required amount of %d for Claims", txHash, txFee,
 			minFee)
 		return nil, nil, txRuleError(wire.RejectInsufficientFee, str)
 	}
