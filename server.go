@@ -27,6 +27,8 @@ import (
 	"github.com/btcsuite/btcd/blockchain/indexers"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/btcsuite/btcd/claimtrie"
+	claimtrieconfig "github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/connmgr"
 	"github.com/btcsuite/btcd/database"
 	"github.com/btcsuite/btcd/mempool"
@@ -2721,8 +2723,43 @@ func newServer(listenAddrs, agentBlacklist, agentWhitelist []string,
 		checkpoints = mergeCheckpoints(s.chainParams.Checkpoints, cfg.addCheckpoints)
 	}
 
-	// Create a new block chain instance with the appropriate configuration.
 	var err error
+
+	claimTrieCfg := claimtrieconfig.DefaultConfig
+	claimTrieCfg.DataDir = cfg.DataDir
+
+	var ct *claimtrie.ClaimTrie
+
+	switch cfg.ClaimTrieImpl {
+	case "none":
+		// Disable ClaimTrie for development purpose.
+		lbryLog.Infof("ClaimTrie is disabled")
+	case "persistent":
+		claimTrieCfg.RamTrie = false
+		lbryLog.Infof("ClaimTrie uses Persistent implementation")
+	case "ram", "":
+		claimTrieCfg.RamTrie = true
+		lbryLog.Infof("ClaimTrie uses RamTrie implementation")
+	default:
+		lbryLog.Errorf("ClaimTrie uses Unknown implementation")
+	}
+
+	if cfg.ClaimTrieImpl != "none" {
+		ct, err = claimtrie.New(claimTrieCfg)
+		if err != nil {
+			return nil, err
+		}
+		if h := cfg.ClaimTrieHeight; h != 0 {
+			lbryLog.Infof("Reseting claim trie height to %d", h)
+			err := ct.ResetHeight(int32(h))
+			if err != nil {
+				return nil, err
+			}
+			lbryLog.Infof("Claim trie height is reset to %d", h)
+		}
+	}
+
+	// Create a new block chain instance with the appropriate configuration.
 	s.chain, err = blockchain.New(&blockchain.Config{
 		DB:           s.db,
 		Interrupt:    interrupt,
@@ -2732,6 +2769,7 @@ func newServer(listenAddrs, agentBlacklist, agentWhitelist []string,
 		SigCache:     s.sigCache,
 		IndexManager: indexManager,
 		HashCache:    s.hashCache,
+		ClaimTrie:    ct,
 	})
 	if err != nil {
 		return nil, err
