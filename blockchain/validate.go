@@ -1270,6 +1270,12 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 		}
 	}
 
+	// Handle LBRY Claim Scripts
+	if err = b.CheckClaimScripts(block, node, view); err != nil {
+		b.ClaimTrie().ResetHeight(b.ClaimTrie().Height() - 1)
+		return ruleError(ErrBadClaimTrie, err.Error())
+	}
+
 	// Update the best hash for view to include this block since all of its
 	// transactions have been connected.
 	view.SetBestHash(&node.hash)
