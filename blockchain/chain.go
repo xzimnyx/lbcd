@@ -17,6 +17,8 @@ import (
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
+
+	"github.com/btcsuite/btcd/claimtrie"
 )
 
 const (
@@ -180,6 +182,8 @@ type BlockChain struct {
 	// certain blockchain events.
 	notificationsLock sync.RWMutex
 	notifications     []NotificationCallback
+
+	claimTrie *claimtrie.ClaimTrie
 }
 
 // HaveBlock returns whether or not the chain instance has the block represented
@@ -570,6 +574,11 @@ func (b *BlockChain) connectBlock(node *blockNode, block *btcutil.Block,
 			"spent transaction out information")
 	}
 
+	// Handle LBRY Claim Scripts
+	if err := b.ParseClaimScripts(block, node, view, false); err != nil {
+		return ruleError(ErrBadClaimTrie, err.Error())
+	}
+
 	// No warnings about unknown rules until the chain is current.
 	if b.isCurrent() {
 		// Warn if any unknown new rules are either about to activate or
@@ -758,6 +767,10 @@ func (b *BlockChain) disconnectBlock(node *blockNode, block *btcutil.Block, view
 		return nil
 	})
 	if err != nil {
+		return err
+	}
+
+	if err = b.claimTrie.ResetHeight(node.parent.height); err != nil {
 		return err
 	}
 
@@ -1614,6 +1627,11 @@ func (b *BlockChain) LocateHeaders(locator BlockLocator, hashStop *chainhash.Has
 	return headers
 }
 
+// ClaimTrie returns the claimTrie associated wit hthe chain.
+func (b *BlockChain) ClaimTrie() *claimtrie.ClaimTrie {
+	return b.claimTrie
+}
+
 // IndexManager provides a generic interface that the is called when blocks are
 // connected and disconnected to and from the tip of the main chain for the
 // purpose of supporting optional indexes.
@@ -1796,10 +1814,82 @@ func New(config *Config) (*BlockChain, error) {
 		return nil, err
 	}
 
+	ct, err := claimtrie.New()
+	if err != nil {
+		return nil, err
+	}
+	b.claimTrie = ct
+
+	// ct.ResetHeight(760140) // TODO: add an optional CLI parameter for this
+
+	err = rebuildMissingClaimTrieData(&b, config.Interrupt)
+	if err != nil {
+		ct.Close()
+		return nil, err
+	}
+
 	bestNode := b.bestChain.Tip()
 	log.Infof("Chain state (height %d, hash %v, totaltx %d, work %v)",
 		bestNode.height, bestNode.hash, b.stateSnapshot.TotalTxns,
 		bestNode.workSum)
 
 	return &b, nil
+}
+
+func rebuildMissingClaimTrieData(b *BlockChain, done <-chan struct{}) error {
+	target := b.bestChain.Height()
+	if b.claimTrie.Height() == target {
+		return nil
+	}
+	if b.claimTrie.Height() > target {
+		return b.claimTrie.ResetHeight(target)
+	}
+
+	start := time.Now().Add(-6 * time.Second)
+	// TODO: move this view inside the loop (or recreate it every 5 sec.)
+	// as accumulating all inputs has potential to use a huge amount of RAM
+	// but we need to get the spent inputs working for that to be possible
+	view := NewUtxoViewpoint()
+	for h := int32(0); h < target; h++ {
+		select {
+		case <-done:
+			return fmt.Errorf("rebuild unfinished at height %d", b.claimTrie.Height())
+		default:
+		}
+
+		n := b.bestChain.NodeByHeight(h + 1)
+
+		var block *btcutil.Block
+		err := b.db.View(func(dbTx database.Tx) error {
+			var err error
+			block, err = dbFetchBlockByNode(dbTx, n)
+			return err
+		})
+		if err != nil {
+			return err
+		}
+
+		err = view.fetchInputUtxos(b.db, block)
+		if err != nil {
+			return err
+		}
+
+		err = view.connectTransactions(block, nil)
+		if err != nil {
+			return err
+		}
+
+		if h >= b.claimTrie.Height() {
+			err = b.ParseClaimScripts(block, n, view, true)
+			if err != nil {
+				return err
+			}
+		}
+		if time.Since(start).Seconds() > 5.0 {
+			start = time.Now()
+			log.Infof("Rebuilding claim trie data to %d. At: %d", target, h)
+		}
+	}
+	log.Infof("Completed rebuilding claim trie data to %d", b.claimTrie.Height())
+	return nil
 }
