@@ -16,6 +16,7 @@ import (
 	"runtime/pprof"
 
 	"github.com/btcsuite/btcd/blockchain/indexers"
+	"github.com/btcsuite/btcd/claimtrie/param"
 	"github.com/btcsuite/btcd/database"
 	"github.com/btcsuite/btcd/limits"
 
@@ -147,6 +148,8 @@ func btcdMain(serverChan chan<- *server) error {
 		return nil
 	}
 
+	param.SetNetwork(activeNetParams.Params.Net, netName(activeNetParams)) // prep the claimtrie params
+
 	// Create server and start it.
 	server, err := newServer(cfg.Listeners, cfg.AgentBlacklist,
 		cfg.AgentWhitelist, db, activeNetParams.Params, interrupt)
@@ -161,6 +164,7 @@ func btcdMain(serverChan chan<- *server) error {
 		server.Stop()
 		server.WaitForShutdown()
 		srvrLog.Infof("Server shutdown complete")
+		server.chain.ClaimTrie().Close()
 	}()
 	server.Start()
 	if serverChan != nil {
