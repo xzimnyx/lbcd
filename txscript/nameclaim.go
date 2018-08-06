@@ -161,8 +161,9 @@ func CalcMinClaimTrieFee(tx *wire.MsgTx, minFeePerNameClaimChar int64) int64 {
 func isClaimName(pops []parsedOpcode) bool {
 	return len(pops) > 5 &&
 		pops[0].opcode.value == OP_CLAIMNAME &&
-		canonicalPush(pops[1]) && len(pops[1].data) <= MaxClaimNameSize &&
-		canonicalPush(pops[2]) &&
+		// canonicalPush(pops[1]) &&
+		len(pops[1].data) <= MaxClaimNameSize &&
+		// canonicalPush(pops[2]) &&
 		pops[3].opcode.value == OP_2DROP &&
 		pops[4].opcode.value == OP_DROP
 }
@@ -170,8 +171,10 @@ func isClaimName(pops []parsedOpcode) bool {
 func isSupportClaim(pops []parsedOpcode) bool {
 	return len(pops) > 5 &&
 		pops[0].opcode.value == OP_SUPPORTCLAIM &&
-		canonicalPush(pops[1]) && len(pops[1].data) <= MaxClaimNameSize &&
-		canonicalPush(pops[2]) && len(pops[2].data) == 160/8 &&
+		// canonicalPush(pops[1]) &&
+		len(pops[1].data) <= MaxClaimNameSize &&
+		// canonicalPush(pops[2]) &&
+		len(pops[2].data) == 160/8 &&
 		pops[3].opcode.value == OP_2DROP &&
 		pops[4].opcode.value == OP_DROP
 }
@@ -179,9 +182,11 @@ func isSupportClaim(pops []parsedOpcode) bool {
 func isUpdateClaim(pops []parsedOpcode) bool {
 	return len(pops) > 6 &&
 		pops[0].opcode.value == OP_UPDATECLAIM &&
-		canonicalPush(pops[1]) && len(pops[1].data) <= MaxClaimNameSize &&
-		canonicalPush(pops[2]) && len(pops[2].data) == 160/8 &&
-		canonicalPush(pops[3]) &&
+		// canonicalPush(pops[1]) &&
+		len(pops[1].data) <= MaxClaimNameSize &&
+		// canonicalPush(pops[2]) &&
+		len(pops[2].data) == 160/8 &&
+		// canonicalPush(pops[3]) &&
 		pops[4].opcode.value == OP_2DROP &&
 		pops[5].opcode.value == OP_2DROP
 }
