@@ -123,7 +123,7 @@ func normalizeAddress(addr string, chain *chaincfg.Params, useWallet bool) (stri
 			if useWallet {
 				defaultPort = "18332"
 			} else {
-				defaultPort = "18334"
+				defaultPort = "19245"
 			}
 		case &chaincfg.SimNetParams:
 			if useWallet {
@@ -149,7 +149,7 @@ func normalizeAddress(addr string, chain *chaincfg.Params, useWallet bool) (stri
 			if useWallet {
 				defaultPort = "8332"
 			} else {
-				defaultPort = "8334"
+				defaultPort = "9245"
 			}
 		}
 
