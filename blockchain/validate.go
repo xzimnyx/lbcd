@@ -1272,8 +1272,9 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 	}
 
 	// Handle LBRY Claim Scripts
-	if err = handleClaimScripts(block, node, view); err != nil {
-		log.Criticalf("Failed to handle Claim Script: %s", err)
+	if err = b.CheckClaimScripts(block, node, view); err != nil {
+		b.ClaimTrie().Reset(b.ClaimTrie().Height() - 1)
+		return ruleError(ErrBadClaimTrie, err.Error())
 	}
 
 	// Update the best hash for view to include this block since all of its

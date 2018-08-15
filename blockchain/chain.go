@@ -17,6 +17,7 @@ import (
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
+	"github.com/lbryio/claimtrie"
 )
 
 const (
@@ -184,6 +185,8 @@ type BlockChain struct {
 	// certain blockchain events.
 	notificationsLock sync.RWMutex
 	notifications     []NotificationCallback
+
+	claimTrie *claimtrie.ClaimTrie
 }
 
 // HaveBlock returns whether or not the chain instance has the block represented
@@ -1625,6 +1628,11 @@ func (b *BlockChain) LocateHeaders(locator BlockLocator, hashStop *chainhash.Has
 	return headers
 }
 
+// ClaimTrie returns the claimTrie associated wit hthe chain.
+func (b *BlockChain) ClaimTrie() *claimtrie.ClaimTrie {
+	return b.claimTrie
+}
+
 // IndexManager provides a generic interface that the is called when blocks are
 // connected and disconnected to and from the tip of the main chain for the
 // purpose of supporting optional indexes.
@@ -1808,6 +1816,13 @@ func New(config *Config) (*BlockChain, error) {
 	}
 
 	bestNode := b.bestChain.Tip()
+
+	ct, err := claimtrie.New()
+	if err != nil {
+		log.Criticalf("can't create ClaimTrie, err %s", err)
+	}
+	b.claimTrie = ct
+
 	log.Infof("Chain state (height %d, hash %v, totaltx %d, work %v)",
 		bestNode.height, bestNode.hash, b.stateSnapshot.TotalTxns,
 		bestNode.workSum)
