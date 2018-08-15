@@ -143,7 +143,7 @@ func handleGetTotalClaimedNames(s *rpcServer, cmd interface{}, closeChan <-chan 
 	return s.cfg.Chain.ClaimTrie().NodeMgr().Size(), nil
 }
 
-// handleGetTotalClaims returns the total number of active claims in the trie
+// handleGetTotalClaims returns the total number of active claims in the trie.
 func handleGetTotalClaims(s *rpcServer, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	cnt := 0
 	fn := func(n *claim.Node) bool {
@@ -151,7 +151,7 @@ func handleGetTotalClaims(s *rpcServer, cmd interface{}, closeChan <-chan struct
 		return false
 	}
 	s.cfg.Chain.ClaimTrie().NodeMgr().Visit(fn)
-	return cnt, nil
+	return int64(cnt), nil
 }
 
 // handleGetTotalValueOfClaims returns the total value of the claims in the trie.

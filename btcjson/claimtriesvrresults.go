@@ -68,8 +68,8 @@ type ClaimForName struct {
 	N               uint32           `json:"n"`
 	Height          claim.Height     `json:"nHeight"`
 	ValidHeight     claim.Height     `json:"nValidAtHeight"`
-	Amount          claim.Amount     `json:"amount"`
-	EffectiveAmount claim.Amount     `json:"effective amount"`
+	Amount          claim.Amount     `json:"nAmount"`
+	EffectiveAmount claim.Amount     `json:"nEffectiveAmount"`
 	Supports        []SupportOfClaim `json:"supports"`
 }
 
@@ -85,9 +85,9 @@ type SupportOfClaim struct {
 // GetNameProofResult models the data from the GetNameProof command.
 type GetNameProofResult struct {
 	Nodes              []NameProofNode `json:"nodes"`
-	TxHash             string
-	N                  uint32
-	LastTakeoverHeight claim.Height `json:"nLastTakeoverheight"`
+	TxHash             string          `json:"txhash"`
+	N                  uint32          `json:"nOut"`
+	LastTakeoverHeight claim.Height    `json:"last takeover height"`
 }
 
 // NameProofNode models the Node from the GetNameProof command.
@@ -98,8 +98,8 @@ type NameProofNode struct {
 
 // NameProofNodeChild models the Child of Node from the GetNameProof command.
 type NameProofNodeChild struct {
-	Character string `json:"char"`
-	NodeHash  string `json:"hash"`
+	Character string `json:"character"`
+	NodeHash  string `json:"nodeHash"`
 }
 
 // GetClaimsForTxResult models the data from the GetClaimsForTx command.
@@ -132,7 +132,7 @@ type GetClaimByIDResult struct {
 	EffAmount   claim.Amount       `json:"effective amount"`
 	Supports    []ClaimByIDSupport `json:"supports"`
 	Height      claim.Height       `json:"height"`
-	ValidHeight claim.Height       `json:"valid for height"`
+	ValidHeight claim.Height       `json:"valid at height"`
 }
 
 // ClaimByIDSupport models the data of support from the GetClaimByID command.
@@ -140,6 +140,6 @@ type ClaimByIDSupport struct {
 	TxID        string       `json:"txid"`
 	N           uint32       `json:"n"`
 	Height      claim.Height `json:"height"`
-	ValidHeight claim.Height `json:"valid for height"`
+	ValidHeight claim.Height `json:"valid at height"`
 	Amount      claim.Amount `json:"amount"`
 }
