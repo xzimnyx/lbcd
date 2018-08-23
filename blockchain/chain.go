@@ -18,6 +18,7 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
 	"github.com/lbryio/claimtrie"
+	"github.com/lbryio/claimtrie/claim"
 )
 
 const (
@@ -781,6 +782,9 @@ func (b *BlockChain) disconnectBlock(node *blockNode, block *btcutil.Block, view
 
 	// This node's parent is now the end of the best chain.
 	b.bestChain.SetTip(node.parent)
+	if err = b.ClaimTrie().Reset(claim.Height(node.parent.height)); err != nil {
+		return err
+	}
 
 	// Update the state for the best block.  Notice how this replaces the
 	// entire struct instead of updating the existing one.  This effectively
