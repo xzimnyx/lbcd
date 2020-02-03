@@ -1099,7 +1099,7 @@ type ConnConfig struct {
 	// Params is the string representing the network that the server
 	// is running. If there is no parameter set in the config, then
 	// mainnet will be used by default.
-	Params string
+	Params chaincfg.Params
 
 	// DisableTLS specifies whether transport layer security should be
 	// disabled.  It is recommended to always use TLS if the RPC server
@@ -1298,22 +1298,7 @@ func New(config *ConnConfig, ntfnHandlers *NotificationHandlers) (*Client, error
 		shutdown:        make(chan struct{}),
 	}
 
-	// Default network is mainnet, no parameters are necessary but if mainnet
-	// is specified it will be the param
-	switch config.Params {
-	case "":
-		fallthrough
-	case chaincfg.MainNetParams.Name:
-		client.chainParams = &chaincfg.MainNetParams
-	case chaincfg.TestNet3Params.Name:
-		client.chainParams = &chaincfg.TestNet3Params
-	case chaincfg.RegressionNetParams.Name:
-		client.chainParams = &chaincfg.RegressionNetParams
-	case chaincfg.SimNetParams.Name:
-		client.chainParams = &chaincfg.SimNetParams
-	default:
-		return nil, fmt.Errorf("rpcclient.New: Unknown chain %s", config.Params)
-	}
+	client.chainParams = &config.Params
 
 	if start {
 		log.Infof("Established connection to RPC server %s",
