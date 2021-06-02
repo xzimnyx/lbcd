@@ -33,6 +33,12 @@ _testmain.go
 
 *.exe
 
+.DS_Store
+
 # Code coverage files
 profile.tmp
 profile.cov
+
+# IDE
+.idea
+.vscode
