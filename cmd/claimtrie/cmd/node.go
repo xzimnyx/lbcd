@@ -1,23 +1,11 @@
-// Copyright (c) 2021 - LBRY Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package cmd
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
+	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/node"
 	"github.com/btcsuite/btcd/claimtrie/repo"
@@ -30,43 +18,53 @@ func init() {
 }
 
 var nodeCmd = &cobra.Command{
-	Use:   "node",
+	Use:   "node <nodename> <height>",
 	Short: "replay node commands",
-	RunE:  playNode,
+	RunE:  replayNode,
 }
 
-func playNode(cmd *cobra.Command, args []string) error {
+func replayNode(cmd *cobra.Command, args []string) error {
 
-	nodeRepo, err := repo.NewNodeRepoPostgres(config.Config.NodeRepo.DSN)
+	nodeChangeRepo, err := repo.NewNodeChangeRepoPebble(config.Config.ChainChangeRepoPebble.Path)
 	if err != nil {
 		return fmt.Errorf("open node repo: %w", err)
 	}
 
-	changes, err := nodeRepo.Load("one", 30573)
+	if len(args) != 2 {
+		return fmt.Errorf("invalid args")
+	}
+	nodename := string(args[0])
+	height, err := strconv.Atoi(args[1])
+	if err != nil {
+		return fmt.Errorf("invalid args")
+	}
+
+	changes, err := nodeChangeRepo.LoadByNameUpToHeight(nodename, int32(height))
 	if err != nil {
 		return fmt.Errorf("load commands: %w", err)
 	}
 
 	n := node.NewNode()
-	var lastHeight int32
+
 	for _, chg := range changes {
-		chg.Value = nil
+
+		if n.Height+1 != chg.Height {
+			n.AdjustTo(n.Height + 1)
+			showNode(n)
+			if n.Height != chg.Height {
+				n.AdjustTo(chg.Height - 1)
+				showNode(n)
+			}
+		}
+		fmt.Printf(">>> Height: %6d: %s\n", chg.Height, changeName(chg.Type))
+
 		if err := n.HandleChange(chg); err != nil {
 			return fmt.Errorf("apply change: %w", err)
 		}
-		fmt.Printf("\n%10s Height: %5d\n\n", chg.Type, chg.Height)
-		showNode(n)
-		if lastHeight != chg.Height {
-			n.AdjustTo(lastHeight)
-			fmt.Printf("\n%s\n", strings.Repeat("#", 180))
-		}
-		lastHeight = chg.Height
 	}
 
-	n.AdjustTo(lastHeight)
-	fmt.Printf("\n%s\n", strings.Repeat("#", 180))
+	n.AdjustTo(n.Height + 1)
 	showNode(n)
-	fmt.Printf("succedded\n")
 
 	return nil
 }
@@ -76,6 +74,22 @@ var status = map[node.Status]string{
 	node.Accepted:  "Accepted",
 	node.Activated: "Activated",
 	node.Deleted:   "Deleted",
+}
+
+func changeName(c change.ChangeType) string {
+	switch c {
+	case change.AddClaim:
+		return "Addclaim"
+	case change.SpendClaim:
+		return "SpendClaim"
+	case change.UpdateClaim:
+		return "UpdateClaim"
+	case change.AddSupport:
+		return "Addsupport"
+	case change.SpendSupport:
+		return "SpendSupport"
+	}
+	return "Unknown"
 }
 
 func showClaim(c *node.Claim, n *node.Node) {
@@ -95,7 +109,8 @@ func showSupport(c *node.Claim) {
 
 func showNode(n *node.Node) {
 
-	fmt.Printf("  N Height: %d, Tookover: %d\n\n", n.Height, n.TakenOverAt)
+	fmt.Printf("%s\n", strings.Repeat("-", 200))
+	fmt.Printf("Block Height: %d, Tookover: %d\n\n", n.Height, n.TakenOverAt)
 	for _, c := range n.Claims {
 		showClaim(c, n)
 		for _, s := range n.Supports {
@@ -105,4 +120,5 @@ func showNode(n *node.Node) {
 			showSupport(s)
 		}
 	}
+	fmt.Printf("\n\n")
 }
