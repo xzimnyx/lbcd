@@ -3,18 +3,17 @@ package node
 import (
 	"fmt"
 
-	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/merkletrie"
 )
 
 type NodeManager struct {
-	repo change.NodeChangeRepo
+	repo Repo
 
 	height int32
 	cache  map[string]*Node
 }
 
-func NewNodeManager(repo change.NodeChangeRepo) (*NodeManager, error) {
+func NewNodeManager(repo Repo) (*NodeManager, error) {
 
 	nm := &NodeManager{
 		repo:  repo,

@@ -4,12 +4,16 @@ import (
 	"fmt"
 
 	"github.com/btcsuite/btcd/claimtrie/block"
+	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
+	"github.com/btcsuite/btcd/claimtrie/chain"
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/merkletrie"
+	"github.com/btcsuite/btcd/claimtrie/merkletrie/merkletrierepo"
 	"github.com/btcsuite/btcd/claimtrie/node"
-	"github.com/btcsuite/btcd/claimtrie/repo"
+	"github.com/btcsuite/btcd/claimtrie/node/noderepo"
 	"github.com/btcsuite/btcd/claimtrie/temporal"
+	"github.com/btcsuite/btcd/claimtrie/temporal/temporalrepo"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
@@ -19,21 +23,21 @@ import (
 type ClaimTrie struct {
 
 	// Repository for reported block hashes (debugging purpose).
-	reportedBlockRepo block.BlockRepo
+	reportedBlockRepo block.Repo
 
 	// Repository for raw changes recieved from chain.
-	chainChangeRepo change.ChainChangeRepo
+	chainRepo chain.Repo
 
 	// Repository for calculated block hashes.
-	blockRepo block.BlockRepo
+	blockRepo block.Repo
 
 	// Repository for raw changes recieved from chain.
-	nodeChangeRepo change.NodeChangeRepo
+	nodeRepo node.Repo
 
 	// Repository for storing temporal information of nodes at each block height.
 	// For example, which nodes (by name) should be refreshed at each block height
 	// due to stake expiration or delayed activation.
-	temporalRepo temporal.TemporalRepo
+	temporalRepo temporal.Repo
 
 	// Cache layer of Nodes.
 	nodeManager *node.NodeManager
@@ -57,27 +61,13 @@ func New(record bool) (*ClaimTrie, error) {
 	cfg := config.Config
 	var cleanups []func() error
 
-	reportedBlockRepo, err := repo.NewBlockRepoPebble(cfg.ReportedBlockRepoPebble.Path)
-	if err != nil {
-		return nil, fmt.Errorf("new reported block repo: %w", err)
-	}
-	cleanups = append(cleanups, reportedBlockRepo.Close)
-
-	// Disable postgres depedencies by default.
-	//
-	// chainChangeRepo, err := repo.NewChainChangeRepoPebble(cfg.ChainChangeRepoPebble.Path)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("new change change repo: %w", err)
-	// }
-	// cleanups = append(cleanups, chainChangeRepo.Close)
-
-	blockRepo, err := repo.NewBlockRepoPebble(cfg.BlockRepoPebble.Path)
+	blockRepo, err := blockrepo.NewPebble(cfg.BlockRepoPebble.Path)
 	if err != nil {
 		return nil, fmt.Errorf("new block repo: %w", err)
 	}
 	cleanups = append(cleanups, blockRepo.Close)
 
-	temporalRepo, err := repo.NewTemporalPebble(cfg.TemporalRepoPebble.Path)
+	temporalRepo, err := temporalrepo.NewPebble(cfg.TemporalRepoPebble.Path)
 	if err != nil {
 		return nil, fmt.Errorf("new temporal repo: %w", err)
 	}
@@ -85,12 +75,12 @@ func New(record bool) (*ClaimTrie, error) {
 
 	// Initialize repository for changes to nodes.
 	// The cleanup is delegated to the Node Manager.
-	nodeChangeRepo, err := repo.NewNodeChangeRepoPebble(cfg.NodeChangeRepoPebble.Path)
+	nodeRepo, err := noderepo.NewPebble(cfg.NodeRepoPebble.Path)
 	if err != nil {
 		return nil, fmt.Errorf("new node change repo: %w", err)
 	}
 
-	nodeManager, err := node.NewNodeManager(nodeChangeRepo)
+	nodeManager, err := node.NewNodeManager(nodeRepo)
 	if err != nil {
 		return nil, fmt.Errorf("new node manager: %w", err)
 	}
@@ -98,7 +88,7 @@ func New(record bool) (*ClaimTrie, error) {
 
 	// Initialize repository for MerkleTrie.
 	// The cleanup is delegated to MerkleTrie.
-	trieRepo, err := repo.NewMerkleTrieRepoPebble(cfg.TrieRepoPebble.Path)
+	trieRepo, err := merkletrierepo.NewPebble(cfg.MerkleTrieRepoPebble.Path)
 	if err != nil {
 		return nil, fmt.Errorf("new trie repo: %w", err)
 	}
@@ -121,18 +111,32 @@ func New(record bool) (*ClaimTrie, error) {
 		trie.SetRoot(hash)
 	}
 
-	ct := &ClaimTrie{
-		reportedBlockRepo: reportedBlockRepo,
-		// chainChangeRepo:   chainChangeRepo,
+	reportedBlockRepo, err := blockrepo.NewPebble(cfg.ReportedBlockRepoPebble.Path)
+	if err != nil {
+		return nil, fmt.Errorf("new reported block repo: %w", err)
+	}
+	cleanups = append(cleanups, reportedBlockRepo.Close)
 
-		nodeChangeRepo: nodeChangeRepo,
-		blockRepo:      blockRepo,
-		temporalRepo:   temporalRepo,
+	// Disable postgres depedencies by default.
+	//
+	// chainChangeRepo, err := repo.NewChainChangeRepoPebble(cfg.ChainChangeRepoPebble.Path)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("new change change repo: %w", err)
+	// }
+	// cleanups = append(cleanups, chainChangeRepo.Close)
+
+	ct := &ClaimTrie{
+		nodeRepo:     nodeRepo,
+		blockRepo:    blockRepo,
+		temporalRepo: temporalRepo,
 
 		nodeManager: nodeManager,
 		merkleTrie:  trie,
 
 		height: previousHeight,
+
+		reportedBlockRepo: reportedBlockRepo,
+		// chainRepo:   chainRepo,
 
 		cleanups: cleanups,
 	}
@@ -212,12 +216,12 @@ func (ct *ClaimTrie) SpendSupport(name string, op wire.OutPoint) error {
 func (ct *ClaimTrie) AppendBlock() error {
 
 	if len(ct.changes) > 0 {
-		if ct.chainChangeRepo != nil {
-			if err := ct.chainChangeRepo.Save(ct.changes); err != nil {
+		if ct.chainRepo != nil {
+			if err := ct.chainRepo.Save(ct.changes); err != nil {
 				return fmt.Errorf("chain change repo save: %w", err)
 			}
 		}
-		if err := ct.nodeChangeRepo.Save(ct.changes); err != nil {
+		if err := ct.nodeRepo.Save(ct.changes); err != nil {
 			return fmt.Errorf("node change repo save: %w", err)
 		}
 

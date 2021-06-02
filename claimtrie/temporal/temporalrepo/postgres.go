@@ -1,4 +1,4 @@
-package repo
+package temporalrepo
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-type RefreshRepoPostgres struct {
+type Postgres struct {
 	db *gorm.DB
 }
 
@@ -19,7 +19,7 @@ type temporalRecord struct {
 	Heights pq.Int64Array `gorm:"type:integer[];index:,type:gin"`
 }
 
-func NewTemporalPostgres(dsn string, drop bool) (*RefreshRepoPostgres, error) {
+func NewPostgres(dsn string, drop bool) (*Postgres, error) {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger:                 logger.Default.LogMode(logger.Silent),
 		SkipDefaultTransaction: true,
@@ -41,12 +41,12 @@ func NewTemporalPostgres(dsn string, drop bool) (*RefreshRepoPostgres, error) {
 		return nil, fmt.Errorf("gorm migrate table: %w", err)
 	}
 
-	return &RefreshRepoPostgres{
+	return &Postgres{
 		db: db,
 	}, nil
 }
 
-func (repo *RefreshRepoPostgres) NodesAt(height int32) ([]string, error) {
+func (repo *Postgres) NodesAt(height int32) ([]string, error) {
 
 	var names []string
 
@@ -60,7 +60,7 @@ func (repo *RefreshRepoPostgres) NodesAt(height int32) ([]string, error) {
 	return names, nil
 }
 
-func (repo *RefreshRepoPostgres) SetNodeAt(name string, height int32) error {
+func (repo *Postgres) SetNodeAt(name string, height int32) error {
 
 	record := temporalRecord{Name: []byte(name)}
 
@@ -85,7 +85,7 @@ func (repo *RefreshRepoPostgres) SetNodeAt(name string, height int32) error {
 	return nil
 }
 
-func (repo *RefreshRepoPostgres) Close() error {
+func (repo *Postgres) Close() error {
 
 	db, err := repo.db.DB()
 	if err != nil {

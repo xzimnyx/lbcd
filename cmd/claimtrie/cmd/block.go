@@ -5,8 +5,8 @@ import (
 	"log"
 	"strconv"
 
+	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
 	"github.com/btcsuite/btcd/claimtrie/config"
-	"github.com/btcsuite/btcd/claimtrie/repo"
 
 	"github.com/spf13/cobra"
 )
@@ -24,7 +24,7 @@ var blockCmd = &cobra.Command{
 
 func listHash(cmd *cobra.Command, args []string) error {
 
-	blockRepo, err := repo.NewBlockRepoPebble(config.Config.ReportedBlockRepoPebble.Path)
+	blockRepo, err := blockrepo.NewPebble(config.Config.ReportedBlockRepoPebble.Path)
 	if err != nil {
 		log.Fatalf("can't open reported block repo: %s", err)
 	}

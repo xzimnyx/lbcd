@@ -16,17 +16,10 @@ var (
 		BlockRepoPebble: pebbleConfig{
 			Path: filepath.Join(appPath, "data", "blocks_pebble.db"),
 		},
-		ChainChangeRepoPebble: pebbleConfig{
-			Path: filepath.Join(appPath, "data", "chain_change_pebble.db"),
-		},
-		ChainChangeRepoPostgres: postgresConfig{
-			DSN:  "host=localhost user=postgres password=postgres dbname=claimtrie port=5432 sslmode=disable",
-			Drop: false,
-		},
-		NodeChangeRepoPebble: pebbleConfig{
+		NodeRepoPebble: pebbleConfig{
 			Path: filepath.Join(appPath, "data", "node_change_pebble.db"),
 		},
-		NodeChangeRepoPostgres: postgresConfig{
+		NodeRepoPostgres: postgresConfig{
 			DSN:  "host=localhost user=postgres password=postgres dbname=claimtrie port=5432 sslmode=disable",
 			Drop: false,
 		},
@@ -37,8 +30,16 @@ var (
 			DSN:  "host=localhost user=postgres password=postgres dbname=claimtrie port=5432 sslmode=disable",
 			Drop: false,
 		},
-		TrieRepoPebble: pebbleConfig{
+		MerkleTrieRepoPebble: pebbleConfig{
 			Path: filepath.Join(appPath, "data", "merkletrie_pebble.db"),
+		},
+
+		ChainRepoPebble: pebbleConfig{
+			Path: filepath.Join(appPath, "data", "chain_change_pebble.db"),
+		},
+		ChainRepoPostgres: postgresConfig{
+			DSN:  "host=localhost user=postgres password=postgres dbname=claimtrie port=5432 sslmode=disable",
+			Drop: false,
 		},
 		ReportedBlockRepoPebble: pebbleConfig{
 			Path: filepath.Join(appPath, "data", "reported_blocks_pebble.db"),
@@ -52,16 +53,15 @@ var (
 
 // config is the container of all configurations.
 type config struct {
-	BlockRepoPebble         pebbleConfig
-	ChainChangeRepoPebble   pebbleConfig
-	ChainChangeRepoPostgres postgresConfig
+	BlockRepoPebble      pebbleConfig
+	NodeRepoPostgres     postgresConfig
+	NodeRepoPebble       pebbleConfig
+	TemporalRepoPebble   pebbleConfig
+	TemporalRepoPostgres postgresConfig
+	MerkleTrieRepoPebble pebbleConfig
 
-	NodeChangeRepoPostgres postgresConfig
-	NodeChangeRepoPebble   pebbleConfig
-	TemporalRepoPebble     pebbleConfig
-	TemporalRepoPostgres   postgresConfig
-	TrieRepoPebble         pebbleConfig
-
+	ChainRepoPebble         pebbleConfig
+	ChainRepoPostgres       postgresConfig
 	ReportedBlockRepoPebble pebbleConfig
 	TestPostgresDB          postgresConfig
 }

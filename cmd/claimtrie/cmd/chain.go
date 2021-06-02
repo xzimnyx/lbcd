@@ -5,10 +5,11 @@ import (
 
 	"github.com/btcsuite/btcd/claimtrie"
 	"github.com/btcsuite/btcd/claimtrie/block"
+	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
+	"github.com/btcsuite/btcd/claimtrie/chain/chainrepo"
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/node"
-	"github.com/btcsuite/btcd/claimtrie/repo"
 
 	"github.com/spf13/cobra"
 )
@@ -32,12 +33,12 @@ func replayChain(cmd *cobra.Command, args []string) error {
 	defer ct.Close()
 
 	cfg := config.Config
-	changeRepo, err := repo.NewChainChangeRepoPostgres(cfg.ChainChangeRepoPostgres.DSN, false)
+	changeRepo, err := chainrepo.NewPostgres(cfg.ChainRepoPostgres.DSN, false)
 	if err != nil {
 		return fmt.Errorf("open change repo: %w", err)
 	}
 
-	blockRepo, err := repo.NewBlockRepoPebble(cfg.BlockRepoPebble.Path)
+	blockRepo, err := blockrepo.NewPebble(cfg.BlockRepoPebble.Path)
 	if err != nil {
 		return fmt.Errorf("open block repo: %w", err)
 	}
@@ -102,7 +103,7 @@ func replayChain(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func appendBlock(ct *claimtrie.ClaimTrie, blockRepo block.BlockRepo) error {
+func appendBlock(ct *claimtrie.ClaimTrie, blockRepo block.Repo) error {
 
 	err := ct.AppendBlock()
 	if err != nil {

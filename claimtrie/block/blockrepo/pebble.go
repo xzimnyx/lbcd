@@ -1,30 +1,31 @@
-package repo
+package blockrepo
 
 import (
 	"encoding/binary"
 	"fmt"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+
 	"github.com/cockroachdb/pebble"
 )
 
-type BlockRepoPebble struct {
+type Pebble struct {
 	db *pebble.DB
 }
 
-func NewBlockRepoPebble(path string) (*BlockRepoPebble, error) {
+func NewPebble(path string) (*Pebble, error) {
 
 	db, err := pebble.Open(path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("pebble open %s, %w", path, err)
 	}
 
-	repo := &BlockRepoPebble{db: db}
+	repo := &Pebble{db: db}
 
 	return repo, nil
 }
 
-func (repo *BlockRepoPebble) Load() (int32, error) {
+func (repo *Pebble) Load() (int32, error) {
 
 	iter := repo.db.NewIter(nil)
 	if !iter.Last() {
@@ -42,7 +43,7 @@ func (repo *BlockRepoPebble) Load() (int32, error) {
 	return cnt, nil
 }
 
-func (repo *BlockRepoPebble) Get(height int32) (*chainhash.Hash, error) {
+func (repo *Pebble) Get(height int32) (*chainhash.Hash, error) {
 
 	key := make([]byte, 4)
 	binary.BigEndian.PutUint32(key, uint32(height))
@@ -58,7 +59,7 @@ func (repo *BlockRepoPebble) Get(height int32) (*chainhash.Hash, error) {
 	return hash, err
 }
 
-func (repo *BlockRepoPebble) Set(height int32, hash *chainhash.Hash) error {
+func (repo *Pebble) Set(height int32, hash *chainhash.Hash) error {
 
 	key := make([]byte, 4)
 	binary.BigEndian.PutUint32(key, uint32(height))
@@ -66,7 +67,7 @@ func (repo *BlockRepoPebble) Set(height int32, hash *chainhash.Hash) error {
 	return repo.db.Set(key, hash[:], pebble.NoSync)
 }
 
-func (repo *BlockRepoPebble) Close() error {
+func (repo *Pebble) Close() error {
 
 	err := repo.db.Flush()
 	if err != nil {

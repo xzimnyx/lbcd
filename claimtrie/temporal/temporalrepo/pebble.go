@@ -1,4 +1,4 @@
-package repo
+package temporalrepo
 
 import (
 	"fmt"
@@ -7,23 +7,23 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type TemporalRepoPebble struct {
+type Pebble struct {
 	db *pebble.DB
 }
 
-func NewTemporalPebble(path string) (*TemporalRepoPebble, error) {
+func NewPebble(path string) (*Pebble, error) {
 
 	db, err := pebble.Open(path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("pebble open %s, %w", path, err)
 	}
 
-	repo := &TemporalRepoPebble{db: db}
+	repo := &Pebble{db: db}
 
 	return repo, nil
 }
 
-func (repo *TemporalRepoPebble) NodesAt(height int32) ([]string, error) {
+func (repo *Pebble) NodesAt(height int32) ([]string, error) {
 
 	key, err := msgpack.Marshal(height)
 	if err != nil {
@@ -48,7 +48,7 @@ func (repo *TemporalRepoPebble) NodesAt(height int32) ([]string, error) {
 	return names, nil
 }
 
-func (repo *TemporalRepoPebble) SetNodeAt(name string, height int32) error {
+func (repo *Pebble) SetNodeAt(name string, height int32) error {
 
 	names, err := repo.NodesAt(height)
 	if err != nil && err != pebble.ErrNotFound {
@@ -75,7 +75,7 @@ func (repo *TemporalRepoPebble) SetNodeAt(name string, height int32) error {
 	return repo.db.Set(key, value, pebble.NoSync)
 }
 
-func (repo *TemporalRepoPebble) Close() error {
+func (repo *Pebble) Close() error {
 
 	err := repo.db.Flush()
 	if err != nil {

@@ -1,43 +1,44 @@
-package repo
+package chainrepo
 
 import (
 	"fmt"
 
 	"github.com/btcsuite/btcd/claimtrie/change"
+
 	"github.com/cockroachdb/pebble"
 )
 
-type ChainChangeRepoPebble struct {
+type Pebble struct {
 	db *pebble.DB
 }
 
-func NewChainChangeRepoPebble(path string) (*ChainChangeRepoPebble, error) {
+func NewPebble(path string) (*Pebble, error) {
 
 	db, err := pebble.Open(path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("pebble open %s, %w", path, err)
 	}
 
-	repo := &ChainChangeRepoPebble{db: db}
+	repo := &Pebble{db: db}
 
 	return repo, nil
 }
 
-func (repo *ChainChangeRepoPebble) Save(changes []change.Change) error {
+func (repo *Pebble) Save(changes []change.Change) error {
 
 	// TODO
 
 	return nil
 }
 
-func (repo *ChainChangeRepoPebble) LoadByHeight(height int32) ([]change.Change, error) {
+func (repo *Pebble) LoadByHeight(height int32) ([]change.Change, error) {
 
 	// TODO: should change the to stream-like API, such as reader, iterator, etc.
 
 	return nil, nil
 }
 
-func (repo *ChainChangeRepoPebble) Close() error {
+func (repo *Pebble) Close() error {
 
 	err := repo.db.Flush()
 	if err != nil {

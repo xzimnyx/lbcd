@@ -1,35 +1,40 @@
-package repo
+package temporalrepo
 
 import (
 	"testing"
 
+	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/temporal"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTemporalRepoMem(t *testing.T) {
+var (
+	cfg = config.Config
+)
 
-	repo := NewTemporalMem()
+func TestMemory(t *testing.T) {
+
+	repo := NewMemory()
 	testTemporalRepo(t, repo)
 }
 
-func TestTemporalRepoPebble(t *testing.T) {
+func TestPebble(t *testing.T) {
 
-	repo, err := NewTemporalPebble(cfg.TemporalRepoPebble.Path)
+	repo, err := NewPebble(cfg.TemporalRepoPebble.Path)
 	if assert.NoError(t, err) {
 		testTemporalRepo(t, repo)
 	}
 }
 
-func TestTemporalRepoPostgres(t *testing.T) {
+func TestPostgres(t *testing.T) {
 
-	repo, err := NewTemporalPostgres(cfg.TemporalRepoPostgres.DSN, cfg.TemporalRepoPostgres.Drop)
+	repo, err := NewPostgres(cfg.TemporalRepoPostgres.DSN, cfg.TemporalRepoPostgres.Drop)
 	if assert.NoError(t, err) {
 		testTemporalRepo(t, repo)
 	}
 }
 
-func testTemporalRepo(t *testing.T, repo temporal.TemporalRepo) {
+func testTemporalRepo(t *testing.T, repo temporal.Repo) {
 
 	testcases := []struct {
 		name    string

@@ -1,4 +1,4 @@
-package repo
+package noderepo
 
 import (
 	"bytes"
@@ -10,23 +10,23 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type NodeChangeRepoPebble struct {
+type Pebble struct {
 	db *pebble.DB
 }
 
-func NewNodeChangeRepoPebble(path string) (*NodeChangeRepoPebble, error) {
+func NewPebble(path string) (*Pebble, error) {
 
 	db, err := pebble.Open(path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("pebble open %s, %w", path, err)
 	}
 
-	repo := &NodeChangeRepoPebble{db: db}
+	repo := &Pebble{db: db}
 
 	return repo, nil
 }
 
-func (repo *NodeChangeRepoPebble) Save(changes []change.Change) error {
+func (repo *Pebble) Save(changes []change.Change) error {
 
 	// Instead of load-modify-save, we always write individual change.
 	// To preserve the chronological order of changes, we encode the key in:
@@ -56,7 +56,7 @@ func (repo *NodeChangeRepoPebble) Save(changes []change.Change) error {
 	return nil
 }
 
-func (repo *NodeChangeRepoPebble) LoadByNameUpToHeight(name string, height int32) ([]change.Change, error) {
+func (repo *Pebble) LoadByNameUpToHeight(name string, height int32) ([]change.Change, error) {
 
 	keyUpperBound := func(b []byte) []byte {
 		end := make([]byte, len(b))
@@ -102,7 +102,7 @@ func (repo *NodeChangeRepoPebble) LoadByNameUpToHeight(name string, height int32
 	return changes, nil
 }
 
-func (repo *NodeChangeRepoPebble) Close() error {
+func (repo *Pebble) Close() error {
 
 	err := repo.db.Flush()
 	if err != nil {

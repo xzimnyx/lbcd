@@ -1,4 +1,4 @@
-package repo
+package noderepo
 
 import (
 	"io/ioutil"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcd/claimtrie/change"
+	"github.com/lbryio/chain/claimtrie/node"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -16,7 +17,7 @@ var (
 	testNodeName1 = []byte("name1")
 )
 
-func TestNodeChangeRepoPebble(t *testing.T) {
+func TestPebble(t *testing.T) {
 
 	file, err := ioutil.TempFile("/tmp", "claimtrie_test")
 	if err != nil {
@@ -24,7 +25,7 @@ func TestNodeChangeRepoPebble(t *testing.T) {
 	}
 	os.Remove(file.Name())
 
-	repo, err := NewNodeChangeRepoPebble(file.Name())
+	repo, err := NewPebble(file.Name())
 	if assert.NoError(t, err) {
 
 		cleanup := func() {
@@ -32,11 +33,11 @@ func TestNodeChangeRepoPebble(t *testing.T) {
 			repo.db.DeleteRange(testNodeName1, upperbound, nil)
 		}
 
-		testNodeChangeRepo(t, repo, func() {}, cleanup)
+		testNodeRepo(t, repo, func() {}, cleanup)
 	}
 }
 
-func TestNodeChangeRepoPostgres(t *testing.T) {
+func TestPostgres(t *testing.T) {
 
 	// repo, err := NewNodeChangeRepoPostgres(cfg.TestPostgresDB.DSN, cfg.TestPostgresDB.Drop)
 	// if assert.NoError(t, err) {
@@ -44,7 +45,7 @@ func TestNodeChangeRepoPostgres(t *testing.T) {
 	// }
 }
 
-func testNodeChangeRepo(t *testing.T, repo change.NodeChangeRepo, setup, cleanup func()) {
+func testNodeRepo(t *testing.T, repo node.Repo, setup, cleanup func()) {
 
 	chg := change.New(change.AddClaim).SetName(testNodeName1).SetOutPoint(opStr1)
 

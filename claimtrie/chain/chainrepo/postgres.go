@@ -1,4 +1,4 @@
-package repo
+package chainrepo
 
 import (
 	"fmt"
@@ -9,11 +9,11 @@ import (
 	"gorm.io/gorm"
 )
 
-type NodeChangeRepoPostgres struct {
+type Postgres struct {
 	db *gorm.DB
 }
 
-type nodeChangeRecord struct {
+type chainRecord struct {
 	ID     uint  `gorm:"primarykey;index:,type:brin"`
 	Type   int   `gorm:"index"`
 	Height int32 `gorm:"index:,type:brin"`
@@ -25,7 +25,7 @@ type nodeChangeRecord struct {
 	Value    []byte
 }
 
-func NewNodeChangeRepoPostgres(dsn string, drop bool) (*NodeChangeRepoPostgres, error) {
+func NewPostgres(dsn string, drop bool) (*Postgres, error) {
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		SkipDefaultTransaction: true,
@@ -36,25 +36,25 @@ func NewNodeChangeRepoPostgres(dsn string, drop bool) (*NodeChangeRepoPostgres, 
 	}
 
 	if drop {
-		err = db.Migrator().DropTable(&nodeChangeRecord{})
+		err = db.Migrator().DropTable(&chainRecord{})
 		if err != nil {
 			return nil, fmt.Errorf("gorm drop table: %w", err)
 		}
 	}
 
-	err = db.AutoMigrate(&nodeChangeRecord{})
+	err = db.AutoMigrate(&chainRecord{})
 	if err != nil {
 		return nil, fmt.Errorf("gorm migrate table: %w", err)
 	}
 
-	return &NodeChangeRepoPostgres{db: db}, nil
+	return &Postgres{db: db}, nil
 }
 
-func (repo *NodeChangeRepoPostgres) Save(changes []change.Change) error {
+func (repo *Postgres) Save(changes []change.Change) error {
 
-	records := make([]nodeChangeRecord, 0, len(changes))
+	records := make([]chainRecord, 0, len(changes))
 	for _, chg := range changes {
-		record := nodeChangeRecord{
+		record := chainRecord{
 			Type:     int(chg.Type),
 			Height:   chg.Height,
 			Name:     chg.Name,
@@ -74,15 +74,14 @@ func (repo *NodeChangeRepoPostgres) Save(changes []change.Change) error {
 	return nil
 }
 
-func (repo *NodeChangeRepoPostgres) LoadByNameUpToHeight(name string, height int32) ([]change.Change, error) {
+func (repo *Postgres) LoadByHeight(height int32) ([]change.Change, error) {
 
-	var records []chainChangeRecord
+	var records []chainRecord
 
 	err := repo.db.
-		Where("name = ? AND height <= ?", name, height).
+		Where("height = ?", height).
 		Order("id ASC").
 		Find(&records).Error
-
 	if err != nil {
 		return nil, fmt.Errorf("gorm find: %w", err)
 	}
@@ -105,7 +104,7 @@ func (repo *NodeChangeRepoPostgres) LoadByNameUpToHeight(name string, height int
 	return changes, nil
 }
 
-func (repo *NodeChangeRepoPostgres) Close() error {
+func (repo *Postgres) Close() error {
 
 	db, err := repo.db.DB()
 	if err != nil {

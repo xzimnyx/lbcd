@@ -8,7 +8,7 @@ import (
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/node"
-	"github.com/btcsuite/btcd/claimtrie/node/noderepo"
+	"github.com/btcsuite/btcd/claimtrie/repo/noderepo"
 
 	"github.com/spf13/cobra"
 )

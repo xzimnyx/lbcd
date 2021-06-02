@@ -1,16 +1,16 @@
-package repo
+package temporalrepo
 
-type TemporalRepoMem struct {
+type Memory struct {
 	cache map[int32]map[string]bool
 }
 
-func NewTemporalMem() *TemporalRepoMem {
-	return &TemporalRepoMem{
+func NewMemory() *Memory {
+	return &Memory{
 		cache: map[int32]map[string]bool{},
 	}
 }
 
-func (repo *TemporalRepoMem) NodesAt(height int32) ([]string, error) {
+func (repo *Memory) NodesAt(height int32) ([]string, error) {
 
 	var names []string
 
@@ -21,7 +21,7 @@ func (repo *TemporalRepoMem) NodesAt(height int32) ([]string, error) {
 	return names, nil
 }
 
-func (repo *TemporalRepoMem) SetNodeAt(name string, height int32) error {
+func (repo *Memory) SetNodeAt(name string, height int32) error {
 
 	names, ok := repo.cache[height]
 	if !ok {
@@ -33,6 +33,6 @@ func (repo *TemporalRepoMem) SetNodeAt(name string, height int32) error {
 	return nil
 }
 
-func (repo *TemporalRepoMem) Close() error {
+func (repo *Memory) Close() error {
 	return nil
 }
