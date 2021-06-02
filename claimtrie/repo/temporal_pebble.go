@@ -1,17 +1,3 @@
-// Copyright (c) 2021 - LBRY Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package repo
 
 import (
@@ -45,6 +31,9 @@ func (repo *TemporalRepoPebble) NodesAt(height int32) ([]string, error) {
 	}
 
 	value, closer, err := repo.db.Get(key)
+	if err == pebble.ErrNotFound {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -73,12 +62,30 @@ func (repo *TemporalRepoPebble) SetNodeAt(name string, height int32) error {
 	}
 	names = append(names, name)
 
-	key, _ := msgpack.Marshal(height)
-	value, _ := msgpack.Marshal(names)
+	key, err := msgpack.Marshal(height)
+	if err != nil {
+		return fmt.Errorf("msgpack marshal key: %w", err)
+	}
+
+	value, err := msgpack.Marshal(names)
+	if err != nil {
+		return fmt.Errorf("msgpack marshal value: %w", err)
+	}
 
 	return repo.db.Set(key, value, pebble.NoSync)
 }
 
 func (repo *TemporalRepoPebble) Close() error {
-	return repo.db.Close()
+
+	err := repo.db.Flush()
+	if err != nil {
+		return fmt.Errorf("pebble fludh: %w", err)
+	}
+
+	err = repo.db.Close()
+	if err != nil {
+		return fmt.Errorf("pebble close: %w", err)
+	}
+
+	return nil
 }

@@ -1,17 +1,3 @@
-// Copyright (c) 2021 - LBRY Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package node
 
 import (
@@ -54,19 +40,19 @@ func NewNodeFromChanges(changes []change.Change) (*Node, error) {
 
 	n := NewNode()
 
-	var lastHeight int32
+	if len(changes) == 0 {
+		return n, nil
+	}
 	for _, chg := range changes {
-		chg.Value = nil
+		if n.Height != chg.Height-1 {
+			n.AdjustTo(chg.Height - 1)
+		}
 		if err := n.HandleChange(chg); err != nil {
 			return nil, fmt.Errorf("handle change: %s", err)
 		}
-		if lastHeight != chg.Height {
-			n.AdjustTo(lastHeight)
-		}
-		lastHeight = chg.Height
 	}
 
-	n.AdjustTo(lastHeight)
+	n.AdjustTo(n.Height + 1)
 
 	return n, nil
 }
@@ -81,7 +67,7 @@ func (n *Node) HandleChange(chg change.Change) error {
 			OutPoint:   op,
 			Amount:     chg.Amount,
 			ClaimID:    chg.ClaimID,
-			AcceptedAt: chg.Height + 1,
+			AcceptedAt: chg.Height,
 			Value:      chg.Value,
 			Status:     Added,
 		}
@@ -106,7 +92,7 @@ func (n *Node) HandleChange(chg change.Change) error {
 			SetAmt(chg.Amount).
 			SetValue(chg.Value).
 			SetStatus(Accepted).
-			SetAccepted(chg.Height + 1)
+			SetAccepted(chg.Height)
 
 		n.Claims[op] = c
 
@@ -119,7 +105,7 @@ func (n *Node) HandleChange(chg change.Change) error {
 			OutPoint:   op,
 			Amount:     chg.Amount,
 			ClaimID:    chg.ClaimID,
-			AcceptedAt: chg.Height + 1,
+			AcceptedAt: chg.Height,
 			Status:     Added,
 		}
 

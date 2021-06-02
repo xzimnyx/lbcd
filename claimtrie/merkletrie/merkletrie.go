@@ -1,17 +1,3 @@
-// Copyright (c) 2021 - LBRY Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package merkletrie
 
 import (
@@ -39,6 +25,7 @@ type MerkleTrie struct {
 
 // New returns a iMerkleTrie.
 func New(kv KeyValue, repo Repo) *MerkleTrie {
+
 	tr := &MerkleTrie{
 		kv:   kv,
 		repo: repo,
@@ -48,7 +35,9 @@ func New(kv KeyValue, repo Repo) *MerkleTrie {
 			},
 		},
 	}
+
 	tr.SetRoot(emptyTrieHash)
+
 	return tr
 }
 
@@ -61,6 +50,7 @@ func (t *MerkleTrie) SetRoot(h *chainhash.Hash) {
 // Update updates the nodes along the path to the key.
 // Each node is resolved or created with their Hash cleared.
 func (t *MerkleTrie) Update(key []byte) {
+
 	n := t.root
 	for _, ch := range key {
 		t.resolve(n)
@@ -70,15 +60,18 @@ func (t *MerkleTrie) Update(key []byte) {
 		n.hash = nil
 		n = n.links[ch]
 	}
+
 	t.resolve(n)
 	n.hasValue = true
 	n.hash = nil
 }
 
 func (t *MerkleTrie) resolve(n *node) {
+
 	if n.hash == nil {
 		return
 	}
+
 	b, closer, err := t.repo.Get(n.hash[:])
 	if err == pebble.ErrNotFound {
 		return
@@ -128,7 +121,11 @@ func (t *MerkleTrie) merkle(prefix []byte, n *node) *chainhash.Hash {
 	}
 
 	if n.hasValue {
-		if h := t.kv.Get(prefix).Hash(); h != nil {
+		valueNode, err := t.kv.Get(prefix)
+		if err != nil {
+			return nil
+		}
+		if h := valueNode.Hash(); h != nil {
 			b.Write(h[:]) // nolint : errchk
 		}
 	}

@@ -1,17 +1,3 @@
-// Copyright (c) 2021 - LBRY Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package repo
 
 import (
@@ -38,10 +24,28 @@ func NewBlockRepoPebble(path string) (*BlockRepoPebble, error) {
 	return repo, nil
 }
 
+func (repo *BlockRepoPebble) Load() (int32, error) {
+
+	iter := repo.db.NewIter(nil)
+	if !iter.Last() {
+		if err := iter.Close(); err != nil {
+			return 0, fmt.Errorf("close iter: %w", err)
+		}
+		return 0, nil
+	}
+
+	cnt := int32(binary.BigEndian.Uint32(iter.Key()))
+	if err := iter.Close(); err != nil {
+		return cnt, fmt.Errorf("close iter: %w", err)
+	}
+
+	return cnt, nil
+}
+
 func (repo *BlockRepoPebble) Get(height int32) (*chainhash.Hash, error) {
 
 	key := make([]byte, 4)
-	binary.LittleEndian.PutUint32(key, uint32(height))
+	binary.BigEndian.PutUint32(key, uint32(height))
 
 	b, closer, err := repo.db.Get(key)
 	if err != nil {
@@ -57,11 +61,22 @@ func (repo *BlockRepoPebble) Get(height int32) (*chainhash.Hash, error) {
 func (repo *BlockRepoPebble) Set(height int32, hash *chainhash.Hash) error {
 
 	key := make([]byte, 4)
-	binary.LittleEndian.PutUint32(key, uint32(height))
+	binary.BigEndian.PutUint32(key, uint32(height))
 
 	return repo.db.Set(key, hash[:], pebble.NoSync)
 }
 
 func (repo *BlockRepoPebble) Close() error {
-	return repo.db.Close()
+
+	err := repo.db.Flush()
+	if err != nil {
+		return fmt.Errorf("pebble fludh: %w", err)
+	}
+
+	err = repo.db.Close()
+	if err != nil {
+		return fmt.Errorf("pebble close: %w", err)
+	}
+
+	return nil
 }

@@ -1,36 +1,30 @@
-// Copyright (c) 2021 - LBRY Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package change
 
+type ChangeType int
+
 const (
-	// Node change
-	AddClaim     = "AddClaim"
-	SpendClaim   = "SpendClaim"
-	UpdateClaim  = "UpdateClaim"
-	AddSupport   = "AddSupport"
-	SpendSupport = "SpendSupport"
+	AddClaim ChangeType = iota
+	SpendClaim
+	UpdateClaim
+	AddSupport
+	SpendSupport
 )
 
 type Change struct {
-	ID     uint   `gorm:"primarykey;index:,type:brin"`
-	Type   string `gorm:"index"`
-	Height int32  `gorm:"index:,type:brin"`
+	Type   ChangeType
+	Height int32
 
-	Name     []byte `gorm:"index,type:hash"`
+	Name     []byte
 	ClaimID  string
 	OutPoint string
 	Amount   int64
 	Value    []byte
 }
+
+func New(typ ChangeType) Change                   { return Change{Type: typ} }
+func (c Change) SetHeight(height int32) Change    { c.Height = height; return c }
+func (c Change) SetName(name []byte) Change       { c.Name = name; return c }
+func (c Change) SetClaimID(claimID string) Change { c.ClaimID = claimID; return c }
+func (c Change) SetOutPoint(op string) Change     { c.OutPoint = op; return c }
+func (c Change) SetAmount(amt int64) Change       { c.Amount = amt; return c }
+func (c Change) SetValue(value []byte) Change     { c.Value = value; return c }

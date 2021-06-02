@@ -1,17 +1,3 @@
-// Copyright (c) 2021 - LBRY Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package claimtrie
 
 import (
@@ -21,11 +7,11 @@ import (
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/merkletrie"
+	"github.com/btcsuite/btcd/claimtrie/node"
 	"github.com/btcsuite/btcd/claimtrie/repo"
 	"github.com/btcsuite/btcd/claimtrie/temporal"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/claimtrie/node"
 	"github.com/btcsuite/btcd/wire"
 )
 
@@ -35,11 +21,14 @@ type ClaimTrie struct {
 	// Repository for reported block hashes (debugging purpose).
 	reportedBlockRepo block.BlockRepo
 
+	// Repository for raw changes recieved from chain.
+	chainChangeRepo change.ChainChangeRepo
+
 	// Repository for calculated block hashes.
 	blockRepo block.BlockRepo
 
 	// Repository for raw changes recieved from chain.
-	changeRepo change.ChangeRepo
+	nodeChangeRepo change.NodeChangeRepo
 
 	// Repository for storing temporal information of nodes at each block height.
 	// For example, which nodes (by name) should be refreshed at each block height
@@ -55,6 +44,10 @@ type ClaimTrie struct {
 	// Current block height, which is increased by one when AppendBlock() is called.
 	height int32
 
+	// Write buffer for batching changes written to repo.
+	// flushed before block is appended.
+	changes []change.Change
+
 	// Registrered cleanup functions which are invoked in the Close() in reverse order.
 	cleanups []func() error
 }
@@ -64,58 +57,82 @@ func New(record bool) (*ClaimTrie, error) {
 	cfg := config.Config
 	var cleanups []func() error
 
-	reportedBlkRepo, err := repo.NewBlockRepoPebble(cfg.ReportedBlockRepo.Path)
+	reportedBlockRepo, err := repo.NewBlockRepoPebble(cfg.ReportedBlockRepoPebble.Path)
 	if err != nil {
-		return nil, fmt.Errorf("new block repo: %w", err)
+		return nil, fmt.Errorf("new reported block repo: %w", err)
 	}
-	cleanups = append(cleanups, reportedBlkRepo.Close)
+	cleanups = append(cleanups, reportedBlockRepo.Close)
 
-	blockRepo, err := repo.NewBlockRepoPebble(cfg.BlockRepo.Path)
+	// Disable postgres depedencies by default.
+	//
+	// chainChangeRepo, err := repo.NewChainChangeRepoPebble(cfg.ChainChangeRepoPebble.Path)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("new change change repo: %w", err)
+	// }
+	// cleanups = append(cleanups, chainChangeRepo.Close)
+
+	blockRepo, err := repo.NewBlockRepoPebble(cfg.BlockRepoPebble.Path)
 	if err != nil {
 		return nil, fmt.Errorf("new block repo: %w", err)
 	}
 	cleanups = append(cleanups, blockRepo.Close)
 
-	changeRepo, err := repo.NewChangeRepoPostgres(cfg.ChangeRepo.DSN, cfg.ChangeRepo.Drop)
-	if err != nil {
-		return nil, fmt.Errorf("new change repo: %w", err)
-	}
-	cleanups = append(cleanups, changeRepo.Close)
-
-	temporalRepo, err := repo.NewTemporalPebble(cfg.TemporalRepo.Path)
+	temporalRepo, err := repo.NewTemporalPebble(cfg.TemporalRepoPebble.Path)
 	if err != nil {
 		return nil, fmt.Errorf("new temporal repo: %w", err)
 	}
 	cleanups = append(cleanups, temporalRepo.Close)
 
-	trieRepo, err := repo.NewTrieRepoPebble(cfg.TrieRepo.Path)
+	// Initialize repository for changes to nodes.
+	// The cleanup is delegated to the Node Manager.
+	nodeChangeRepo, err := repo.NewNodeChangeRepoPebble(cfg.NodeChangeRepoPebble.Path)
 	if err != nil {
-		return nil, fmt.Errorf("new trie repo: %w", err)
+		return nil, fmt.Errorf("new node change repo: %w", err)
 	}
-	cleanups = append(cleanups, trieRepo.Close)
 
-	nodeRepo, err := repo.NewNodeRepoPostgres(cfg.NodeRepo.DSN)
+	nodeManager, err := node.NewNodeManager(nodeChangeRepo)
 	if err != nil {
-		return nil, fmt.Errorf("new node repo: %w", err)
-	}
-	cleanups = append(cleanups, nodeRepo.Close)
-
-	nodeManager, err := node.NewNodeManager(nodeRepo)
-	if err != nil {
-		return nil, fmt.Errorf("new nodemanager: %w", err)
+		return nil, fmt.Errorf("new node manager: %w", err)
 	}
 	cleanups = append(cleanups, nodeManager.Close)
 
+	// Initialize repository for MerkleTrie.
+	// The cleanup is delegated to MerkleTrie.
+	trieRepo, err := repo.NewMerkleTrieRepoPebble(cfg.TrieRepoPebble.Path)
+	if err != nil {
+		return nil, fmt.Errorf("new trie repo: %w", err)
+	}
+
 	trie := merkletrie.New(nodeManager, trieRepo)
+	cleanups = append(cleanups, trie.Close)
+
+	// Restore the last height.
+	previousHeight, err := blockRepo.Load()
+	if err != nil {
+		return nil, fmt.Errorf("load blocks: %w", err)
+	}
+
+	// If the last height is not 0, restore the root trie node.
+	if previousHeight != 0 {
+		hash, err := blockRepo.Get(previousHeight)
+		if err != nil {
+			return nil, fmt.Errorf("get hash: %w", err)
+		}
+		trie.SetRoot(hash)
+	}
 
 	ct := &ClaimTrie{
-		reportedBlockRepo: reportedBlkRepo,
-		blockRepo:         blockRepo,
-		changeRepo:        changeRepo,
-		temporalRepo:      temporalRepo,
+		reportedBlockRepo: reportedBlockRepo,
+		// chainChangeRepo:   chainChangeRepo,
+
+		nodeChangeRepo: nodeChangeRepo,
+		blockRepo:      blockRepo,
+		temporalRepo:   temporalRepo,
 
 		nodeManager: nodeManager,
 		merkleTrie:  trie,
+
+		height: previousHeight,
 
 		cleanups: cleanups,
 	}
@@ -194,21 +211,47 @@ func (ct *ClaimTrie) SpendSupport(name string, op wire.OutPoint) error {
 // AppendBlock increases block by one.
 func (ct *ClaimTrie) AppendBlock() error {
 
+	if len(ct.changes) > 0 {
+		if ct.chainChangeRepo != nil {
+			if err := ct.chainChangeRepo.Save(ct.changes); err != nil {
+				return fmt.Errorf("chain change repo save: %w", err)
+			}
+		}
+		if err := ct.nodeChangeRepo.Save(ct.changes); err != nil {
+			return fmt.Errorf("node change repo save: %w", err)
+		}
+
+		// truncate the buffer to zero.
+		ct.changes = ct.changes[:0]
+	}
+
 	ct.height++
+	ct.nodeManager.SetHeight(ct.height)
+
 	names, err := ct.temporalRepo.NodesAt(ct.height)
 	if err != nil {
-		return fmt.Errorf("internal: %w", err)
+		return fmt.Errorf("temporal repo nodes at: %w", err)
 	}
 
 	for _, name := range names {
 		ct.merkleTrie.Update([]byte(name))
-		next := ct.nodeAt(name).NextUpdate()
+		n, err := ct.nodeManager.GetNode([]byte(name))
+		if err != nil {
+			return fmt.Errorf("node manager get: %w", err)
+		}
+		next := n.NextUpdate()
 		ct.temporalRepo.SetNodeAt(name, next)
 	}
 
 	h := ct.MerkleHash()
 	ct.blockRepo.Set(ct.height, h)
 	ct.merkleTrie.SetRoot(h)
+
+	// FIXME: purging the node cache causes the nodeManager to rebuild the in-memory
+	// node from the history of changes loaded from repo.
+	// This is a critical path, and current implementation can only sync up to 16705.
+	// So, we want to excercise this path before more testcases are implemented.
+	ct.nodeManager.PurgeCache()
 
 	return nil
 }
@@ -225,40 +268,10 @@ func (ct *ClaimTrie) ReportHash(height int32, hash chainhash.Hash) error {
 	return nil
 }
 
-// ReportHash reports the MerkleHash of the receieved block.
-// Note: debugging purpose. and will be deprecated when the development stablized.
+// ResetHeight resets the ClaimTrie to a previous known height..
 func (ct *ClaimTrie) ResetHeight(ht int32) error {
 
 	// TODO
-	return nil
-}
-
-func (ct *ClaimTrie) nodeAt(name string) *node.Node {
-
-	n := ct.nodeManager.GetNode(name)
-
-	return n.AdjustTo(ct.height)
-}
-
-func (ct *ClaimTrie) handleNodeChange(chg change.Change) error {
-
-	chg.Height = ct.Height() + 1
-	if ct.changeRepo != nil {
-		if err := ct.changeRepo.Save(chg); err != nil {
-			return err
-		}
-	}
-
-	n := ct.nodeAt(string(chg.Name))
-
-	if err := n.HandleChange(chg); err != nil {
-		return fmt.Errorf("handle change: %w", err)
-	}
-
-	if err := ct.temporalRepo.SetNodeAt(string(chg.Name), ct.height+1); err != nil {
-		return fmt.Errorf("set temporal node: %w", err)
-	}
-
 	return nil
 }
 
@@ -280,9 +293,33 @@ func (ct *ClaimTrie) Close() error {
 		cleanup := ct.cleanups[i]
 		err := cleanup()
 		if err != nil {
-			return err
+			return fmt.Errorf("cleanup: %w", err)
 		}
 	}
+
+	return nil
+}
+
+func (ct *ClaimTrie) handleNodeChange(chg change.Change) error {
+
+	chg.Height = ct.Height() + 1
+
+	n, err := ct.nodeManager.GetNode(chg.Name)
+	if err != nil {
+		return fmt.Errorf("node manager get node: %w", err)
+	}
+
+	err = n.HandleChange(chg)
+	if err != nil {
+		return fmt.Errorf("handle change: %w", err)
+	}
+
+	err = ct.temporalRepo.SetNodeAt(string(chg.Name), ct.height+1)
+	if err != nil {
+		return fmt.Errorf("set temporal node: %w", err)
+	}
+
+	ct.changes = append(ct.changes, chg)
 
 	return nil
 }
