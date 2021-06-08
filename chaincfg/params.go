@@ -261,6 +261,8 @@ var MainNetParams = Params{
 		{"dnsseed1.lbry.io", true},
 		{"dnsseed2.lbry.io", true},
 		{"dnsseed3.lbry.io", true},
+		{"seed.lbry.grin.io", true},
+		{"seed.allaboutlbc.com", true},
 	},
 
 	// Chain parameters
