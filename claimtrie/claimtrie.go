@@ -11,6 +11,7 @@ import (
 	"github.com/btcsuite/btcd/claimtrie/merkletrie/merkletrierepo"
 	"github.com/btcsuite/btcd/claimtrie/node"
 	"github.com/btcsuite/btcd/claimtrie/node/noderepo"
+	"github.com/btcsuite/btcd/claimtrie/param"
 	"github.com/btcsuite/btcd/claimtrie/temporal"
 	"github.com/btcsuite/btcd/claimtrie/temporal/temporalrepo"
 
@@ -47,7 +48,7 @@ type ClaimTrie struct {
 
 func New(record bool) (*ClaimTrie, error) {
 
-	cfg := config.Config
+	cfg := config.GenerateConfig(param.ClaimtrieDataFolder)
 	var cleanups []func() error
 
 	blockRepo, err := blockrepo.NewPebble(cfg.BlockRepoPebble.Path)

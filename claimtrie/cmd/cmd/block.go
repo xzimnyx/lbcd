@@ -7,11 +7,18 @@ import (
 
 	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
 	"github.com/btcsuite/btcd/claimtrie/config"
+	"github.com/btcsuite/btcd/claimtrie/param"
+	"github.com/btcsuite/btcd/wire"
 
 	"github.com/spf13/cobra"
 )
 
+var localConfig *config.DBConfig
+
 func init() {
+	param.SetNetwork(wire.MainNet, "mainnet")
+	localConfig = config.GenerateConfig(param.ClaimtrieDataFolder)
+
 	rootCmd.AddCommand(blockCmd)
 
 	blockCmd.AddCommand(blockLastCmd)
@@ -25,10 +32,10 @@ var blockCmd = &cobra.Command{
 
 var blockLastCmd = &cobra.Command{
 	Use:   "last",
-	Short: "Show the Merkle Hashlast of the last block",
+	Short: "Show the Merkle Hash of the last block",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		repo, err := blockrepo.NewPebble(config.Config.ReportedBlockRepoPebble.Path)
+		repo, err := blockrepo.NewPebble(localConfig.ReportedBlockRepoPebble.Path)
 		if err != nil {
 			log.Fatalf("can't open reported block repo: %s", err)
 		}
@@ -55,7 +62,7 @@ var blockListCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		repo, err := blockrepo.NewPebble(config.Config.ReportedBlockRepoPebble.Path)
+		repo, err := blockrepo.NewPebble(localConfig.ReportedBlockRepoPebble.Path)
 		if err != nil {
 			log.Fatalf("can't open reported block repo: %s", err)
 		}

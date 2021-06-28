@@ -8,11 +8,15 @@ import (
 	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/node"
 	"github.com/btcsuite/btcd/claimtrie/node/noderepo"
+	"github.com/btcsuite/btcd/claimtrie/param"
+	"github.com/btcsuite/btcd/wire"
 
 	"github.com/spf13/cobra"
 )
 
 func init() {
+	param.SetNetwork(wire.MainNet, "mainnet")
+	localConfig = config.GenerateConfig(param.ClaimtrieDataFolder)
 	rootCmd.AddCommand(nodeCmd)
 
 	nodeCmd.AddCommand(nodeDumpCmd)
@@ -30,7 +34,7 @@ var nodeDumpCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		repo, err := noderepo.NewPebble(config.Config.NodeRepoPebble.Path)
+		repo, err := noderepo.NewPebble(localConfig.NodeRepoPebble.Path)
 		if err != nil {
 			return fmt.Errorf("open node repo: %w", err)
 		}
@@ -64,7 +68,7 @@ var nodeReplayCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		repo, err := noderepo.NewPebble(config.Config.NodeRepoPebble.Path)
+		repo, err := noderepo.NewPebble(localConfig.NodeRepoPebble.Path)
 		if err != nil {
 			return fmt.Errorf("open node repo: %w", err)
 		}
