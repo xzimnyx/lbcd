@@ -13,6 +13,7 @@ import (
 	"github.com/btcsuite/btcd/addrmgr"
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/blockchain/indexers"
+	"github.com/btcsuite/btcd/claimtrie"
 	"github.com/btcsuite/btcd/connmgr"
 	"github.com/btcsuite/btcd/database"
 	"github.com/btcsuite/btcd/mempool"
@@ -60,6 +61,7 @@ var (
 	bcdbLog = backendLog.Logger("BCDB")
 	btcdLog = backendLog.Logger("BTCD")
 	chanLog = backendLog.Logger("CHAN")
+	clmtLog = backendLog.Logger("CLMT")
 	discLog = backendLog.Logger("DISC")
 	indxLog = backendLog.Logger("INDX")
 	minrLog = backendLog.Logger("MINR")
@@ -77,6 +79,7 @@ func init() {
 	connmgr.UseLogger(cmgrLog)
 	database.UseLogger(bcdbLog)
 	blockchain.UseLogger(chanLog)
+	claimtrie.UseLogger(clmtLog)
 	indexers.UseLogger(indxLog)
 	mining.UseLogger(minrLog)
 	cpuminer.UseLogger(minrLog)
@@ -94,6 +97,7 @@ var subsystemLoggers = map[string]btclog.Logger{
 	"BCDB": bcdbLog,
 	"BTCD": btcdLog,
 	"CHAN": chanLog,
+	"CLMT": clmtLog,
 	"DISC": discLog,
 	"INDX": indxLog,
 	"MINR": minrLog,
