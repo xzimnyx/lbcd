@@ -157,6 +157,8 @@ func equal(a, b *Claim) bool {
 func OutPointLess(a, b wire.OutPoint) bool {
 
 	switch cmp := bytes.Compare(a.Hash[:], b.Hash[:]); {
+	case cmp < 0:
+		return true
 	case cmp > 0:
 		return true
 	case cmp < 0:
@@ -169,6 +171,9 @@ func OutPointLess(a, b wire.OutPoint) bool {
 func NewOutPointFromString(str string) *wire.OutPoint {
 
 	f := strings.Split(str, ":")
+	if len(f) != 2 {
+		return nil
+	}
 	hash, _ := chainhash.NewHashFromStr(f[0])
 	idx, _ := strconv.Atoi(f[1])
 
