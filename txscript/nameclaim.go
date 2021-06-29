@@ -24,11 +24,11 @@ const (
 
 var (
 	// ErrNotClaimScript is returned when the script does not have a ClaimScript Opcode.
-	ErrNotClaimScript = fmt.Errorf("not a claim scrpit")
+	ErrNotClaimScript = fmt.Errorf("not a claim script")
 
 	// ErrInvalidClaimScript is returned when a script has a ClaimScript Opcode,
 	// but does not conform to the format.
-	ErrInvalidClaimScript = fmt.Errorf("invalid claim scrpit")
+	ErrInvalidClaimScript = fmt.Errorf("invalid claim script")
 )
 
 // ClaimNameScript ...
@@ -38,9 +38,12 @@ func ClaimNameScript(name string, value string) ([]byte, error) {
 }
 
 // SupportClaimScript ...
-func SupportClaimScript(name string, claimID []byte) ([]byte, error) {
-	return NewScriptBuilder().AddOp(OP_SUPPORTCLAIM).AddData([]byte(name)).AddData(claimID).
-		AddOp(OP_2DROP).AddOp(OP_DROP).AddOp(OP_TRUE).Script()
+func SupportClaimScript(name string, claimID []byte, value []byte) ([]byte, error) {
+	builder := NewScriptBuilder().AddOp(OP_SUPPORTCLAIM).AddData([]byte(name)).AddData(claimID)
+	if len(value) > 0 {
+		return builder.addData(value).AddOp(OP_2DROP).AddOp(OP_2DROP).AddOp(OP_TRUE).Script()
+	}
+	return builder.AddOp(OP_2DROP).AddOp(OP_DROP).AddOp(OP_TRUE).Script()
 }
 
 // UpdateClaimScript ...
@@ -140,7 +143,7 @@ func ClaimScriptSize(script []byte) int {
 	return cs.Size()
 }
 
-// ClaimNameSize returns size of the name in a claim script or 0 if script is not a claimetrie transaction.
+// ClaimNameSize returns size of the name in a claim script or 0 if script is not a claimtrie transaction.
 func ClaimNameSize(script []byte) int {
 	cs, err := DecodeClaimScript(script)
 	if err != nil {
@@ -153,6 +156,7 @@ func ClaimNameSize(script []byte) int {
 func CalcMinClaimTrieFee(tx *wire.MsgTx, minFeePerNameClaimChar int64) int64 {
 	var minFee int64
 	for _, txOut := range tx.TxOut {
+		// TODO: lbrycrd ignored transactions that weren't OP_CLAIMNAME
 		minFee += int64(ClaimNameSize(txOut.PkScript))
 	}
 	return minFee * minFeePerNameClaimChar
@@ -169,14 +173,20 @@ func isClaimName(pops []parsedOpcode) bool {
 }
 
 func isSupportClaim(pops []parsedOpcode) bool {
-	return len(pops) > 5 &&
+	prefixed := len(pops) > 5 &&
 		pops[0].opcode.value == OP_SUPPORTCLAIM &&
 		// canonicalPush(pops[1]) &&
 		len(pops[1].data) <= MaxClaimNameSize &&
 		// canonicalPush(pops[2]) &&
-		len(pops[2].data) == 160/8 &&
-		pops[3].opcode.value == OP_2DROP &&
-		pops[4].opcode.value == OP_DROP
+		len(pops[2].data) == 160/8
+
+	if prefixed && pops[3].opcode.value == OP_2DROP && pops[4].opcode.value == OP_DROP {
+		return true
+	}
+	if prefixed && pops[4].opcode.value == OP_2DROP && pops[5].opcode.value == OP_2DROP {
+		return len(pops[3].data) > 0 // is this robust enough?
+	}
+	return false
 }
 
 func isUpdateClaim(pops []parsedOpcode) bool {
