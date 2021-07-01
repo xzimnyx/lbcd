@@ -5,8 +5,6 @@ import (
 
 	"github.com/btcsuite/btcd/claimtrie/block"
 	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
-	"github.com/btcsuite/btcd/claimtrie/chain"
-	"github.com/btcsuite/btcd/claimtrie/chain/chainrepo"
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/merkletrie"
@@ -26,9 +24,6 @@ type ClaimTrie struct {
 	// Repository for reported block hashes (debugging purpose).
 	reportedBlockRepo block.Repo
 
-	// Repository for raw changes recieved from chain.
-	chainRepo chain.Repo
-
 	// Repository for calculated block hashes.
 	blockRepo block.Repo
 
@@ -45,10 +40,6 @@ type ClaimTrie struct {
 
 	// Current block height, which is increased by one when AppendBlock() is called.
 	height int32
-
-	// Write buffer for batching changes written to repo.
-	// flushed before block is appended.
-	changes []change.Change
 
 	// Registrered cleanup functions which are invoked in the Close() in reverse order.
 	cleanups []func() error
@@ -115,12 +106,6 @@ func New(record bool) (*ClaimTrie, error) {
 	}
 	cleanups = append(cleanups, reportedBlockRepo.Close)
 
-	chainRepo, err := chainrepo.NewPebble(cfg.ChainRepoPebble.Path)
-	if err != nil {
-		return nil, fmt.Errorf("new change change repo: %w", err)
-	}
-	cleanups = append(cleanups, chainRepo.Close)
-
 	ct := &ClaimTrie{
 		blockRepo:    blockRepo,
 		temporalRepo: temporalRepo,
@@ -131,7 +116,6 @@ func New(record bool) (*ClaimTrie, error) {
 		height: previousHeight,
 
 		reportedBlockRepo: reportedBlockRepo,
-		chainRepo:         chainRepo,
 
 		cleanups: cleanups,
 	}
@@ -209,15 +193,6 @@ func (ct *ClaimTrie) SpendSupport(name []byte, op wire.OutPoint) error {
 
 // AppendBlock increases block by one.
 func (ct *ClaimTrie) AppendBlock() error {
-
-	if len(ct.changes) > 0 && ct.chainRepo != nil {
-		err := ct.chainRepo.Save(ct.changes)
-		if err != nil {
-			return fmt.Errorf("chain change repo save: %w", err)
-		}
-		// Truncate the buffer to zero.
-		ct.changes = ct.changes[:0]
-	}
 
 	ct.height++
 	ct.nodeManager.IncrementHeightTo(ct.height)
@@ -303,8 +278,6 @@ func (ct *ClaimTrie) forwardNodeChange(chg change.Change) error {
 	if err != nil {
 		return fmt.Errorf("set temporal node: %w", err)
 	}
-
-	ct.changes = append(ct.changes, chg)
 
 	return nil
 }
