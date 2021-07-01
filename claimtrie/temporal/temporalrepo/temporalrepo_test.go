@@ -3,7 +3,6 @@ package temporalrepo
 import (
 	"testing"
 
-	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/temporal"
 	"github.com/stretchr/testify/assert"
 )
@@ -17,16 +16,6 @@ func TestMemory(t *testing.T) {
 func TestPebble(t *testing.T) {
 
 	repo, err := NewPebble(t.TempDir())
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	testTemporalRepo(t, repo)
-}
-
-func _TestPostgres(t *testing.T) {
-
-	repo, err := NewPostgres(config.Config.TemporalRepoPostgres.DSN, config.Config.TemporalRepoPostgres.Drop)
 	if !assert.NoError(t, err) {
 		return
 	}

@@ -30,14 +30,6 @@ func TestPebble(t *testing.T) {
 	testNodeRepo(t, repo, func() {}, cleanup)
 }
 
-func TestPostgres(t *testing.T) {
-
-	// repo, err := NewNodeChangeRepoPostgres(cfg.TestPostgresDB.DSN, cfg.TestPostgresDB.Drop)
-	// if assert.NoError(t, err) {
-	// 	testNodeChangeRepo(t, repo, func() {}, func() {})
-	// }
-}
-
 func testNodeRepo(t *testing.T, repo node.Repo, setup, cleanup func()) {
 
 	chg := change.New(change.AddClaim).SetName(testNodeName1).SetOutPoint(opStr1)
