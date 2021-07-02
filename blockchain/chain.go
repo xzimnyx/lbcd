@@ -1810,7 +1810,7 @@ func New(config *Config) (*BlockChain, error) {
 
 	bestNode := b.bestChain.Tip()
 
-	ct, err := claimtrie.New(true)
+	ct, err := claimtrie.New(true, bestNode.height)
 	if err != nil {
 		log.Criticalf("can't create ClaimTrie, err %s", err)
 	}

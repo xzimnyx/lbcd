@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -20,7 +21,7 @@ func (b *BlockChain) CheckClaimScripts(block *btcutil.Block, node *blockNode, vi
 	ht := block.Height()
 
 	for _, tx := range block.Transactions() {
-		h := handler{ht, tx, view, map[string]bool{}}
+		h := handler{ht, tx, view, map[string][]byte{}}
 		if err := h.handleTxIns(b.claimTrie); err != nil {
 			return err
 		}
@@ -32,12 +33,27 @@ func (b *BlockChain) CheckClaimScripts(block *btcutil.Block, node *blockNode, vi
 	// Hack: let the claimtrie know the expected Hash.
 	b.claimTrie.ReportHash(ht, node.claimTrie)
 
-	b.claimTrie.AppendBlock()
+	names, err := b.claimTrie.AppendBlock()
 	hash := b.claimTrie.MerkleHash()
 
 	if node.claimTrie != *hash {
 		if !mismatchedPrinted {
-			fmt.Printf("\n\nheight: %d, ct.MerkleHash: %s != node.ClaimTrie: %s\n\n", ht, *hash, node.claimTrie)
+			fmt.Printf("\n\nHeight: %d, ct.MerkleHash: %s != node.ClaimTrie: %s, Error: %s, Names:\n", ht, *hash, node.claimTrie, err)
+			for i, name := range names {
+				n, _ := b.claimTrie.Node(name)
+				if n == nil {
+					continue
+				}
+				var best string
+				if n.BestClaim != nil {
+					best = n.BestClaim.ClaimID[:4]
+				}
+				fmt.Printf("   n: %s, t: %d, b: %s, c: %d, s: %d\n", name, n.TakenOverAt, best, len(n.Claims), len(n.Supports))
+				if i > 1000 {
+					fmt.Printf("   ...\n")
+					break
+				}
+			}
 			mismatchedPrinted = true
 		}
 		// Continue recording the input to the claimtrie.
@@ -51,7 +67,7 @@ type handler struct {
 	ht    int32
 	tx    *btcutil.Tx
 	view  *UtxoViewpoint
-	spent map[string]bool
+	spent map[string][]byte
 }
 
 func (h *handler) handleTxIns(ct *claimtrie.ClaimTrie) error {
@@ -70,20 +86,20 @@ func (h *handler) handleTxIns(ct *claimtrie.ClaimTrie) error {
 		}
 
 		var id node.ClaimID
-		name := cs.Name()
+		name := cs.Name() // name of the previous one (that we're now spending)
 
 		switch cs.Opcode() {
-		case txscript.OP_CLAIMNAME:
-			id = node.NewClaimID(op)
-			h.spent[id.String()] = true
-			err = ct.SpendClaim(name, op)
+		case txscript.OP_CLAIMNAME: // OP code from previous transaction
+			id = node.NewClaimID(op) // claimID of the previous item now being spent
+			h.spent[id.String()] = node.NormalizeIfNecessary(name, ct.Height())
+			err = ct.SpendClaim(name, op, id)
 		case txscript.OP_UPDATECLAIM:
 			copy(id[:], cs.ClaimID())
-			h.spent[id.String()] = true
-			err = ct.SpendClaim(name, op)
+			h.spent[id.String()] = node.NormalizeIfNecessary(name, ct.Height())
+			err = ct.SpendClaim(name, op, id)
 		case txscript.OP_SUPPORTCLAIM:
 			copy(id[:], cs.ClaimID())
-			err = ct.SpendSupport(name, op)
+			err = ct.SpendSupport(name, op, id)
 		}
 		if err != nil {
 			return errors.Wrapf(err, "handleTxIns")
@@ -111,16 +127,21 @@ func (h *handler) handleTxOuts(ct *claimtrie.ClaimTrie) error {
 		switch cs.Opcode() {
 		case txscript.OP_CLAIMNAME:
 			id = node.NewClaimID(*op)
-			err = ct.AddClaim(name, *op, amt, value)
+			err = ct.AddClaim(name, *op, id, amt, value)
 		case txscript.OP_SUPPORTCLAIM:
 			copy(id[:], cs.ClaimID())
-			err = ct.AddSupport(name, *op, amt, id)
+			err = ct.AddSupport(name, value, *op, amt, id)
 		case txscript.OP_UPDATECLAIM:
+			// old code wouldn't run the update if name or claimID didn't match existing data
+			// that was a safety feature, but it should have rejected the transaction instead
+			// TODO: reject transactions with invalid update commands
 			copy(id[:], cs.ClaimID())
-			if !h.spent[id.String()] {
-				fmt.Printf("%d can't find id: %s\n", h.ht, id)
+			normName := node.NormalizeIfNecessary(name, ct.Height())
+			if !bytes.Equal(h.spent[id.String()], normName) {
+				fmt.Printf("Invalid update operation: name or ID mismatch for %s, %s\n", normName, id.String())
 				continue
 			}
+
 			delete(h.spent, id.String())
 			err = ct.UpdateClaim(name, *op, amt, id, value)
 		}

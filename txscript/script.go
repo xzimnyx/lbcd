@@ -651,6 +651,9 @@ func calcSignatureHash(script []parsedOpcode, hashType SigHashType, tx *wire.Msg
 		txCopy.TxIn = txCopy.TxIn[idx : idx+1]
 	}
 
+	// TODO: the profiler shows that the below allocation and the allocations in the shallow copy above are a bottleneck
+	// To work around that we should reuse buffers or allocate max-size buffers (to see if we can fit them on the stack)
+
 	// The final hash is the double sha256 of both the serialized modified
 	// transaction and the hash type (encoded as a 4-byte little-endian
 	// value) appended.

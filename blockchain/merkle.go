@@ -45,6 +45,9 @@ var (
 // it is not already a power of two.  This is a helper function used during the
 // calculation of a merkle tree.
 func nextPowerOfTwo(n int) int {
+	// TODO: explore this as a possible speedup (or find one that we know uses CPU's CLZ instruction)
+	// return 1 << (32 - bits.LeadingZeros32(uint32(n-1)))
+
 	// Return the number if it's already a power of 2.
 	if n&(n-1) == 0 {
 		return n
@@ -59,13 +62,7 @@ func nextPowerOfTwo(n int) int {
 // nodes, and returns the hash of their concatenation.  This is a helper
 // function used to aid in the generation of a merkle tree.
 func HashMerkleBranches(left *chainhash.Hash, right *chainhash.Hash) *chainhash.Hash {
-	// Concatenate the left and right nodes.
-	var hash [chainhash.HashSize * 2]byte
-	copy(hash[:chainhash.HashSize], left[:])
-	copy(hash[chainhash.HashSize:], right[:])
-
-	newHash := chainhash.DoubleHashH(hash[:])
-	return &newHash
+	return chainhash.HashMerkleBranches(left, right)
 }
 
 // BuildMerkleTreeStore creates a merkle tree from a slice of transactions,
@@ -124,7 +121,6 @@ func BuildMerkleTreeStore(transactions []*btcutil.Tx, witness bool) []*chainhash
 		default:
 			merkles[i] = tx.Hash()
 		}
-
 	}
 
 	// Start the array offset after the last transaction and adjusted to the
@@ -143,7 +139,7 @@ func BuildMerkleTreeStore(transactions []*btcutil.Tx, witness bool) []*chainhash
 			merkles[offset] = newHash
 
 		// The normal case sets the parent node to the double sha256
-		// of the concatentation of the left and right children.
+		// of the concatenation of the left and right children.
 		default:
 			newHash := HashMerkleBranches(merkles[i], merkles[i+1])
 			merkles[offset] = newHash

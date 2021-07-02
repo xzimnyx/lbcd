@@ -258,9 +258,9 @@ var MainNetParams = Params{
 	Net:         wire.MainNet,
 	DefaultPort: "9246",
 	DNSSeeds: []DNSSeed{
-		{"dnsseed1.lbry.io", true},
-		{"dnsseed2.lbry.io", true},
-		{"dnsseed3.lbry.io", true},
+		{"dnsseed1.lbry.com", true},
+		{"dnsseed2.lbry.com", true},
+		{"dnsseed3.lbry.com", true},
 		{"seed.lbry.grin.io", true},
 		{"seed.allaboutlbc.com", true},
 	},
