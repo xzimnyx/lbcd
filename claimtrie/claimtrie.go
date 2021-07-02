@@ -1,8 +1,12 @@
 package claimtrie
 
 import (
+	"bytes"
 	"fmt"
+	"runtime"
+	"sort"
 
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/claimtrie/block"
 	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
 	"github.com/btcsuite/btcd/claimtrie/change"
@@ -14,8 +18,6 @@ import (
 	"github.com/btcsuite/btcd/claimtrie/param"
 	"github.com/btcsuite/btcd/claimtrie/temporal"
 	"github.com/btcsuite/btcd/claimtrie/temporal/temporalrepo"
-
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 )
 
@@ -34,7 +36,7 @@ type ClaimTrie struct {
 	temporalRepo temporal.Repo
 
 	// Cache layer of Nodes.
-	nodeManager *node.Manager
+	nodeManager node.Manager
 
 	// Prefix tree (trie) that manages merkle hash of each node.
 	merkleTrie *merkletrie.MerkleTrie
@@ -42,11 +44,15 @@ type ClaimTrie struct {
 	// Current block height, which is increased by one when AppendBlock() is called.
 	height int32
 
+	// Write buffer for batching changes written to repo.
+	// flushed before block is appended.
+	// changes []change.Change
+
 	// Registrered cleanup functions which are invoked in the Close() in reverse order.
 	cleanups []func() error
 }
 
-func New(record bool) (*ClaimTrie, error) {
+func New(record bool, height int32) (*ClaimTrie, error) {
 
 	cfg := config.GenerateConfig(param.ClaimtrieDataFolder)
 	var cleanups []func() error
@@ -70,10 +76,11 @@ func New(record bool) (*ClaimTrie, error) {
 		return nil, fmt.Errorf("new node repo: %w", err)
 	}
 
-	nodeManager, err := node.NewManager(nodeRepo)
+	baseManager, err := node.NewBaseManager(nodeRepo)
 	if err != nil {
 		return nil, fmt.Errorf("new node manager: %w", err)
 	}
+	nodeManager := node.NewNormalizingManager(baseManager)
 	cleanups = append(cleanups, nodeManager.Close)
 
 	// Initialize repository for MerkleTrie.
@@ -91,14 +98,23 @@ func New(record bool) (*ClaimTrie, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load blocks: %w", err)
 	}
+	if height <= 0 {
+		height = previousHeight
+	}
 
 	// If the last height is not 0, restore the root trie node.
-	if previousHeight != 0 {
-		hash, err := blockRepo.Get(previousHeight)
+	if previousHeight >= height && height > 0 {
+		hash, err := blockRepo.Get(height)
 		if err != nil {
 			return nil, fmt.Errorf("get hash: %w", err)
 		}
 		trie.SetRoot(hash)
+		_, err = nodeManager.IncrementHeightTo(height)
+		if err != nil {
+			return nil, fmt.Errorf("node manager init: %w", err)
+		}
+	} else if height > 0 {
+		return nil, fmt.Errorf("lacking claimtrie data for height %d", height)
 	}
 
 	reportedBlockRepo, err := blockrepo.NewPebble(cfg.ReportedBlockRepoPebble.Path)
@@ -114,7 +130,7 @@ func New(record bool) (*ClaimTrie, error) {
 		nodeManager: nodeManager,
 		merkleTrie:  trie,
 
-		height: previousHeight,
+		height: height,
 
 		reportedBlockRepo: reportedBlockRepo,
 
@@ -125,14 +141,14 @@ func New(record bool) (*ClaimTrie, error) {
 }
 
 // AddClaim adds a Claim to the ClaimTrie.
-func (ct *ClaimTrie) AddClaim(name []byte, op wire.OutPoint, amt int64, val []byte) error {
+func (ct *ClaimTrie) AddClaim(name []byte, op wire.OutPoint, id node.ClaimID, amt int64, val []byte) error {
 
 	chg := change.Change{
 		Type:     change.AddClaim,
 		Name:     name,
 		OutPoint: op.String(),
 		Amount:   amt,
-		ClaimID:  node.NewClaimID(op).String(),
+		ClaimID:  id.String(),
 		Value:    val,
 	}
 
@@ -155,19 +171,20 @@ func (ct *ClaimTrie) UpdateClaim(name []byte, op wire.OutPoint, amt int64, id no
 }
 
 // SpendClaim spends a Claim in the ClaimTrie.
-func (ct *ClaimTrie) SpendClaim(name []byte, op wire.OutPoint) error {
+func (ct *ClaimTrie) SpendClaim(name []byte, op wire.OutPoint, id node.ClaimID) error {
 
 	chg := change.Change{
 		Type:     change.SpendClaim,
 		Name:     name,
 		OutPoint: op.String(),
+		ClaimID:  id.String(),
 	}
 
 	return ct.forwardNodeChange(chg)
 }
 
 // AddSupport adds a Support to the ClaimTrie.
-func (ct *ClaimTrie) AddSupport(name []byte, op wire.OutPoint, amt int64, id node.ClaimID) error {
+func (ct *ClaimTrie) AddSupport(name []byte, value []byte, op wire.OutPoint, amt int64, id node.ClaimID) error {
 
 	chg := change.Change{
 		Type:     change.AddSupport,
@@ -175,51 +192,101 @@ func (ct *ClaimTrie) AddSupport(name []byte, op wire.OutPoint, amt int64, id nod
 		OutPoint: op.String(),
 		Amount:   amt,
 		ClaimID:  id.String(),
+		Value:    value,
 	}
 
 	return ct.forwardNodeChange(chg)
 }
 
 // SpendSupport spends a Support in the ClaimTrie.
-func (ct *ClaimTrie) SpendSupport(name []byte, op wire.OutPoint) error {
+func (ct *ClaimTrie) SpendSupport(name []byte, op wire.OutPoint, id node.ClaimID) error {
 
 	chg := change.Change{
 		Type:     change.SpendSupport,
 		Name:     name,
 		OutPoint: op.String(),
+		ClaimID:  id.String(),
 	}
 
 	return ct.forwardNodeChange(chg)
 }
 
 // AppendBlock increases block by one.
-func (ct *ClaimTrie) AppendBlock() error {
+func (ct *ClaimTrie) AppendBlock() ([][]byte, error) {
 
 	ct.height++
-	ct.nodeManager.IncrementHeightTo(ct.height)
-
-	names, err := ct.temporalRepo.NodesAt(ct.height)
+	names, err := ct.nodeManager.IncrementHeightTo(ct.height)
 	if err != nil {
-		return fmt.Errorf("temporal repo nodes at: %w", err)
+		return names, fmt.Errorf("node mgr increment: %w", err)
 	}
+
+	expirations, err := ct.temporalRepo.NodesAt(ct.height)
+	if err != nil {
+		return names, fmt.Errorf("temporal repo nodes at: %w", err)
+	}
+
+	names = removeDuplicates(names) // comes out sorted
+
+	updateNames := make([][]byte, 0, len(names)+len(expirations))
+	updateHeights := make([]int32, 0, len(names)+len(expirations))
+	updateNames = append(updateNames, names...)
+	for range names { // log to the db that we updated a name at this height for rollback purposes
+		updateHeights = append(updateHeights, ct.height)
+	}
+	names = append(names, expirations...)
+	names = removeDuplicates(names)
 
 	for _, name := range names {
 
-		ct.merkleTrie.Update(name)
+		ct.merkleTrie.Update(name, true)
 
-		nextupdateHeight, err := ct.nodeManager.NextUpdateHeightOfNode(name)
-		if err != nil {
-			return fmt.Errorf("temporal repo nodes at: %w", err)
+		newName, nextUpdate := ct.nodeManager.NextUpdateHeightOfNode(name)
+		if nextUpdate <= 0 {
+			continue // some names are no longer there; that's not an error
 		}
-
-		ct.temporalRepo.SetNodeAt(name, nextupdateHeight)
+		updateNames = append(updateNames, newName) // TODO: make sure using the temporalRepo batch is actually faster
+		updateHeights = append(updateHeights, nextUpdate)
 	}
+	err = ct.temporalRepo.SetNodesAt(updateNames, updateHeights)
+	if err != nil {
+		return names, fmt.Errorf("temporal repo set at: %w", err)
+	}
+
+	ct.updateTrieForHashForkIfNecessary()
 
 	h := ct.MerkleHash()
 	ct.blockRepo.Set(ct.height, h)
-	ct.merkleTrie.SetRoot(h)
+	// ct.merkleTrie.SetRoot(h) for clearing the memory entirely (but now pruning in hash calculation instead)
 
-	return nil
+	return names, nil
+}
+
+func (ct *ClaimTrie) updateTrieForHashForkIfNecessary() {
+	if ct.height != param.AllClaimsInMerkleForkHeight {
+		return
+	}
+	fmt.Printf("Marking all trie nodes as dirty for the hash fork...")
+	// invalidate all names because we have to recompute the hash on everything
+	// requires its own 8GB of RAM in current trie impl.
+	ct.nodeManager.IterateNames(func(name []byte) bool {
+		ct.merkleTrie.Update(name, false)
+		return true
+	})
+	runtime.GC()
+	fmt.Printf(" Done. Now recomputing all hashes...\n")
+}
+
+func removeDuplicates(names [][]byte) [][]byte { // this might be too expensive; we'll have to profile it
+	sort.Slice(names, func(i, j int) bool { // put names in order so we can skip duplicates
+		return bytes.Compare(names[i], names[j]) < 0
+	})
+
+	for i := len(names) - 2; i >= 0; i-- {
+		if bytes.Equal(names[i], names[i+1]) {
+			names = append(names[:i], names[i+1:]...)
+		}
+	}
+	return names
 }
 
 // ReportHash persists the Merkle Hash "learned and reported" by the block.
@@ -230,24 +297,44 @@ func (ct *ClaimTrie) ReportHash(height int32, hash chainhash.Hash) error {
 	if ct.reportedBlockRepo != nil {
 		return ct.reportedBlockRepo.Set(height, &hash)
 	}
-
 	return nil
 }
 
 // ResetHeight resets the ClaimTrie to a previous known height..
 func (ct *ClaimTrie) ResetHeight(height int32) error {
 
-	// TODO
+	names := make([][]byte, 0)
+	for h := height + 1; h <= ct.height; h++ {
+		results, err := ct.temporalRepo.NodesAt(h)
+		if err != nil {
+			return err
+		}
+		names = append(names, results...)
+	}
+	err := ct.nodeManager.DecrementHeightTo(names, height)
+	if err != nil {
+		return err
+	}
+
+	ct.height = height
+	hash, err := ct.blockRepo.Get(height)
+	if err != nil {
+		return err
+	}
+	ct.merkleTrie.SetRoot(hash)
 	return nil
 }
 
 // MerkleHash returns the Merkle Hash of the claimTrie.
-func (ct ClaimTrie) MerkleHash() *chainhash.Hash {
+func (ct *ClaimTrie) MerkleHash() *chainhash.Hash {
+	if ct.height >= param.AllClaimsInMerkleForkHeight {
+		return ct.merkleTrie.MerkleHashAllClaims()
+	}
 	return ct.merkleTrie.MerkleHash()
 }
 
 // Height returns the current block height.
-func (ct ClaimTrie) Height() int32 {
+func (ct *ClaimTrie) Height() int32 {
 	return ct.height
 }
 
@@ -258,7 +345,7 @@ func (ct *ClaimTrie) Close() error {
 	for i := len(ct.cleanups) - 1; i >= 0; i-- {
 		cleanup := ct.cleanups[i]
 		err := cleanup()
-		if err != nil {
+		if err != nil { // TODO: it would be better to cleanup what we can than exit
 			return fmt.Errorf("cleanup: %w", err)
 		}
 	}
@@ -275,10 +362,11 @@ func (ct *ClaimTrie) forwardNodeChange(chg change.Change) error {
 		return fmt.Errorf("node manager handle change: %w", err)
 	}
 
-	err = ct.temporalRepo.SetNodeAt(chg.Name, ct.height+1)
-	if err != nil {
-		return fmt.Errorf("set temporal node: %w", err)
-	}
+	//ct.changes = append(ct.changes, chg)
 
 	return nil
+}
+
+func (ct *ClaimTrie) Node(name []byte) (*node.Node, error) {
+	return ct.nodeManager.Node(name)
 }

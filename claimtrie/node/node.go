@@ -1,372 +1,292 @@
 package node
 
 import (
-	"crypto/sha256"
-	"encoding/binary"
 	"fmt"
 	"math"
-	"strconv"
+	"sort"
 
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/param"
-
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/wire"
 )
 
 // ErrNotFound is returned when a claim or support is not found.
-var ErrNotFound = fmt.Errorf("not found")
+var mispents = map[string]bool{}
 
 type Node struct {
-	Height      int32  // Current height.
-	BestClaim   *Claim // The claim that has most effective amount at the current height.
-	TakenOverAt int32  // The height at when the current BestClaim Tookover.
-	Claims      list   // List of all Claims.
-	Supports    list   // List of all Supports, including orphaned ones.
-
-	pendingChanges bool
+	BestClaim   *Claim    // The claim that has most effective amount at the current height.
+	TakenOverAt int32     // The height at when the current BestClaim took over.
+	Claims      ClaimList // List of all Claims.
+	Supports    ClaimList // List of all Supports, including orphaned ones.
 }
 
 // New returns a new node.
 func New() *Node {
-	return &Node{
-		Claims:   list{},
-		Supports: list{},
-	}
+	return &Node{}
 }
 
-// NewNodeFromChanges returns a new Node constructed from the changes.
-// The changes must preserve their order receieved.
-func NewNodeFromChanges(changes []change.Change) (*Node, error) {
+func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 
-	n := New()
+	out := NewOutPointFromString(chg.OutPoint)
 
-	if len(changes) == 0 {
-		return n, nil
+	visibleAt := chg.VisibleHeight
+	if visibleAt <= 0 {
+		visibleAt = chg.Height
 	}
-
-	// When applying a change at H height, the node has to be at H - 1 height.
-	for _, chg := range changes {
-
-		if n.Height < chg.Height-1 {
-			n.AdjustTo(chg.Height - 1)
-		}
-
-		err := n.AppendChange(chg)
-		if err != nil {
-			return nil, fmt.Errorf("append change: %w", err)
-		}
-	}
-
-	// Handle the appended changes of the last block.
-	n.AdjustTo(n.Height + 1)
-
-	return n, nil
-}
-
-func (n *Node) AppendChange(chg change.Change) error {
-
-	op := *NewOutPointFromString(chg.OutPoint)
 
 	switch chg.Type {
 	case change.AddClaim:
-		n.Claims[op] = &Claim{
-			OutPoint:   op,
+		c := &Claim{
+			OutPoint:   *out,
 			Amount:     chg.Amount,
 			ClaimID:    chg.ClaimID,
-			AcceptedAt: chg.Height,
+			AcceptedAt: chg.Height, // not tracking original height in this version (but we could)
+			ActiveAt:   chg.Height + delay,
 			Value:      chg.Value,
-			Status:     Added,
+			VisibleAt:  visibleAt,
 		}
+		old := n.Claims.find(byOut(*out)) // TODO: remove this
+		if old != nil {
+			fmt.Printf("CONFLICT WITH EXISTING TXO!")
+		}
+		n.Claims = append(n.Claims, c)
 
 	case change.SpendClaim:
-		c, ok := n.Claims[op]
-		if !ok {
-			return ErrNotFound
+		c := n.Claims.find(byOut(*out))
+		if c != nil {
+			c.setStatus(Deactivated)
+		} else if !mispents[fmt.Sprintf("%d_%s", chg.Height, chg.ClaimID)] {
+			mispents[fmt.Sprintf("%d_%s", chg.Height, chg.ClaimID)] = true
+			fmt.Printf("Spending claim but missing existing claim with TXO %s\n   "+
+				"Name: %s, ID: %s\n", chg.OutPoint, chg.Name, chg.ClaimID)
 		}
-
-		c.setStatus(Deleted)
+		// apparently it's legit to be absent in the map:
+		// 'two' at 481100, 36a719a156a1df178531f3c712b8b37f8e7cc3b36eea532df961229d936272a1:0
 
 	case change.UpdateClaim:
 		// Find and remove the claim, which has just been spent.
 		c := n.Claims.find(byID(chg.ClaimID))
-		if c == nil || c.Status != Deleted {
-			return ErrNotFound
+		if c != nil && c.Status == Deactivated {
+
+			// Keep its ID, which was generated from the spent claim.
+			// And update the rest of properties.
+			c.setOutPoint(*out).SetAmt(chg.Amount).SetValue(chg.Value)
+			c.setStatus(Accepted) // it was Deactivated in the spend
+
+			// It's a bug, but the old code would update these.
+			// That forces this to be newer, which may in an unintentional takeover if there's an older one.
+			c.setAccepted(chg.Height)         // TODO: Fork this out
+			c.setActiveAt(chg.Height + delay) // TODO: Fork this out
+
+		} else {
+			fmt.Printf("Updating claim but missing existing claim with ID %s", chg.ClaimID)
 		}
-
-		// Remove the spent one from the claim list.
-		delete(n.Claims, c.OutPoint)
-
-		// Keep its ID, which was generated from the spent claim.
-		// And update the rest of properties.
-		c.setOutPoint(op).SetAmt(chg.Amount).SetValue(chg.Value)
-
-		// TODO: check the bidding rules.
-		c.setStatus(Accepted)
-
-		// TODO: check the bidding rules.
-		// Does it ineherit the height, or reset with new height?
-		c.setAccepted(chg.Height)
-
-		if c.ActiveAt <= n.Height {
-			c.setStatus(Activated)
-		}
-
-		// Put the updated claim back to the claim list.
-		n.Claims[op] = c
-
 	case change.AddSupport:
-		s := &Claim{
-			OutPoint:   op,
+		n.Supports = append(n.Supports, &Claim{
+			OutPoint:   *out,
 			Amount:     chg.Amount,
 			ClaimID:    chg.ClaimID,
 			AcceptedAt: chg.Height,
-			Status:     Added,
-		}
-
-		if n.BestClaim != nil && n.BestClaim.ClaimID == s.ClaimID {
-			s.setStatus(Activated)
-		}
-
-		n.Supports[op] = s
+			Value:      chg.Value,
+			ActiveAt:   chg.Height + delay,
+			VisibleAt:  visibleAt,
+		})
 
 	case change.SpendSupport:
-		s, ok := n.Supports[op]
-		if !ok {
-			return ErrNotFound
+		s := n.Supports.find(byOut(*out))
+		if s != nil {
+			s.setStatus(Deactivated)
+		} else {
+			fmt.Printf("Spending support but missing existing support with TXO %s\n   "+
+				"Name: %s, ID: %s\n", chg.OutPoint, chg.Name, chg.ClaimID)
 		}
-
-		s.setStatus(Deleted)
 	}
-
-	n.pendingChanges = true
-
 	return nil
 }
 
-// AdjustTo increments current height until it reaches the specified height.
-func (n *Node) AdjustTo(height int32) *Node {
-
-	if n.pendingChanges {
-		n.applyPendingChanges()
-	}
-
-	for n.Height < height {
-		n.Height = n.NextUpdate()
-		if n.Height > height {
-			n.Height = height
+// AdjustTo activates claims and computes takeovers until it reaches the specified height.
+func (n *Node) AdjustTo(height, maxHeight int32, name []byte) *Node {
+	n.handleExpiredAndActivated(height)
+	n.updateTakeoverHeight(height, name)
+	if maxHeight > height {
+		for h := n.NextUpdate(); h <= maxHeight; h = n.NextUpdate() {
+			n.handleExpiredAndActivated(h)
+			n.updateTakeoverHeight(h, name)
+			height = h
 		}
-		n.handleExpiredAndActivated()
-		n.bid()
 	}
-
 	return n
 }
 
-func (n *Node) applyPendingChanges() {
+func (n *Node) updateTakeoverHeight(height int32, name []byte) {
 
-	n.Claims.removeAll(byStatus(Deleted))
-	n.Supports.removeAll(byStatus(Deleted))
+	candidate := n.findBestClaim()
+	hasCandidate := candidate != nil
+	hasCurrentWinner := n.BestClaim != nil && n.BestClaim.Status == Activated
 
-	// The current BestClaim has been deleted. A takeover is happening.
-	if n.BestClaim != nil && n.BestClaim.Status == Deleted {
-		n.BestClaim = nil
-		// TODO: check the bidding rules.
-		n.TakenOverAt = n.Height + 1
+	takeoverHappening := !hasCandidate || !hasCurrentWinner || candidate.ClaimID != n.BestClaim.ClaimID
+
+	if takeoverHappening {
+		if n.activateAllClaims(height) > 0 {
+			candidate = n.findBestClaim()
+		}
 	}
 
-	n.handleAdded()
-	n.pendingChanges = false
-	n.Height++
-	n.handleExpiredAndActivated()
-	n.bid()
+	if !takeoverHappening && height < param.MaxRemovalWorkaroundHeight {
+		// This is a super ugly hack to work around bug in old code.
+		// The bug: un/support a name then update it. This will cause its takeover height to be reset to current.
+		// This is because the old code would add to the cache without setting block originals when dealing in supports.
+		_, takeoverHappening = param.TakeoverWorkarounds[fmt.Sprintf("%d_%s", height, name)] // TODO: ditch the fmt call
+	}
+
+	if takeoverHappening {
+		n.TakenOverAt = height
+		n.BestClaim = candidate
+	}
 }
 
-func (n *Node) handleAdded() {
+func (n *Node) handleExpiredAndActivated(height int32) {
 
-	bestPrice := n.bestPrice()
-	if n.BestClaim == nil {
-		n.TakenOverAt = n.Height + 1
-	}
-
-	for _, c := range n.Claims {
-
-		if c == n.BestClaim {
-			continue
-		}
-
-		status := Activated
-		activatedAt := n.Height + 1
-
-		if c.TotalAmount(n.Supports) > bestPrice {
-			status = Accepted
-			activatedAt = n.Height + 1 + calculateDelay(n.Height+1, n.TakenOverAt)
-		}
-
-		if c.Status != Activated {
-			c.setStatus(status).setActiveAt(activatedAt)
-		}
-
-		for _, s := range n.Supports {
-			if s.ClaimID != c.ClaimID {
-				continue
+	update := func(items ClaimList) ClaimList {
+		for i := 0; i < len(items); i++ {
+			c := items[i]
+			if c.Status == Accepted && c.ActiveAt <= height && c.VisibleAt <= height {
+				c.setStatus(Activated)
 			}
-			if s.Status != Activated {
-				s.setStatus(status).setActiveAt(activatedAt)
+			if c.ExpireAt() <= height || c.Status == Deactivated {
+				if i < len(items)-1 {
+					items[i] = items[len(items)-1]
+					i--
+				}
+				items = items[:len(items)-1]
 			}
 		}
+		return items
 	}
-}
-
-func (n *Node) handleExpiredAndActivated() {
-
-	for op, c := range n.Claims {
-		if c.Status == Accepted && c.ActiveAt == n.Height {
-			c.setStatus(Activated)
-		}
-		if c.ExpireAt() <= n.Height {
-			delete(n.Claims, op)
-		}
-	}
-
-	for op, s := range n.Supports {
-		if s.Status == Accepted && s.ActiveAt == n.Height {
-			s.setStatus(Activated)
-		}
-		if s.ExpireAt() <= n.Height {
-			delete(n.Supports, op)
-		}
-	}
-}
-
-func (n *Node) bid() {
-
-	for {
-		c := n.findCandiadte()
-		if equal(n.BestClaim, c) {
-			break
-		}
-		n.BestClaim, n.TakenOverAt = c, n.Height
-	}
+	n.Claims = update(n.Claims)
+	n.Supports = update(n.Supports)
 }
 
 // NextUpdate returns the nearest height in the future that the node should
 // be refreshed due to changes of claims or supports.
 func (n Node) NextUpdate() int32 {
 
-	// The node is at height H, and apply changes for H+1.
-	if n.pendingChanges {
-		return n.Height + 1
-	}
-
 	next := int32(math.MaxInt32)
 
 	for _, c := range n.Claims {
-		if height := c.ExpireAt(); height > n.Height && height < next {
-			next = height
+		if c.ExpireAt() < next {
+			next = c.ExpireAt()
 		}
-		if height := c.ActiveAt; height > n.Height && height < next {
-			next = height
+		// if we're not active, we need to go to activeAt unless we're still invisible there
+		if c.Status == Accepted {
+			min := c.ActiveAt
+			if c.VisibleAt > min {
+				min = c.VisibleAt
+			}
+			if min < next {
+				next = min
+			}
 		}
 	}
 
 	for _, s := range n.Supports {
-		if height := s.ExpireAt(); height > n.Height && height < next {
-			next = height
+		if s.ExpireAt() < next {
+			next = s.ExpireAt()
 		}
-		if height := s.ActiveAt; height > n.Height && height < next {
-			next = height
+		if s.Status == Accepted {
+			min := s.ActiveAt
+			if s.VisibleAt > min {
+				min = s.VisibleAt
+			}
+			if min < next {
+				next = min
+			}
 		}
 	}
 
 	return next
 }
 
-func (n Node) bestPrice() int64 {
+func (n Node) findBestClaim() *Claim {
 
-	if n.BestClaim == nil {
-		return 0
-	}
+	// WARNING: this method is called billions of times.
+	// if we just had some easy way to know that our best claim was the first one in the list...
+	// or it may be faster to cache effective amount in the db at some point.
 
-	amt := n.BestClaim.Amount
+	var best *Claim
+	var bestAmount int64
+	for _, candidate := range n.Claims {
 
-	for _, s := range n.Supports {
-		if s.ClaimID == n.BestClaim.ClaimID {
-			if s.Status != Activated {
-				panic("bug: supports for the BestClaim should always be active")
-			}
-			amt += s.Amount
+		// not using switch here for performance reasons
+		if candidate.Status != Activated {
+			continue
 		}
-	}
 
-	return amt
-}
+		if best == nil {
+			best = candidate
+			continue
+		}
 
-func (n Node) findCandiadte() *Claim {
-
-	var c *Claim
-	for _, v := range n.Claims {
-
-		effAmountV := v.EffectiveAmount(n.Supports)
+		candidateAmount := candidate.EffectiveAmount(n.Supports)
+		if bestAmount <= 0 { // trying to reduce calls to EffectiveAmount
+			bestAmount = best.EffectiveAmount(n.Supports)
+		}
 
 		switch {
-		case v.Status != Activated:
+		case candidateAmount > bestAmount:
+			best = candidate
+			bestAmount = candidateAmount
+		case candidateAmount < bestAmount:
 			continue
-		case c == nil:
-			c = v
-		case effAmountV > c.EffectiveAmount(n.Supports):
-			c = v
-		case effAmountV < c.EffectiveAmount(n.Supports):
+		case candidate.AcceptedAt < best.AcceptedAt:
+			best = candidate
+			bestAmount = candidateAmount
+		case candidate.AcceptedAt > best.AcceptedAt:
 			continue
-		case v.AcceptedAt < c.AcceptedAt:
-			c = v
-		case v.AcceptedAt > c.AcceptedAt:
-			continue
-		case OutPointLess(c.OutPoint, v.OutPoint):
-			c = v
+		case OutPointLess(candidate.OutPoint, best.OutPoint):
+			best = candidate
+			bestAmount = candidateAmount
 		}
 	}
 
-	return c
+	return best
 }
 
-// Hash calculates the Hash value based on the OutPoint and when it tookover.
-func (n Node) Hash() *chainhash.Hash {
-
-	if n.BestClaim == nil {
-		return nil
+func (n *Node) activateAllClaims(height int32) int {
+	count := 0
+	for _, c := range n.Claims {
+		if c.Status == Accepted && c.ActiveAt > height && c.VisibleAt <= height {
+			c.setActiveAt(height) // don't necessary need to change this number
+			c.setStatus(Activated)
+			count++
+		}
 	}
 
-	return calculateNodeHash(n.BestClaim.OutPoint, n.TakenOverAt)
-}
-
-func calculateDelay(curr, tookover int32) int32 {
-
-	delay := (curr - tookover) / param.ActiveDelayFactor
-	if delay > param.MaxActiveDelay {
-		return param.MaxActiveDelay
+	for _, s := range n.Supports {
+		if s.Status == Accepted && s.ActiveAt > height && s.VisibleAt <= height {
+			s.setActiveAt(height) // don't necessary need to change this number
+			s.setStatus(Activated)
+			count++
+		}
 	}
-
-	return delay
+	return count
 }
 
-func calculateNodeHash(op wire.OutPoint, tookover int32) *chainhash.Hash {
+func (n *Node) SortClaims() {
 
-	txHash := chainhash.DoubleHashH(op.Hash[:])
-
-	nOut := []byte(strconv.Itoa(int(op.Index)))
-	nOutHash := chainhash.DoubleHashH(nOut)
-
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, uint64(tookover))
-	heightHash := chainhash.DoubleHashH(buf)
-
-	h := make([]byte, 0, sha256.Size*3)
-	h = append(h, txHash[:]...)
-	h = append(h, nOutHash[:]...)
-	h = append(h, heightHash[:]...)
-
-	hh := chainhash.DoubleHashH(h)
-
-	return &hh
+	// purposefully sorting by descent
+	sort.Slice(n.Claims, func(j, i int) bool {
+		iAmount := n.Claims[i].EffectiveAmount(n.Supports)
+		jAmount := n.Claims[j].EffectiveAmount(n.Supports)
+		switch {
+		case iAmount < jAmount:
+			return true
+		case iAmount > jAmount:
+			return false
+		case n.Claims[i].AcceptedAt > n.Claims[j].AcceptedAt:
+			return true
+		case n.Claims[i].AcceptedAt < n.Claims[j].AcceptedAt:
+			return false
+		}
+		return OutPointLess(n.Claims[j].OutPoint, n.Claims[i].OutPoint)
+	})
 }

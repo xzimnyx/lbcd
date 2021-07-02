@@ -10,14 +10,17 @@ func NewMemory() *Memory {
 	}
 }
 
-func (repo *Memory) SetNodeAt(name []byte, height int32) error {
+func (repo *Memory) SetNodesAt(names [][]byte, heights []int32) error {
 
-	names, ok := repo.cache[height]
-	if !ok {
-		names = map[string]bool{}
-		repo.cache[height] = names
+	for i, height := range heights {
+		c, ok := repo.cache[height]
+		if !ok {
+			c = map[string]bool{}
+			repo.cache[height] = c
+		}
+		name := string(names[i])
+		c[name] = true
 	}
-	names[string(name)] = true
 
 	return nil
 }

@@ -2,6 +2,8 @@ package merkletrie
 
 import (
 	"bytes"
+	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -9,14 +11,17 @@ import (
 )
 
 var (
-	// emptyTrieHash represents the Merkle Hash of an empty MerkleTrie.
+	// EmptyTrieHash represents the Merkle Hash of an empty MerkleTrie.
 	// "0000000000000000000000000000000000000000000000000000000000000001"
-	emptyTrieHash = &chainhash.Hash{1}
+	EmptyTrieHash  = &chainhash.Hash{1}
+	NoChildrenHash = &chainhash.Hash{2}
+	NoClaimsHash   = &chainhash.Hash{3}
 )
 
 // ValueStore enables MerkleTrie to query node values from different implementations.
 type ValueStore interface {
-	Get(name []byte) (*chainhash.Hash, error)
+	ClaimHashes(name []byte) []*chainhash.Hash
+	Hash(name []byte) *chainhash.Hash
 }
 
 // MerkleTrie implements a 256-way prefix tree.
@@ -24,7 +29,7 @@ type MerkleTrie struct {
 	store ValueStore
 	repo  Repo
 
-	root *node
+	root *vertex
 	bufs *sync.Pool
 }
 
@@ -39,111 +44,212 @@ func New(store ValueStore, repo Repo) *MerkleTrie {
 				return new(bytes.Buffer)
 			},
 		},
+		root: newVertex(EmptyTrieHash),
 	}
-
-	tr.SetRoot(emptyTrieHash)
 
 	return tr
 }
 
 // SetRoot drops all resolved nodes in the MerkleTrie, and set the root with specified hash.
 func (t *MerkleTrie) SetRoot(h *chainhash.Hash) {
-	t.root = newNode()
-	t.root.hash = h
+	t.root = newVertex(h)
 }
 
 // Update updates the nodes along the path to the key.
 // Each node is resolved or created with their Hash cleared.
-func (t *MerkleTrie) Update(key []byte) {
+func (t *MerkleTrie) Update(name []byte, restoreChildren bool) {
 
 	n := t.root
-	for _, ch := range key {
-		t.resolve(n)
-		if n.links[ch] == nil {
-			n.links[ch] = newNode()
+	for i, ch := range name {
+		if restoreChildren && len(n.childLinks) == 0 {
+			t.resolveChildLinks(n, name[:i])
 		}
-		n.hash = nil
-		n = n.links[ch]
+		if n.childLinks[ch] == nil {
+			n.childLinks[ch] = newVertex(nil)
+		}
+		n.merkleHash = nil
+		n = n.childLinks[ch]
 	}
 
-	t.resolve(n)
+	if restoreChildren && len(n.childLinks) == 0 {
+		t.resolveChildLinks(n, name)
+	}
 	n.hasValue = true
-	n.hash = nil
+	n.merkleHash = nil
 }
 
-func (t *MerkleTrie) resolve(n *node) {
+// resolveChildLinks updates the links on n
+func (t *MerkleTrie) resolveChildLinks(n *vertex, key []byte) {
 
-	if n.hash == nil {
+	if n.merkleHash == nil {
 		return
 	}
 
-	b, closer, err := t.repo.Get(n.hash[:])
-	if err == pebble.ErrNotFound {
+	result, closer, err := t.repo.Get(n.merkleHash[:])
+	if err == pebble.ErrNotFound { // TODO: leaky abstraction
 		return
 	} else if err != nil {
 		panic(err)
 	}
 	defer closer.Close()
 
-	nb := nbuf(b)
+	nb := nbuf(result)
 	n.hasValue = nb.hasValue()
 	for i := 0; i < nb.entries(); i++ {
 		p, h := nb.entry(i)
-		n.links[p] = newNode()
-		n.links[p].hash = h
+		n.childLinks[p] = newVertex(h)
 	}
 }
 
 // MerkleHash returns the Merkle Hash of the MerkleTrie.
 // All nodes must have been resolved before calling this function.
 func (t *MerkleTrie) MerkleHash() *chainhash.Hash {
-	buf := make([]byte, 0, 4096)
+	buf := make([]byte, 0, 256)
 	if h := t.merkle(buf, t.root); h == nil {
-		return emptyTrieHash
+		return EmptyTrieHash
 	}
-	return t.root.hash
+	return t.root.merkleHash
 }
 
 // merkle recursively resolves the hashes of the node.
 // All nodes must have been resolved before calling this function.
-func (t *MerkleTrie) merkle(prefix []byte, n *node) *chainhash.Hash {
-	if n.hash != nil {
-		return n.hash
+func (t *MerkleTrie) merkle(prefix []byte, v *vertex) *chainhash.Hash {
+	if v.merkleHash != nil {
+		return v.merkleHash
+	}
+
+	b := t.bufs.Get().(*bytes.Buffer)
+	defer t.bufs.Put(b)
+	b.Reset()
+
+	keys := keysInOrder(v)
+
+	for _, ch := range keys {
+		child := v.childLinks[ch]
+		if child == nil {
+			continue
+		}
+		p := append(prefix, ch)
+		h := t.merkle(p, child)
+		if h != nil {
+			b.WriteByte(ch) // nolint : errchk
+			b.Write(h[:])   // nolint : errchk
+		}
+		if h == nil || len(prefix) > 4 { // TODO: determine the right number here
+			delete(v.childLinks, ch) // keep the RAM down (they get recreated on Update)
+		}
+	}
+
+	if v.hasValue {
+		claimHash := t.store.Hash(prefix)
+		if claimHash != nil {
+			b.Write(claimHash[:])
+		}
+	}
+
+	if b.Len() > 0 {
+		h := chainhash.DoubleHashH(b.Bytes())
+		v.merkleHash = &h
+		t.repo.Set(h[:], b.Bytes())
+	}
+
+	return v.merkleHash
+}
+
+func keysInOrder(v *vertex) []byte {
+	keys := make([]byte, 0, len(v.childLinks))
+	for key := range v.childLinks {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	return keys
+}
+
+func (t *MerkleTrie) MerkleHashAllClaims() *chainhash.Hash {
+	buf := make([]byte, 0, 256)
+	if h := t.merkleAllClaims(buf, t.root); h == nil {
+		return EmptyTrieHash
+	}
+	return t.root.merkleHash
+}
+
+func (t *MerkleTrie) merkleAllClaims(prefix []byte, v *vertex) *chainhash.Hash {
+	if v.merkleHash != nil {
+		return v.merkleHash
 	}
 	b := t.bufs.Get().(*bytes.Buffer)
 	defer t.bufs.Put(b)
 	b.Reset()
 
-	for ch, n := range n.links {
+	keys := keysInOrder(v)
+	childHashes := make([]*chainhash.Hash, 0, len(keys))
+	for _, ch := range keys {
+		n := v.childLinks[ch]
 		if n == nil {
 			continue
 		}
-		p := append(prefix, byte(ch))
-		if h := t.merkle(p, n); h != nil {
-			b.WriteByte(byte(ch)) // nolint : errchk
-			b.Write(h[:])         // nolint : errchk
-		}
-	}
-
-	if n.hasValue {
-		h, err := t.store.Get(prefix)
-		if err != nil {
-			return nil
-		}
+		p := append(prefix, ch)
+		h := t.merkleAllClaims(p, n)
 		if h != nil {
-			b.Write(h[:]) // nolint : errchk
+			childHashes = append(childHashes, h)
+			b.WriteByte(ch) // nolint : errchk
+			b.Write(h[:])   // nolint : errchk
+		}
+		if h == nil || len(prefix) > 4 { // TODO: determine the right number here
+			delete(v.childLinks, ch) // keep the RAM down (they get recreated on Update)
 		}
 	}
 
-	if b.Len() != 0 {
-		h := chainhash.DoubleHashH(b.Bytes())
-		n.hash = &h
-		t.repo.Set(h[:], b.Bytes())
+	var claimHashes []*chainhash.Hash
+	if v.hasValue {
+		claimHashes = t.store.ClaimHashes(prefix)
+		v.hasValue = len(claimHashes) > 0
 	}
 
-	return n.hash
+	if len(childHashes) > 1 || len(claimHashes) > 0 { // yeah, about that 1 there -- old code used the condensed trie
+		left := NoChildrenHash
+		if len(childHashes) > 0 {
+			left = chainhash.ComputeMerkleRoot(childHashes)
+		}
+		right := NoClaimsHash
+		if len(claimHashes) > 0 {
+			right = chainhash.ComputeMerkleRoot(claimHashes)
+			b.WriteString("HV") // for Has Value, nolint : errchk
+		}
+
+		v.merkleHash = chainhash.HashMerkleBranches(left, right)
+		t.repo.Set(v.merkleHash[:], b.Bytes())
+	} else if len(childHashes) == 1 {
+		v.merkleHash = childHashes[0] // pass it up the tree
+
+		// this probably isn't necessary, and may be removed for performance, but it was handy for debugging:
+		t.repo.Set(v.merkleHash[:], b.Bytes())
+	}
+
+	return v.merkleHash
 }
 
 func (t *MerkleTrie) Close() error {
 	return t.repo.Close()
+}
+
+func (t *MerkleTrie) Dump(s string, allClaims bool) {
+	v := t.root
+
+	for i := 0; i < len(s); i++ {
+		t.resolveChildLinks(v, []byte(s[:i]))
+		ch := s[i]
+		v = v.childLinks[ch]
+		if v == nil {
+			fmt.Printf("Missing child at %s\n", s[:i+1])
+			return
+		}
+	}
+	t.resolveChildLinks(v, []byte(s))
+
+	for key, value := range v.childLinks {
+		fmt.Printf("Child %s hash: %s\n", string(key), value.merkleHash.String())
+	}
+
+	fmt.Printf("Node hash: %s, has value: %t\n", v.merkleHash.String(), v.hasValue)
 }

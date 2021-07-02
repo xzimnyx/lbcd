@@ -4,15 +4,17 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
 
-type node struct {
-	hash     *chainhash.Hash
-	links    [256]*node
-	hasValue bool
+type vertex struct {
+	merkleHash *chainhash.Hash
+	childLinks map[byte]*vertex
+	hasValue   bool
 }
 
-func newNode() *node {
-	return &node{}
+func newVertex(hash *chainhash.Hash) *vertex {
+	return &vertex{childLinks: map[byte]*vertex{}, merkleHash: hash}
 }
+
+// TODO: more professional to use msgpack here?
 
 // nbuf decodes the on-disk format of a node, which has the following form:
 //   ch(1B) hash(32B)
@@ -32,5 +34,5 @@ func (nb nbuf) entry(i int) (byte, *chainhash.Hash) {
 }
 
 func (nb nbuf) hasValue() bool {
-	return len(nb)%33 == 32
+	return len(nb)%33 != 0
 }

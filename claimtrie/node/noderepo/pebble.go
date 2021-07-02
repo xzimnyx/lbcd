@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/cockroachdb/pebble"
 	"github.com/vmihailenco/msgpack/v5"
+	"sort"
 )
 
 type Pebble struct {
@@ -16,7 +16,7 @@ type Pebble struct {
 
 func NewPebble(path string) (*Pebble, error) {
 
-	db, err := pebble.Open(path, nil)
+	db, err := pebble.Open(path, &pebble.Options{Cache: pebble.NewCache(128 << 20)})
 	if err != nil {
 		return nil, fmt.Errorf("pebble open %s, %w", path, err)
 	}
@@ -26,71 +26,124 @@ func NewPebble(path string) (*Pebble, error) {
 	return repo, nil
 }
 
-func (repo *Pebble) SaveChanges(changes []change.Change) error {
+// AppendChanges makes an assumption that anything you pass to it is newer than what was saved before.
+func (repo *Pebble) AppendChanges(changes []change.Change) error {
 
-	for i, chg := range changes {
+	batch := repo.db.NewBatch()
 
-		// Key format: name(variable size) + 0(1B) + height(4B) + 0 + slice_idx (4B)
-		// The last slice_idx is just to keep the entry unique and preserve the order.
-		buf := bytes.NewBuffer(nil)
-		buf.Write(chg.Name)
-		binary.Write(buf, binary.BigEndian, byte(0))
-		binary.Write(buf, binary.BigEndian, chg.Height)
-		binary.Write(buf, binary.BigEndian, byte(0))
-		binary.Write(buf, binary.BigEndian, int32(i))
-
+	// TODO: switch to buffer pool and reuse encoder
+	for _, chg := range changes {
 		value, err := msgpack.Marshal(chg)
 		if err != nil {
 			return fmt.Errorf("msgpack marshal value: %w", err)
 		}
 
-		err = repo.db.Set(buf.Bytes(), value, pebble.NoSync)
+		err = batch.Merge(chg.Name, value, pebble.NoSync)
 		if err != nil {
 			return fmt.Errorf("pebble set: %w", err)
 		}
 	}
-
-	return nil
+	err := batch.Commit(pebble.NoSync)
+	if err != nil {
+		return fmt.Errorf("pebble save commit: %w", err)
+	}
+	batch.Close()
+	return err
 }
 
-func (repo *Pebble) LoadChanges(name []byte, height int32) ([]change.Change, error) {
+func (repo *Pebble) LoadChanges(name []byte) ([]change.Change, error) {
 
+	data, closer, err := repo.db.Get(name)
+	if err != nil && err != pebble.ErrNotFound {
+		return nil, fmt.Errorf("pebble get: %w", err)
+	}
+	if closer != nil {
+		defer closer.Close()
+	}
+
+	return unmarshalChanges(data)
+}
+
+func unmarshalChanges(data []byte) ([]change.Change, error) {
+	var changes []change.Change
+	dec := msgpack.GetDecoder()
+	defer msgpack.PutDecoder(dec)
+
+	reader := bytes.NewReader(data)
+	dec.Reset(reader)
+	for reader.Len() > 0 {
+		var chg change.Change
+		err := dec.Decode(&chg)
+		if err != nil {
+			return nil, fmt.Errorf("msgpack unmarshal: %w", err)
+		}
+		changes = append(changes, chg)
+	}
+
+	// this was required for the normalization stuff:
+	sort.SliceStable(changes, func(i, j int) bool {
+		return changes[i].Height < changes[j].Height
+	})
+
+	return changes, nil
+}
+
+func (repo *Pebble) DropChanges(name []byte, finalHeight int32) error {
+	changes, err := repo.LoadChanges(name)
+	i := 0
+	for ; i < len(changes); i++ {
+		if changes[i].Height > finalHeight {
+			break
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("pebble drop: %w", err)
+	}
+	// making a performance assumption that DropChanges won't happen often:
+	err = repo.db.Set(name, []byte{}, pebble.NoSync)
+	if err != nil {
+		return fmt.Errorf("pebble drop: %w", err)
+	}
+	return repo.AppendChanges(changes[:i])
+}
+
+func (repo *Pebble) IterateChildren(name []byte, f func(changes []change.Change) bool) {
 	prefix := bytes.NewBuffer(nil)
 	prefix.Write(name)
 	binary.Write(prefix, binary.BigEndian, byte(0))
 
 	end := bytes.NewBuffer(nil)
 	end.Write(name)
-	binary.Write(end, binary.BigEndian, byte(0))
-	binary.Write(end, binary.BigEndian, height)
-	binary.Write(end, binary.BigEndian, byte(1))
+	end.Write(bytes.Repeat([]byte{255, 255, 255, 255}, 64))
 
 	prefixIterOptions := &pebble.IterOptions{
 		LowerBound: prefix.Bytes(),
 		UpperBound: end.Bytes(),
 	}
 
-	var changes []change.Change
-
 	iter := repo.db.NewIter(prefixIterOptions)
+	defer iter.Close()
+
 	for iter.First(); iter.Valid(); iter.Next() {
-
-		var chg change.Change
-
-		err := msgpack.Unmarshal(iter.Value(), &chg)
+		changes, err := unmarshalChanges(iter.Value())
 		if err != nil {
-			return nil, fmt.Errorf("msgpack unmarshal value: %w", err)
+			panic(err)
 		}
-
-		changes = append(changes, chg)
+		if !f(changes) {
+			return
+		}
 	}
+}
 
-	err := iter.Close()
-	if err != nil {
-		return nil, fmt.Errorf("pebble get: %w", err)
+func (repo *Pebble) IterateAll(predicate func(name []byte) bool) {
+	iter := repo.db.NewIter(nil)
+	defer iter.Close()
+
+	for iter.First(); iter.Valid(); iter.Next() {
+		if !predicate(iter.Key()) {
+			break
+		}
 	}
-
-	return changes, nil
 }
 
 func (repo *Pebble) Close() error {

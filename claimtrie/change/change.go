@@ -19,6 +19,9 @@ type Change struct {
 	OutPoint string
 	Amount   int64
 	Value    []byte
+
+	ActiveHeight  int32 // for normalization fork
+	VisibleHeight int32
 }
 
 func New(typ ChangeType) Change {

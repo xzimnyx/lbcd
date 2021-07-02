@@ -3,8 +3,10 @@ package merkletrierepo
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/cockroachdb/pebble"
+	humanize "github.com/dustin/go-humanize"
 )
 
 type Pebble struct {
@@ -13,7 +15,25 @@ type Pebble struct {
 
 func NewPebble(path string) (*Pebble, error) {
 
-	db, err := pebble.Open(path, &pebble.Options{Cache: pebble.NewCache(512 << 20)})
+	cache := pebble.NewCache(512 << 20)
+	defer cache.Unref()
+
+	go func() {
+		tick := time.NewTicker(60 * time.Second)
+		for range tick.C {
+
+			m := cache.Metrics()
+			fmt.Printf("cnt: %s, objs: %s, hits: %s, miss: %s, hitrate: %.2f\n",
+				humanize.Bytes(uint64(m.Size)),
+				humanize.Comma(m.Count),
+				humanize.Comma(m.Hits),
+				humanize.Comma(m.Misses),
+				float64(m.Hits)/float64(m.Hits+m.Misses))
+
+		}
+	}()
+
+	db, err := pebble.Open(path, &pebble.Options{Cache: cache})
 	if err != nil {
 		return nil, fmt.Errorf("pebble open %s, %w", path, err)
 	}

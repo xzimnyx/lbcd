@@ -54,10 +54,9 @@ func (id ClaimID) String() string {
 type Status int
 
 const (
-	Added Status = iota
-	Deleted
-	Accepted
+	Accepted Status = iota
 	Activated
+	Deactivated
 )
 
 // Claim defines a structure of stake, which could be a Claim or Support.
@@ -65,11 +64,11 @@ type Claim struct {
 	OutPoint   wire.OutPoint
 	ClaimID    string
 	Amount     int64
-	AcceptedAt int32
-	ActiveAt   int32
+	AcceptedAt int32 // when arrived (aka, originally landed in block)
+	ActiveAt   int32 // AcceptedAt + actual delay
 	Status     Status
-
-	Value []byte // Claim Only
+	Value      []byte
+	VisibleAt  int32
 }
 
 func (c *Claim) setOutPoint(op wire.OutPoint) *Claim {
@@ -102,24 +101,7 @@ func (c *Claim) setStatus(status Status) *Claim {
 	return c
 }
 
-func (c *Claim) TotalAmount(supports list) int64 {
-
-	if c.Status != Activated && c.Status != Added {
-		return 0
-	}
-
-	amt := c.Amount
-
-	for _, s := range supports {
-		if s.ClaimID == c.ClaimID && s.Status == Added {
-			amt += s.Amount
-		}
-	}
-
-	return amt
-}
-
-func (c *Claim) EffectiveAmount(supports list) int64 {
+func (c *Claim) EffectiveAmount(supports ClaimList) int64 {
 
 	if c.Status != Activated {
 		return 0
@@ -128,7 +110,7 @@ func (c *Claim) EffectiveAmount(supports list) int64 {
 	amt := c.Amount
 
 	for _, s := range supports {
-		if s.ClaimID == c.ClaimID && s.Status == Activated {
+		if s.Status == Activated && s.ClaimID == c.ClaimID { // TODO: this comparison is hit a lot; byte comparison instead of hex would be faster
 			amt += s.Amount
 		}
 	}
@@ -145,23 +127,12 @@ func (c *Claim) ExpireAt() int32 {
 	return c.AcceptedAt + param.OriginalClaimExpirationTime
 }
 
-func equal(a, b *Claim) bool {
-
-	if a != nil && b != nil {
-		return a.OutPoint == b.OutPoint
-	}
-
-	return a == nil && b == nil
-}
-
 func OutPointLess(a, b wire.OutPoint) bool {
 
 	switch cmp := bytes.Compare(a.Hash[:], b.Hash[:]); {
 	case cmp < 0:
 		return true
 	case cmp > 0:
-		return true
-	case cmp < 0:
 		return false
 	default:
 		return a.Index < b.Index
