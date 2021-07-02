@@ -5,8 +5,6 @@ package node
 import (
 	"math/rand"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestNormalizationICU(t *testing.T) {

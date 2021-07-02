@@ -4,7 +4,8 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcd/claimtrie/temporal"
-	"github.com/stretchr/testify/assert"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestMemory(t *testing.T) {
@@ -16,14 +17,14 @@ func TestMemory(t *testing.T) {
 func TestPebble(t *testing.T) {
 
 	repo, err := NewPebble(t.TempDir())
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 
 	testTemporalRepo(t, repo)
 }
 
 func testTemporalRepo(t *testing.T, repo temporal.Repo) {
+
+	r := require.New(t)
 
 	nameA := []byte("a")
 	nameB := []byte("b")
@@ -41,10 +42,12 @@ func testTemporalRepo(t *testing.T, repo temporal.Repo) {
 	}
 
 	for _, i := range testcases {
-		for _, height := range i.heights {
-			err := repo.SetNodeAt(i.name, height)
-			assert.NoError(t, err)
+		names := make([][]byte, 0, len(i.heights))
+		for range i.heights {
+			names = append(names, i.name)
 		}
+		err := repo.SetNodesAt(names, i.heights)
+		r.NoError(err)
 	}
 
 	// a: 1, 2, 3
@@ -52,26 +55,26 @@ func testTemporalRepo(t *testing.T, repo temporal.Repo) {
 	// c: 4, 3, 8
 
 	names, err := repo.NodesAt(2)
-	assert.NoError(t, err)
-	assert.ElementsMatch(t, [][]byte{nameA}, names)
+	r.NoError(err)
+	r.ElementsMatch([][]byte{nameA}, names)
 
 	names, err = repo.NodesAt(5)
-	assert.NoError(t, err)
-	assert.ElementsMatch(t, [][]byte{nameB}, names)
+	r.NoError(err)
+	r.ElementsMatch([][]byte{nameB}, names)
 
 	names, err = repo.NodesAt(8)
-	assert.NoError(t, err)
-	assert.ElementsMatch(t, [][]byte{nameC}, names)
+	r.NoError(err)
+	r.ElementsMatch([][]byte{nameC}, names)
 
 	names, err = repo.NodesAt(1)
-	assert.NoError(t, err)
-	assert.ElementsMatch(t, [][]byte{nameA, nameB}, names)
+	r.NoError(err)
+	r.ElementsMatch([][]byte{nameA, nameB}, names)
 
 	names, err = repo.NodesAt(4)
-	assert.NoError(t, err)
-	assert.ElementsMatch(t, [][]byte{nameB, nameC}, names)
+	r.NoError(err)
+	r.ElementsMatch([][]byte{nameB, nameC}, names)
 
 	names, err = repo.NodesAt(3)
-	assert.NoError(t, err)
-	assert.ElementsMatch(t, [][]byte{nameA, nameC}, names)
+	r.NoError(err)
+	r.ElementsMatch([][]byte{nameA, nameC}, names)
 }

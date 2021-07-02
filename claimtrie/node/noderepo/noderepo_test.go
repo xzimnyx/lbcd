@@ -6,7 +6,7 @@ import (
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/node"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -16,21 +16,28 @@ var (
 
 func TestPebble(t *testing.T) {
 
+	r := require.New(t)
+
 	repo, err := NewPebble(t.TempDir())
-	if !assert.NoError(t, err) {
-		return
-	}
+	r.NoError(err)
+	defer func() {
+		err := repo.Close()
+		r.NoError(err)
+	}()
 
 	cleanup := func() {
-		lowerBound := append(testNodeName1, byte(0))
-		upperBound := append(testNodeName1, byte(1))
-		repo.db.DeleteRange(lowerBound, upperBound, nil)
+		lowerBound := testNodeName1
+		upperBound := append(testNodeName1, byte(0))
+		err := repo.db.DeleteRange(lowerBound, upperBound, nil)
+		r.NoError(err)
 	}
 
 	testNodeRepo(t, repo, func() {}, cleanup)
 }
 
 func testNodeRepo(t *testing.T, repo node.Repo, setup, cleanup func()) {
+
+	r := require.New(t)
 
 	chg := change.New(change.AddClaim).SetName(testNodeName1).SetOutPoint(opStr1)
 
@@ -82,12 +89,12 @@ func testNodeRepo(t *testing.T, repo node.Repo, setup, cleanup func()) {
 
 		setup()
 
-		err := repo.SaveChanges(tt.changes)
-		assert.NoError(t, err)
+		err := repo.AppendChanges(tt.changes)
+		r.NoError(err)
 
-		changes, err := repo.LoadChanges(testNodeName1, tt.height)
-		assert.NoError(t, err)
-		assert.Equalf(t, tt.expected, changes, tt.name)
+		changes, err := repo.LoadChanges(testNodeName1)
+		r.NoError(err)
+		r.Equalf(tt.expected, changes[:len(tt.expected)], tt.name)
 
 		cleanup()
 	}
@@ -139,14 +146,43 @@ func testNodeRepo(t *testing.T, repo node.Repo, setup, cleanup func()) {
 		setup()
 
 		for _, changes := range tt.changes {
-			err := repo.SaveChanges(changes)
-			assert.NoError(t, err)
+			err := repo.AppendChanges(changes)
+			r.NoError(err)
 		}
 
-		changes, err := repo.LoadChanges(testNodeName1, tt.height)
-		assert.NoError(t, err)
-		assert.Equalf(t, tt.expected, changes, tt.name)
+		changes, err := repo.LoadChanges(testNodeName1)
+		r.NoError(err)
+		r.Equalf(tt.expected, changes[:len(tt.expected)], tt.name)
 
 		cleanup()
 	}
+}
+
+func TestIterator(t *testing.T) {
+
+	r := require.New(t)
+
+	repo, err := NewPebble(t.TempDir())
+	r.NoError(err)
+	defer func() {
+		err := repo.Close()
+		r.NoError(err)
+	}()
+
+	creation := []change.Change{
+		{Name: []byte("test\x00"), Height: 5},
+		{Name: []byte("test\x00\x00"), Height: 5},
+		{Name: []byte("test\x00b"), Height: 5},
+		{Name: []byte("test\x00\xFF"), Height: 5},
+		{Name: []byte("testa"), Height: 5},
+	}
+	err = repo.AppendChanges(creation)
+	r.NoError(err)
+
+	var received []change.Change
+	repo.IterateChildren([]byte{}, func(changes []change.Change) bool {
+		received = append(received, changes...)
+		return true
+	})
+	r.Equal(creation, received)
 }
