@@ -49,12 +49,15 @@ var nodeDumpCmd = &cobra.Command{
 			}
 		}
 
-		changes, err := repo.LoadChanges([]byte(name), int32(height))
+		changes, err := repo.LoadChanges([]byte(name))
 		if err != nil {
 			return fmt.Errorf("load commands: %w", err)
 		}
 
 		for _, chg := range changes {
+			if int(chg.Height) > height {
+				break
+			}
 			showChange(chg)
 		}
 
@@ -83,56 +86,23 @@ var nodeReplayCmd = &cobra.Command{
 			}
 		}
 
-		changes, err := repo.LoadChanges(name, int32(height))
-		if err != nil {
-			return fmt.Errorf("load commands: %w", err)
-		}
-
-		nm, err := node.NewManager(repo)
+		nm, err := node.NewBaseManager(repo)
 		if err != nil {
 			return fmt.Errorf("create node manager: %w", err)
 		}
+		nm = node.NewNormalizingManager(nm)
 
-		adjustNodeTo := func(height int32) error {
-
-			err = nm.IncrementHeightTo(height)
-			if err != nil {
-				return fmt.Errorf("increment height: %w", err)
-			}
-
-			n, err := nm.Node(name)
-			if err != nil {
-				return fmt.Errorf("get node: %w", err)
-			}
-
-			showNode(n)
-
-			return nil
-		}
-
-		for _, chg := range changes {
-
-			if nm.Height()+1 != chg.Height {
-
-				err = adjustNodeTo(chg.Height - 1)
-				if err != nil {
-					return fmt.Errorf("adjust node: %w", err)
-				}
-			}
-
-			showChange(chg)
-
-			err = nm.AppendChange(chg)
-			if err != nil {
-				return fmt.Errorf("append change: %w", err)
-			}
-		}
-
-		err = adjustNodeTo(nm.Height() + 1)
+		_, err = nm.IncrementHeightTo(int32(height))
 		if err != nil {
-			return fmt.Errorf("adjust node: %w", err)
+			return fmt.Errorf("increment height: %w", err)
 		}
 
+		n, err := nm.Node(name)
+		if err != nil || n == nil {
+			return fmt.Errorf("get node: %w", err)
+		}
+
+		showNode(n)
 		return nil
 	},
 }

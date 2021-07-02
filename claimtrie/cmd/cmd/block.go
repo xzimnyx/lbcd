@@ -7,6 +7,8 @@ import (
 
 	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
 	"github.com/btcsuite/btcd/claimtrie/config"
+	"github.com/btcsuite/btcd/claimtrie/merkletrie"
+	"github.com/btcsuite/btcd/claimtrie/merkletrie/merkletrierepo"
 	"github.com/btcsuite/btcd/claimtrie/param"
 	"github.com/btcsuite/btcd/wire"
 
@@ -23,6 +25,7 @@ func init() {
 
 	blockCmd.AddCommand(blockLastCmd)
 	blockCmd.AddCommand(blockListCmd)
+	blockCmd.AddCommand(blockNameCmd)
 }
 
 var blockCmd = &cobra.Command{
@@ -96,6 +99,51 @@ var blockListCmd = &cobra.Command{
 			}
 			fmt.Printf("blk %-7d: %s\n", i, hash.String())
 		}
+
+		return nil
+	},
+}
+
+var blockNameCmd = &cobra.Command{
+	Use:   "vertex <height> <name>",
+	Short: "List the claim and child hashes at vertex name of block at height",
+	Args:  cobra.RangeArgs(2, 2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+
+		repo, err := blockrepo.NewPebble(localConfig.BlockRepoPebble.Path)
+		if err != nil {
+			return fmt.Errorf("can't open reported block repo: %w", err)
+		}
+		defer repo.Close()
+
+		height, err := strconv.Atoi(args[0])
+		if err != nil {
+			return fmt.Errorf("invalid args")
+		}
+
+		last, err := repo.Load()
+		if err != nil {
+			return fmt.Errorf("load previous height: %w", err)
+		}
+
+		if last < int32(height) {
+			return fmt.Errorf("requested height is unavailable")
+		}
+
+		hash, err := repo.Get(int32(height))
+		if err != nil {
+			return fmt.Errorf("load previous height: %w", err)
+		}
+
+		trieRepo, err := merkletrierepo.NewPebble(localConfig.MerkleTrieRepoPebble.Path)
+		if err != nil {
+			return fmt.Errorf("can't open merkle trie repo: %w", err)
+		}
+
+		trie := merkletrie.New(nil, trieRepo)
+		defer trie.Close()
+		trie.SetRoot(hash)
+		trie.Dump(args[1], param.AllClaimsInMerkleForkHeight >= int32(height))
 
 		return nil
 	},
