@@ -15,7 +15,7 @@ type Change struct {
 	Height int32
 
 	Name     []byte
-	ClaimID  string
+	ClaimID  string // TODO: can we store this and OutPoint as bytes?
 	OutPoint string
 	Amount   int64
 	Value    []byte
