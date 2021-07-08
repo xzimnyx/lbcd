@@ -285,6 +285,7 @@ var MainNetParams = Params{
 	// Checkpoints ordered from oldest to newest.
 	Checkpoints: []Checkpoint{
 		// {4000, newHashFromStr("a6bbb48f5343eb9b0287c22f3ea8b29f36cf10794a37f8a925a894d6f4519913")},
+		{946000, newHashFromStr("0d3b537afe49820e1c6efc555463f955251b1293c6e5130137e1e25744431172")},
 	},
 
 	// Consensus rule change deployments.
