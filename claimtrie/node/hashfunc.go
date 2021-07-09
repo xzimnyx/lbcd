@@ -1,8 +1,8 @@
-package merkletrie
+package node
 
 import "github.com/btcsuite/btcd/chaincfg/chainhash"
 
-func hashMerkleBranches(left *chainhash.Hash, right *chainhash.Hash) *chainhash.Hash {
+func HashMerkleBranches(left *chainhash.Hash, right *chainhash.Hash) *chainhash.Hash {
 	// Concatenate the left and right nodes.
 	var hash [chainhash.HashSize * 2]byte
 	copy(hash[:chainhash.HashSize], left[:])
@@ -12,7 +12,7 @@ func hashMerkleBranches(left *chainhash.Hash, right *chainhash.Hash) *chainhash.
 	return &newHash
 }
 
-func computeMerkleRoot(hashes []*chainhash.Hash) *chainhash.Hash {
+func ComputeMerkleRoot(hashes []*chainhash.Hash) *chainhash.Hash {
 	if len(hashes) <= 0 {
 		return nil
 	}
@@ -21,7 +21,7 @@ func computeMerkleRoot(hashes []*chainhash.Hash) *chainhash.Hash {
 			hashes = append(hashes, hashes[len(hashes)-1])
 		}
 		for i := 0; i < len(hashes); i += 2 { // TODO: parallelize this loop (or use a lib that does it)
-			hashes[i>>1] = hashMerkleBranches(hashes[i], hashes[i+1])
+			hashes[i>>1] = HashMerkleBranches(hashes[i], hashes[i+1])
 		}
 		hashes = hashes[:len(hashes)>>1]
 	}

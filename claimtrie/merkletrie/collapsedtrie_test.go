@@ -9,10 +9,10 @@ import (
 )
 
 func b(value string) []byte      { return []byte(value) }
-func eq(x []byte, y string) bool { return bytes.Compare(x, b(y)) == 0 }
+func eq(x []byte, y string) bool { return bytes.Equal(x, b(y)) }
 
 func TestInsertAndErase(t *testing.T) {
-	trie := NewPrefixTrie()
+	trie := NewCollapsedTrie()
 	assert.True(t, trie.NodeCount() == 1)
 	inserted, node := trie.InsertOrFind(b("abc"))
 	assert.True(t, inserted)
@@ -45,8 +45,28 @@ func TestInsertAndErase(t *testing.T) {
 	assert.Equal(t, 1, trie.NodeCount())
 }
 
-func TestPrefixTrie(t *testing.T) {
-	inserts := 1000000
+func TestNilNameHandling(t *testing.T) {
+	trie := NewCollapsedTrie()
+	inserted, n := trie.InsertOrFind([]byte("test"))
+	assert.True(t, inserted)
+	n.claimHash = EmptyTrieHash
+	inserted, n = trie.InsertOrFind(nil)
+	assert.False(t, inserted)
+	n.claimHash = EmptyTrieHash
+	n.merkleHash = EmptyTrieHash
+	inserted, n = trie.InsertOrFind(nil)
+	assert.False(t, inserted)
+	assert.NotNil(t, n.claimHash)
+	assert.Nil(t, n.merkleHash)
+	nodeRemoved := trie.Erase(nil)
+	assert.False(t, nodeRemoved)
+	inserted, n = trie.InsertOrFind(nil)
+	assert.False(t, inserted)
+	assert.Nil(t, n.claimHash)
+}
+
+func TestCollapsedTriePerformance(t *testing.T) {
+	inserts := 10000 // increase this to 1M for more interesting results
 	data := make([][]byte, inserts)
 	rand.Seed(42)
 	for i := 0; i < inserts; i++ {
@@ -58,21 +78,21 @@ func TestPrefixTrie(t *testing.T) {
 		}
 	}
 
-	trie := NewPrefixTrie()
+	trie := NewCollapsedTrie()
 	// doing my own timing because I couldn't get the B.Run method to work:
 	start := time.Now()
 	for i := 0; i < inserts; i++ {
 		_, node := trie.InsertOrFind(data[i])
 		assert.NotNil(t, node, "Failure at %d of %d", i, inserts)
 	}
-	t.Logf("Insertion in %f sec.", time.Now().Sub(start).Seconds())
+	t.Logf("Insertion in %f sec.", time.Since(start).Seconds())
 
 	start = time.Now()
 	for i := 0; i < inserts; i++ {
 		node := trie.Find(data[i])
 		assert.True(t, bytes.HasSuffix(data[i], node.key), "Failure on %d of %d", i, inserts)
 	}
-	t.Logf("Lookup in %f sec. on %d nodes.", time.Now().Sub(start).Seconds(), trie.NodeCount())
+	t.Logf("Lookup in %f sec. on %d nodes.", time.Since(start).Seconds(), trie.NodeCount())
 
 	start = time.Now()
 	for i := 0; i < inserts; i++ {
@@ -81,12 +101,12 @@ func TestPrefixTrie(t *testing.T) {
 		assert.True(t, len(path) > 1)
 		assert.True(t, bytes.HasSuffix(data[i], path[len(path)-1].key))
 	}
-	t.Logf("Parents in %f sec.", time.Now().Sub(start).Seconds())
+	t.Logf("Parents in %f sec.", time.Since(start).Seconds())
 
 	start = time.Now()
 	for i := 0; i < inserts; i++ {
 		trie.Erase(data[i])
 	}
-	t.Logf("Deletion in %f sec.", time.Now().Sub(start).Seconds())
+	t.Logf("Deletion in %f sec.", time.Since(start).Seconds())
 	assert.Equal(t, 1, trie.NodeCount())
 }

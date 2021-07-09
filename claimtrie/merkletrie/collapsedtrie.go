@@ -1,21 +1,21 @@
 package merkletrie
 
 import (
-	"github.com/lbryio/chain/chaincfg/chainhash"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
 
 type KeyType []byte
 
-type PrefixTrieNode struct { // implements sort.Interface
-	children  []*PrefixTrieNode
-	key       KeyType
-	hash      *chainhash.Hash
-	hasClaims bool
+type collapsedVertex struct { // implements sort.Interface
+	children   []*collapsedVertex
+	key        KeyType
+	merkleHash *chainhash.Hash
+	claimHash  *chainhash.Hash
 }
 
 // insertAt inserts v into s at index i and returns the new slice.
 // https://stackoverflow.com/questions/42746972/golang-insert-to-a-sorted-slice
-func insertAt(data []*PrefixTrieNode, i int, v *PrefixTrieNode) []*PrefixTrieNode {
+func insertAt(data []*collapsedVertex, i int, v *collapsedVertex) []*collapsedVertex {
 	if i == len(data) {
 		// Insert at end is the easy case.
 		return append(data, v)
@@ -30,7 +30,7 @@ func insertAt(data []*PrefixTrieNode, i int, v *PrefixTrieNode) []*PrefixTrieNod
 	return data
 }
 
-func (ptn *PrefixTrieNode) Insert(value *PrefixTrieNode) *PrefixTrieNode {
+func (ptn *collapsedVertex) Insert(value *collapsedVertex) *collapsedVertex {
 	// keep it sorted (and sort.Sort is too slow)
 	index := sortSearch(ptn.children, value.key[0])
 	ptn.children = insertAt(ptn.children, index, value)
@@ -40,7 +40,7 @@ func (ptn *PrefixTrieNode) Insert(value *PrefixTrieNode) *PrefixTrieNode {
 
 // this sort.Search is stolen shamelessly from search.go,
 // and modified for performance to not need a closure
-func sortSearch(nodes []*PrefixTrieNode, b byte) int {
+func sortSearch(nodes []*collapsedVertex, b byte) int {
 	i, j := 0, len(nodes)
 	for i < j {
 		h := int(uint(i+j) >> 1) // avoid overflow when computing h
@@ -55,9 +55,9 @@ func sortSearch(nodes []*PrefixTrieNode, b byte) int {
 	return i
 }
 
-func (ptn *PrefixTrieNode) FindNearest(start KeyType) (int, *PrefixTrieNode) {
+func (ptn *collapsedVertex) findNearest(key KeyType) (int, *collapsedVertex) {
 	// none of the children overlap on the first char or we would have a parent node with that char
-	index := sortSearch(ptn.children, start[0])
+	index := sortSearch(ptn.children, key[0])
 	hits := ptn.children[index:]
 	if len(hits) > 0 {
 		return index, hits[0]
@@ -65,26 +65,17 @@ func (ptn *PrefixTrieNode) FindNearest(start KeyType) (int, *PrefixTrieNode) {
 	return -1, nil
 }
 
-type PrefixTrie interface {
-	InsertOrFind(value KeyType) (bool, *PrefixTrieNode)
-	Find(value KeyType) *PrefixTrieNode
-	FindPath(value KeyType) ([]int, []*PrefixTrieNode)
-	IterateFrom(start KeyType, handler func(value *PrefixTrieNode) bool)
-	Erase(value KeyType) bool
-	NodeCount() int
-}
-
-type prefixTrie struct {
-	root  *PrefixTrieNode
+type collapsedTrie struct {
+	Root  *collapsedVertex
 	Nodes int
 }
 
-func NewPrefixTrie() PrefixTrie {
-	// we never delete the root node
-	return &prefixTrie{root: &PrefixTrieNode{key: make(KeyType, 0)}, Nodes: 1}
+func NewCollapsedTrie() *collapsedTrie {
+	// we never delete the Root node
+	return &collapsedTrie{Root: &collapsedVertex{key: make(KeyType, 0)}, Nodes: 1}
 }
 
-func (pt *prefixTrie) NodeCount() int {
+func (pt *collapsedTrie) NodeCount() int {
 	return pt.Nodes
 }
 
@@ -101,10 +92,11 @@ func matchLength(a, b KeyType) int {
 	return minLen
 }
 
-func (pt *prefixTrie) insert(value KeyType, node *PrefixTrieNode) (bool, *PrefixTrieNode) {
-	index, child := node.FindNearest(value)
+func (pt *collapsedTrie) insert(value KeyType, node *collapsedVertex) (bool, *collapsedVertex) {
+	index, child := node.findNearest(value)
 	match := 0
 	if index >= 0 { // if we found a child
+		child.merkleHash = nil
 		match = matchLength(value, child.key)
 		if len(value) == match && len(child.key) == match {
 			return false, child
@@ -112,12 +104,12 @@ func (pt *prefixTrie) insert(value KeyType, node *PrefixTrieNode) (bool, *Prefix
 	}
 	if match <= 0 {
 		pt.Nodes++
-		return true, node.Insert(&PrefixTrieNode{key: value})
+		return true, node.Insert(&collapsedVertex{key: value})
 	}
 	if match < len(child.key) {
-		grandChild := PrefixTrieNode{key: child.key[match:], children: child.children,
-			hasClaims: child.hasClaims, hash: child.hash}
-		newChild := PrefixTrieNode{key: child.key[0:match], children: []*PrefixTrieNode{&grandChild}}
+		grandChild := collapsedVertex{key: child.key[match:], children: child.children,
+			claimHash: child.claimHash, merkleHash: child.merkleHash}
+		newChild := collapsedVertex{key: child.key[0:match], children: []*collapsedVertex{&grandChild}}
 		child = &newChild
 		node.children[index] = child
 		pt.Nodes++
@@ -128,15 +120,21 @@ func (pt *prefixTrie) insert(value KeyType, node *PrefixTrieNode) (bool, *Prefix
 	return pt.insert(value[match:], child)
 }
 
-func (pt *prefixTrie) InsertOrFind(value KeyType) (bool, *PrefixTrieNode) {
+func (pt *collapsedTrie) InsertOrFind(value KeyType) (bool, *collapsedVertex) {
+	pt.Root.merkleHash = nil
 	if len(value) <= 0 {
-		return false, pt.root
+		return false, pt.Root
 	}
-	return pt.insert(value, pt.root)
+
+	// we store the name so we need to make our own copy of it
+	// this avoids errors where this function is called via the DB iterator
+	v2 := make([]byte, len(value))
+	copy(v2, value)
+	return pt.insert(v2, pt.Root)
 }
 
-func find(value KeyType, node *PrefixTrieNode, pathIndexes *[]int, path *[]*PrefixTrieNode) *PrefixTrieNode {
-	index, child := node.FindNearest(value)
+func find(value KeyType, node *collapsedVertex, pathIndexes *[]int, path *[]*collapsedVertex) *collapsedVertex {
+	index, child := node.findNearest(value)
 	if index < 0 {
 		return nil
 	}
@@ -162,34 +160,36 @@ func find(value KeyType, node *PrefixTrieNode, pathIndexes *[]int, path *[]*Pref
 	return find(value[match:], child, pathIndexes, path)
 }
 
-func (pt *prefixTrie) Find(value KeyType) *PrefixTrieNode {
+func (pt *collapsedTrie) Find(value KeyType) *collapsedVertex {
 	if len(value) <= 0 {
-		return pt.root
+		return pt.Root
 	}
-	return find(value, pt.root, nil, nil)
+	return find(value, pt.Root, nil, nil)
 }
 
-func (pt *prefixTrie) FindPath(value KeyType) ([]int, []*PrefixTrieNode) {
+func (pt *collapsedTrie) FindPath(value KeyType) ([]int, []*collapsedVertex) {
 	pathIndexes := []int{-1}
-	path := []*PrefixTrieNode{pt.root}
-	result := find(value, pt.root, &pathIndexes, &path)
-	if result == nil {
-		return nil, nil
-	} // not sure I want this line
+	path := []*collapsedVertex{pt.Root}
+	if len(value) > 0 {
+		result := find(value, pt.Root, &pathIndexes, &path)
+		if result == nil { // not sure I want this line
+			return nil, nil
+		}
+	}
 	return pathIndexes, path
 }
 
 // IterateFrom can be used to find a value and run a function on that value.
 // If the handler returns true it continues to iterate through the children of value.
-func (pt *prefixTrie) IterateFrom(start KeyType, handler func(value *PrefixTrieNode) bool) {
-	node := find(start, pt.root, nil, nil)
+func (pt *collapsedTrie) IterateFrom(start KeyType, handler func(value *collapsedVertex) bool) {
+	node := find(start, pt.Root, nil, nil)
 	if node == nil {
 		return
 	}
 	iterateFrom(node, handler)
 }
 
-func iterateFrom(node *PrefixTrieNode, handler func(value *PrefixTrieNode) bool) {
+func iterateFrom(node *collapsedVertex, handler func(value *collapsedVertex) bool) {
 	for handler(node) {
 		for _, child := range node.children {
 			iterateFrom(child, handler)
@@ -197,19 +197,25 @@ func iterateFrom(node *PrefixTrieNode, handler func(value *PrefixTrieNode) bool)
 	}
 }
 
-func (pt *prefixTrie) Erase(value KeyType) bool {
+func (pt *collapsedTrie) Erase(value KeyType) bool {
 	indexes, path := pt.FindPath(value)
 	if path == nil || len(path) <= 1 {
+		if len(path) == 1 {
+			path[0].merkleHash = nil
+			path[0].claimHash = nil
+		}
 		return false
 	}
 	nodes := pt.Nodes
-	for i := len(path) - 1; i > 0; i-- {
+	i := len(path) - 1
+	path[i].claimHash = nil // this is the thing we are erasing; the rest is book-keeping
+	for ; i > 0; i-- {
 		childCount := len(path[i].children)
-		noClaimData := !path[i].hasClaims
+		noClaimData := path[i].claimHash == nil
+		path[i].merkleHash = nil
 		if childCount == 1 && noClaimData {
 			path[i].key = append(path[i].key, path[i].children[0].key...)
-			path[i].hash = nil
-			path[i].hasClaims = path[i].children[0].hasClaims
+			path[i].claimHash = path[i].children[0].claimHash
 			path[i].children = path[i].children[0].children
 			pt.Nodes--
 			continue
@@ -221,6 +227,9 @@ func (pt *prefixTrie) Erase(value KeyType) bool {
 			continue
 		}
 		break
+	}
+	for ; i >= 0; i-- {
+		path[i].merkleHash = nil
 	}
 	return nodes > pt.Nodes
 }

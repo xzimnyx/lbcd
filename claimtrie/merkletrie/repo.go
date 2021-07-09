@@ -4,7 +4,7 @@ import (
 	"io"
 )
 
-// Repo defines APIs for MerkleTrie to access persistence layer.
+// Repo defines APIs for PersistentTrie to access persistence layer.
 type Repo interface {
 	Get(key []byte) ([]byte, io.Closer, error)
 	Set(key, value []byte) error

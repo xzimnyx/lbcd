@@ -46,7 +46,7 @@ type ClaimTrie struct {
 	nodeManager node.Manager
 
 	// Prefix tree (trie) that manages merkle hash of each node.
-	merkleTrie *merkletrie.MerkleTrie
+	merkleTrie merkletrie.MerkleTrie
 
 	// Current block height, which is increased by one when AppendBlock() is called.
 	height int32
@@ -99,6 +99,11 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 	trie := merkletrie.New(nodeManager, trieRepo)
 	cleanups = append(cleanups, trie.Close)
 
+		persistentTrie := merkletrie.NewPersistentTrie(nodeManager, trieRepo)
+		cleanups = append(cleanups, persistentTrie.Close)
+		trie = persistentTrie
+	}
+
 	// Restore the last height.
 	previousHeight, err := blockRepo.Load()
 	if err != nil {
@@ -110,12 +115,11 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 		if err != nil {
 			return nil, fmt.Errorf("get hash: %w", err)
 		}
-		trie.SetRoot(hash)
-
 		_, err = nodeManager.IncrementHeightTo(previousHeight)
 		if err != nil {
 			return nil, fmt.Errorf("node manager init: %w", err)
 		}
+		trie.SetRoot(hash, nil) // keep this after IncrementHeightTo
 	}
 
 	ct := &ClaimTrie{
@@ -275,7 +279,7 @@ func (ct *ClaimTrie) AppendBlock() error {
 	ct.blockRepo.Set(ct.height, h)
 
 	if hitFork {
-		ct.merkleTrie.SetRoot(h) // for clearing the memory entirely
+		ct.merkleTrie.SetRoot(h, names) // for clearing the memory entirely
 		runtime.GC()
 	}
 
@@ -337,12 +341,21 @@ func (ct *ClaimTrie) ResetHeight(height int32) error {
 		return err
 	}
 
+	passedHashFork := ct.height >= param.AllClaimsInMerkleForkHeight && height < param.AllClaimsInMerkleForkHeight
 	ct.height = height
 	hash, err := ct.blockRepo.Get(height)
 	if err != nil {
 		return err
 	}
-	ct.merkleTrie.SetRoot(hash)
+
+	if passedHashFork {
+		names = nil // force them to reconsider all names
+	}
+	ct.merkleTrie.SetRoot(hash, names)
+
+	if !ct.MerkleHash().IsEqual(hash) {
+		return fmt.Errorf("unable to restore the hash at height %d", height)
+	}
 	return nil
 }
 

@@ -135,9 +135,9 @@ var blockNameCmd = &cobra.Command{
 			return fmt.Errorf("can't open merkle trie repo: %w", err)
 		}
 
-		trie := merkletrie.New(nil, trieRepo)
+		trie := merkletrie.NewPersistentTrie(nil, trieRepo)
 		defer trie.Close()
-		trie.SetRoot(hash)
+		trie.SetRoot(hash, nil)
 		if len(args) > 1 {
 			trie.Dump(args[1], param.AllClaimsInMerkleForkHeight >= int32(height))
 		} else {

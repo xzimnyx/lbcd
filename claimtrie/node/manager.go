@@ -21,7 +21,6 @@ type Manager interface {
 	Node(name []byte) (*Node, error)
 	NextUpdateHeightOfNode(name []byte) ([]byte, int32)
 	IterateNames(predicate func(name []byte) bool)
-	ClaimHashes(name []byte) []*chainhash.Hash
 	Hash(name []byte) *chainhash.Hash
 }
 
@@ -295,7 +294,7 @@ func (nm *BaseManager) IterateNames(predicate func(name []byte) bool) {
 	nm.repo.IterateAll(predicate)
 }
 
-func (nm *BaseManager) ClaimHashes(name []byte) []*chainhash.Hash {
+func (nm *BaseManager) claimHashes(name []byte) *chainhash.Hash {
 
 	n, err := nm.Node(name)
 	if err != nil || n == nil {
@@ -308,10 +307,17 @@ func (nm *BaseManager) ClaimHashes(name []byte) []*chainhash.Hash {
 			claimHashes = append(claimHashes, calculateNodeHash(c.OutPoint, n.TakenOverAt))
 		}
 	}
-	return claimHashes
+	if len(claimHashes) > 0 {
+		return ComputeMerkleRoot(claimHashes)
+	}
+	return nil
 }
 
 func (nm *BaseManager) Hash(name []byte) *chainhash.Hash {
+
+	if nm.height >= param.AllClaimsInMerkleForkHeight {
+		return nm.claimHashes(name)
+	}
 
 	n, err := nm.Node(name)
 	if err != nil {

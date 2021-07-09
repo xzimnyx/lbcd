@@ -7,25 +7,27 @@ import (
 	"sync"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/btcsuite/btcd/claimtrie/node"
+
 	"github.com/cockroachdb/pebble"
 )
 
 var (
-	// EmptyTrieHash represents the Merkle Hash of an empty MerkleTrie.
+	// EmptyTrieHash represents the Merkle Hash of an empty PersistentTrie.
 	// "0000000000000000000000000000000000000000000000000000000000000001"
 	EmptyTrieHash  = &chainhash.Hash{1}
 	NoChildrenHash = &chainhash.Hash{2}
 	NoClaimsHash   = &chainhash.Hash{3}
 )
 
-// ValueStore enables MerkleTrie to query node values from different implementations.
+// ValueStore enables PersistentTrie to query node values from different implementations.
 type ValueStore interface {
-	ClaimHashes(name []byte) []*chainhash.Hash
 	Hash(name []byte) *chainhash.Hash
+	IterateNames(predicate func(name []byte) bool)
 }
 
-// MerkleTrie implements a 256-way prefix tree.
-type MerkleTrie struct {
+// PersistentTrie implements a 256-way prefix tree.
+type PersistentTrie struct {
 	store ValueStore
 	repo  Repo
 
@@ -33,10 +35,10 @@ type MerkleTrie struct {
 	bufs *sync.Pool
 }
 
-// New returns a MerkleTrie.
-func New(store ValueStore, repo Repo) *MerkleTrie {
+// NewPersistentTrie returns a PersistentTrie.
+func NewPersistentTrie(store ValueStore, repo Repo) *PersistentTrie {
 
-	tr := &MerkleTrie{
+	tr := &PersistentTrie{
 		store: store,
 		repo:  repo,
 		bufs: &sync.Pool{
@@ -50,14 +52,14 @@ func New(store ValueStore, repo Repo) *MerkleTrie {
 	return tr
 }
 
-// SetRoot drops all resolved nodes in the MerkleTrie, and set the root with specified hash.
-func (t *MerkleTrie) SetRoot(h *chainhash.Hash) {
+// SetRoot drops all resolved nodes in the PersistentTrie, and set the Root with specified hash.
+func (t *PersistentTrie) SetRoot(h *chainhash.Hash, names [][]byte) {
 	t.root = newVertex(h)
 }
 
 // Update updates the nodes along the path to the key.
 // Each node is resolved or created with their Hash cleared.
-func (t *MerkleTrie) Update(name []byte, restoreChildren bool) {
+func (t *PersistentTrie) Update(name []byte, restoreChildren bool) {
 
 	n := t.root
 	for i, ch := range name {
@@ -80,7 +82,7 @@ func (t *MerkleTrie) Update(name []byte, restoreChildren bool) {
 }
 
 // resolveChildLinks updates the links on n
-func (t *MerkleTrie) resolveChildLinks(n *vertex, key []byte) {
+func (t *PersistentTrie) resolveChildLinks(n *vertex, key []byte) {
 
 	if n.merkleHash == nil {
 		return
@@ -108,9 +110,9 @@ func (t *MerkleTrie) resolveChildLinks(n *vertex, key []byte) {
 	}
 }
 
-// MerkleHash returns the Merkle Hash of the MerkleTrie.
+// MerkleHash returns the Merkle Hash of the PersistentTrie.
 // All nodes must have been resolved before calling this function.
-func (t *MerkleTrie) MerkleHash() *chainhash.Hash {
+func (t *PersistentTrie) MerkleHash() *chainhash.Hash {
 	buf := make([]byte, 0, 256)
 	if h := t.merkle(buf, t.root); h == nil {
 		return EmptyTrieHash
@@ -120,7 +122,7 @@ func (t *MerkleTrie) MerkleHash() *chainhash.Hash {
 
 // merkle recursively resolves the hashes of the node.
 // All nodes must have been resolved before calling this function.
-func (t *MerkleTrie) merkle(prefix []byte, v *vertex) *chainhash.Hash {
+func (t *PersistentTrie) merkle(prefix []byte, v *vertex) *chainhash.Hash {
 	if v.merkleHash != nil {
 		return v.merkleHash
 	}
@@ -178,7 +180,7 @@ func keysInOrder(v *vertex) []byte {
 	return keys
 }
 
-func (t *MerkleTrie) MerkleHashAllClaims() *chainhash.Hash {
+func (t *PersistentTrie) MerkleHashAllClaims() *chainhash.Hash {
 	buf := make([]byte, 0, 256)
 	if h := t.merkleAllClaims(buf, t.root); h == nil {
 		return EmptyTrieHash
@@ -186,7 +188,7 @@ func (t *MerkleTrie) MerkleHashAllClaims() *chainhash.Hash {
 	return t.root.merkleHash
 }
 
-func (t *MerkleTrie) merkleAllClaims(prefix []byte, v *vertex) *chainhash.Hash {
+func (t *PersistentTrie) merkleAllClaims(prefix []byte, v *vertex) *chainhash.Hash {
 	if v.merkleHash != nil {
 		return v.merkleHash
 	}
@@ -213,32 +215,25 @@ func (t *MerkleTrie) merkleAllClaims(prefix []byte, v *vertex) *chainhash.Hash {
 		}
 	}
 
-	var claimsHash *chainhash.Hash
 	if v.hasValue {
-		claimsHash = v.claimsHash
-		if claimsHash == nil {
-			claimHashes := t.store.ClaimHashes(prefix)
-			if len(claimHashes) > 0 {
-				claimsHash = computeMerkleRoot(claimHashes)
-				v.claimsHash = claimsHash
-			} else {
-				v.hasValue = false
-			}
+		if v.claimsHash == nil {
+			v.claimsHash = t.store.Hash(prefix)
+			v.hasValue = v.claimsHash != nil
 		}
 	}
 
-	if len(childHashes) > 1 || claimsHash != nil { // yeah, about that 1 there -- old code used the condensed trie
+	if len(childHashes) > 1 || v.claimsHash != nil { // yeah, about that 1 there -- old code used the condensed trie
 		left := NoChildrenHash
 		if len(childHashes) > 0 {
-			left = computeMerkleRoot(childHashes)
+			left = node.ComputeMerkleRoot(childHashes)
 		}
 		right := NoClaimsHash
-		if claimsHash != nil {
-			b.Write(claimsHash[:]) // for Has Value, nolint : errchk
-			right = claimsHash
+		if v.claimsHash != nil {
+			b.Write(v.claimsHash[:]) // for Has Value, nolint : errchk
+			right = v.claimsHash
 		}
 
-		h := hashMerkleBranches(left, right)
+		h := node.HashMerkleBranches(left, right)
 		v.merkleHash = h
 		t.repo.Set(append(prefix, h[:]...), b.Bytes())
 	} else if len(childHashes) == 1 {
@@ -249,11 +244,11 @@ func (t *MerkleTrie) merkleAllClaims(prefix []byte, v *vertex) *chainhash.Hash {
 	return v.merkleHash
 }
 
-func (t *MerkleTrie) Close() error {
+func (t *PersistentTrie) Close() error {
 	return t.repo.Close()
 }
 
-func (t *MerkleTrie) Dump(s string, allClaims bool) {
+func (t *PersistentTrie) Dump(s string, allClaims bool) {
 	v := t.root
 
 	for i := 0; i < len(s); i++ {
