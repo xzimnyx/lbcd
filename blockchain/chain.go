@@ -1814,7 +1814,7 @@ func New(config *Config) (*BlockChain, error) {
 		return nil, err
 	}
 
-	ct, err := claimtrie.New()
+	ct, err := claimtrie.New(true)
 	if err != nil {
 		return nil, err
 	}

@@ -6,9 +6,10 @@ import (
 	"runtime"
 	"sort"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/claimtrie/block"
 	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
+	"github.com/btcsuite/btcd/claimtrie/chain"
+	"github.com/btcsuite/btcd/claimtrie/chain/chainrepo"
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/merkletrie"
@@ -18,6 +19,8 @@ import (
 	"github.com/btcsuite/btcd/claimtrie/param"
 	"github.com/btcsuite/btcd/claimtrie/temporal"
 	"github.com/btcsuite/btcd/claimtrie/temporal/temporalrepo"
+
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 )
 
@@ -26,6 +29,9 @@ type ClaimTrie struct {
 
 	// Repository for reported block hashes (debugging purpose).
 	reportedBlockRepo block.Repo
+
+	// Repository for raw changes recieved from chain.
+	chainRepo chain.Repo
 
 	// Repository for calculated block hashes.
 	blockRepo block.Repo
@@ -46,13 +52,13 @@ type ClaimTrie struct {
 
 	// Write buffer for batching changes written to repo.
 	// flushed before block is appended.
-	// changes []change.Change
+	changes []change.Change
 
 	// Registrered cleanup functions which are invoked in the Close() in reverse order.
 	cleanups []func() error
 }
 
-func New() (*ClaimTrie, error) {
+func New(record bool) (*ClaimTrie, error) {
 
 	cfg := config.GenerateConfig(param.ClaimtrieDataFolder)
 	var cleanups []func() error
@@ -126,11 +132,24 @@ func New() (*ClaimTrie, error) {
 		merkleTrie:  trie,
 
 		height: previousHeight,
-
-		reportedBlockRepo: reportedBlockRepo,
-
-		cleanups: cleanups,
 	}
+
+	if record {
+		chainRepo, err := chainrepo.NewPebble(cfg.ChainRepoPebble.Path)
+		if err != nil {
+			return nil, fmt.Errorf("new change change repo: %w", err)
+		}
+		cleanups = append(cleanups, chainRepo.Close)
+		ct.chainRepo = chainRepo
+
+		reportedBlockRepo, err := blockrepo.NewPebble(cfg.ReportedBlockRepoPebble.Path)
+		if err != nil {
+			return nil, fmt.Errorf("new reported block repo: %w", err)
+		}
+		cleanups = append(cleanups, reportedBlockRepo.Close)
+		ct.reportedBlockRepo = reportedBlockRepo
+	}
+	ct.cleanups = cleanups
 
 	return ct, nil
 }
@@ -210,6 +229,15 @@ func (ct *ClaimTrie) SpendSupport(name []byte, op wire.OutPoint, id node.ClaimID
 func (ct *ClaimTrie) AppendBlock() error {
 
 	ct.height++
+
+	if len(ct.changes) > 0 && ct.chainRepo != nil {
+		err := ct.chainRepo.Save(ct.height, ct.changes)
+		if err != nil {
+			return fmt.Errorf("chain change repo save: %w", err)
+		}
+		ct.changes = ct.changes[:0]
+	}
+
 	names, err := ct.nodeManager.IncrementHeightTo(ct.height)
 	if err != nil {
 		return fmt.Errorf("node mgr increment: %w", err)
@@ -348,7 +376,6 @@ func (ct *ClaimTrie) Close() error {
 			return fmt.Errorf("cleanup: %w", err)
 		}
 	}
-	ct.cleanups = nil
 
 	return nil
 }
@@ -362,7 +389,7 @@ func (ct *ClaimTrie) forwardNodeChange(chg change.Change) error {
 		return fmt.Errorf("node manager handle change: %w", err)
 	}
 
-	//ct.changes = append(ct.changes, chg)
+	ct.changes = append(ct.changes, chg)
 
 	return nil
 }

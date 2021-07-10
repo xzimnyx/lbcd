@@ -3,10 +3,11 @@ package claimtrie
 import (
 	"testing"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/claimtrie/merkletrie"
 	"github.com/btcsuite/btcd/claimtrie/node"
 	"github.com/btcsuite/btcd/claimtrie/param"
+
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 
 	"github.com/stretchr/testify/require"
@@ -34,7 +35,7 @@ func TestFixedHashes(t *testing.T) {
 	r := require.New(t)
 
 	setup(t)
-	ct, err := New()
+	ct, err := New(false)
 	r.NoError(err)
 	defer func() {
 		err = ct.Close()
@@ -74,7 +75,7 @@ func TestNormalizationFork(t *testing.T) {
 
 	setup(t)
 	param.NormalizedNameForkHeight = 2
-	ct, err := New()
+	ct, err := New(false)
 	r.NoError(err)
 	r.NotNil(ct)
 	defer func() {
@@ -138,7 +139,7 @@ func TestActivationsOnNormalizationFork(t *testing.T) {
 
 	setup(t)
 	param.NormalizedNameForkHeight = 4
-	ct, err := New()
+	ct, err := New(false)
 	r.NoError(err)
 	r.NotNil(ct)
 	defer func() {
@@ -184,7 +185,7 @@ func TestNormalizationSortOrder(t *testing.T) {
 	// alas, it's now part of our history; we hereby test it to keep it that way
 	setup(t)
 	param.NormalizedNameForkHeight = 2
-	ct, err := New()
+	ct, err := New(false)
 	r.NoError(err)
 	r.NotNil(ct)
 	defer func() {

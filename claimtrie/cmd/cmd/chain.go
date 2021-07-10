@@ -110,8 +110,7 @@ var chainReplayCmd = &cobra.Command{
 			return fmt.Errorf("open block repo: %w", err)
 		}
 
-		// FIXME: pass record flag into claimtrie
-		ct, err := claimtrie.New()
+		ct, err := claimtrie.New(false)
 		if err != nil {
 			return fmt.Errorf("create claimtrie: %w", err)
 		}

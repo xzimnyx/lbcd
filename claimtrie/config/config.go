@@ -18,6 +18,9 @@ func GenerateConfig(folder string) *DBConfig {
 		MerkleTrieRepoPebble: pebbleConfig{
 			Path: filepath.Join(folder, "merkletrie_pebble_db"),
 		},
+		ChainRepoPebble: pebbleConfig{
+			Path: filepath.Join(folder, "chain_pebble_db"),
+		},
 		ReportedBlockRepoPebble: pebbleConfig{
 			Path: filepath.Join(folder, "reported_blocks_pebble_db"),
 		},
