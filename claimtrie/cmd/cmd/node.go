@@ -5,18 +5,13 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/node"
 	"github.com/btcsuite/btcd/claimtrie/node/noderepo"
-	"github.com/btcsuite/btcd/claimtrie/param"
-	"github.com/btcsuite/btcd/wire"
 
 	"github.com/spf13/cobra"
 )
 
 func init() {
-	param.SetNetwork(wire.MainNet, "mainnet")
-	localConfig = config.GenerateConfig(param.ClaimtrieDataFolder)
 	rootCmd.AddCommand(nodeCmd)
 
 	nodeCmd.AddCommand(nodeDumpCmd)

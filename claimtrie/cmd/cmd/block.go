@@ -6,22 +6,15 @@ import (
 	"strconv"
 
 	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
-	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/merkletrie"
 	"github.com/btcsuite/btcd/claimtrie/merkletrie/merkletrierepo"
 	"github.com/btcsuite/btcd/claimtrie/param"
 	"github.com/btcsuite/btcd/claimtrie/temporal/temporalrepo"
-	"github.com/btcsuite/btcd/wire"
 
 	"github.com/spf13/cobra"
 )
 
-var localConfig *config.DBConfig
-
 func init() {
-	param.SetNetwork(wire.MainNet, "mainnet")
-	localConfig = config.GenerateConfig(param.ClaimtrieDataFolder)
-
 	rootCmd.AddCommand(blockCmd)
 
 	blockCmd.AddCommand(blockLastCmd)
@@ -106,9 +99,9 @@ var blockListCmd = &cobra.Command{
 }
 
 var blockNameCmd = &cobra.Command{
-	Use:   "vertex <height> [<name>]",
+	Use:   "vertex <height> <name>",
 	Short: "List the claim and child hashes at vertex name of block at height",
-	Args:  cobra.RangeArgs(1, 2),
+	Args:  cobra.RangeArgs(2, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		repo, err := blockrepo.NewPebble(localConfig.BlockRepoPebble.Path)

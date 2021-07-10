@@ -5,17 +5,12 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/btcsuite/btcd/claimtrie/config"
-	"github.com/btcsuite/btcd/claimtrie/param"
 	"github.com/btcsuite/btcd/claimtrie/temporal/temporalrepo"
-	"github.com/btcsuite/btcd/wire"
 
 	"github.com/spf13/cobra"
 )
 
 func init() {
-	param.SetNetwork(wire.MainNet, "mainnet")
-	localConfig = config.GenerateConfig(param.ClaimtrieDataFolder)
 	rootCmd.AddCommand(temporalCmd)
 }
 
