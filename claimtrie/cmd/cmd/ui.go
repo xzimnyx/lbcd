@@ -41,8 +41,8 @@ func showClaim(c *node.Claim, n *node.Node) {
 		mark = "*"
 	}
 
-	fmt.Printf("%s  C  ID: %s, TXO: %s\n   %5d/%-5d, Status: %9s, Amount: %15d, Effective Amount: %15d\n",
-		mark, c.ClaimID, c.OutPoint, c.AcceptedAt, c.ActiveAt, status[c.Status], c.Amount, c.EffectiveAmount(n.Supports))
+	fmt.Printf("%s  C  ID: %s, TXO: %s\n   %5d/%-5d, Status: %9s, Amount: %15d, Support Amount: %15d\n",
+		mark, c.ClaimID, c.OutPoint, c.AcceptedAt, c.ActiveAt, status[c.Status], c.Amount, n.SupportSums[c.ClaimID])
 }
 
 func showSupport(c *node.Claim) {

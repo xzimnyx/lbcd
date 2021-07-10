@@ -15,7 +15,7 @@ type Pebble struct {
 
 func NewPebble(path string) (*Pebble, error) {
 
-	db, err := pebble.Open(path, &pebble.Options{Cache: pebble.NewCache(128 << 20), BytesPerSync: 16 << 20})
+	db, err := pebble.Open(path, &pebble.Options{Cache: pebble.NewCache(256 << 20), BytesPerSync: 16 << 20})
 	if err != nil {
 		return nil, fmt.Errorf("pebble open %s, %w", path, err)
 	}

@@ -17,11 +17,12 @@ type Node struct {
 	TakenOverAt int32     // The height at when the current BestClaim took over.
 	Claims      ClaimList // List of all Claims.
 	Supports    ClaimList // List of all Supports, including orphaned ones.
+	SupportSums map[string]int64
 }
 
 // New returns a new node.
 func New() *Node {
-	return &Node{}
+	return &Node{SupportSums: map[string]int64{}}
 }
 
 func (n *Node) ApplyChange(chg change.Change, delay int32) error {
@@ -94,6 +95,12 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 	case change.SpendSupport:
 		s := n.Supports.find(byOut(*out))
 		if s != nil {
+			if s.Status == Activated {
+				n.SupportSums[s.ClaimID] -= s.Amount
+			}
+			// TODO: we could do without this Deactivated flag if we set expiration instead
+			// That would eliminate the above Sum update.
+			// We would also need to track the update situation, though, but that could be done locally.
 			s.setStatus(Deactivated)
 		} else {
 			fmt.Printf("Spending support but missing existing support with TXO %s\n   "+
@@ -151,12 +158,15 @@ func (n *Node) updateTakeoverHeight(height int32, name []byte, refindBest bool) 
 func (n *Node) handleExpiredAndActivated(height int32) int {
 
 	changes := 0
-	update := func(items ClaimList) ClaimList {
+	update := func(items ClaimList, sums map[string]int64) ClaimList {
 		for i := 0; i < len(items); i++ {
 			c := items[i]
 			if c.Status == Accepted && c.ActiveAt <= height && c.VisibleAt <= height {
 				c.setStatus(Activated)
 				changes++
+				if sums != nil {
+					sums[c.ClaimID] += c.Amount
+				}
 			}
 			if c.ExpireAt() <= height || c.Status == Deactivated {
 				if i < len(items)-1 {
@@ -165,12 +175,15 @@ func (n *Node) handleExpiredAndActivated(height int32) int {
 				}
 				items = items[:len(items)-1]
 				changes++
+				if sums != nil && c.Status != Deactivated {
+					sums[c.ClaimID] -= c.Amount
+				}
 			}
 		}
 		return items
 	}
-	n.Claims = update(n.Claims)
-	n.Supports = update(n.Supports)
+	n.Claims = update(n.Claims, nil)
+	n.Supports = update(n.Supports, n.SupportSums)
 	return changes
 }
 
@@ -234,9 +247,9 @@ func (n Node) findBestClaim() *Claim {
 			continue
 		}
 
-		candidateAmount := candidate.EffectiveAmount(n.Supports)
-		if bestAmount <= 0 { // trying to reduce calls to EffectiveAmount
-			bestAmount = best.EffectiveAmount(n.Supports)
+		candidateAmount := candidate.Amount + n.SupportSums[candidate.ClaimID]
+		if bestAmount <= 0 {
+			bestAmount = best.Amount + n.SupportSums[best.ClaimID]
 		}
 
 		switch {
@@ -263,7 +276,7 @@ func (n *Node) activateAllClaims(height int32) int {
 	count := 0
 	for _, c := range n.Claims {
 		if c.Status == Accepted && c.ActiveAt > height && c.VisibleAt <= height {
-			c.setActiveAt(height) // don't necessary need to change this number
+			c.setActiveAt(height) // don't necessarily need to change this number?
 			c.setStatus(Activated)
 			count++
 		}
@@ -271,9 +284,10 @@ func (n *Node) activateAllClaims(height int32) int {
 
 	for _, s := range n.Supports {
 		if s.Status == Accepted && s.ActiveAt > height && s.VisibleAt <= height {
-			s.setActiveAt(height) // don't necessary need to change this number
+			s.setActiveAt(height) // don't necessarily need to change this number?
 			s.setStatus(Activated)
 			count++
+			n.SupportSums[s.ClaimID] += s.Amount
 		}
 	}
 	return count
@@ -283,8 +297,8 @@ func (n *Node) SortClaims() {
 
 	// purposefully sorting by descent
 	sort.Slice(n.Claims, func(j, i int) bool {
-		iAmount := n.Claims[i].EffectiveAmount(n.Supports)
-		jAmount := n.Claims[j].EffectiveAmount(n.Supports)
+		iAmount := n.Claims[i].Amount + n.SupportSums[n.Claims[i].ClaimID]
+		jAmount := n.Claims[j].Amount + n.SupportSums[n.Claims[j].ClaimID]
 		switch {
 		case iAmount < jAmount:
 			return true

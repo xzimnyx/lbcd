@@ -16,6 +16,7 @@ var (
 	out1  = NewOutPointFromString("0000000000000000000000000000000000000000000000000000000000000000:1")
 	out2  = NewOutPointFromString("0000000000000000000000000000000000000000000000000000000000000000:2")
 	out3  = NewOutPointFromString("0100000000000000000000000000000000000000000000000000000000000000:1")
+	out4  = NewOutPointFromString("0100000000000000000000000000000000000000000000000000000000000000:2")
 	name1 = []byte("name1")
 	name2 = []byte("name2")
 )
@@ -51,6 +52,7 @@ func TestSimpleAddClaim(t *testing.T) {
 
 	m, err := NewBaseManager(repo)
 	r.NoError(err)
+	defer m.Close()
 
 	_, err = m.IncrementHeightTo(10)
 	r.NoError(err)
@@ -88,6 +90,58 @@ func TestSimpleAddClaim(t *testing.T) {
 	n2, err = m.Node(name1)
 	r.NoError(err)
 	r.Nil(n2)
+}
+
+func TestSupportAmounts(t *testing.T) {
+
+	r := require.New(t)
+
+	param.SetNetwork(wire.TestNet, "")
+	repo, err := noderepo.NewPebble(t.TempDir())
+	r.NoError(err)
+
+	m, err := NewBaseManager(repo)
+	r.NoError(err)
+	defer m.Close()
+
+	_, err = m.IncrementHeightTo(10)
+	r.NoError(err)
+
+	chg := change.New(change.AddClaim).SetName(name1).SetOutPoint(out1.String()).SetHeight(11).SetAmount(3)
+	chg.ClaimID = NewClaimID(*out1).String()
+	err = m.AppendChange(chg)
+	r.NoError(err)
+
+	chg = change.New(change.AddClaim).SetName(name1).SetOutPoint(out2.String()).SetHeight(11).SetAmount(4)
+	chg.ClaimID = NewClaimID(*out2).String()
+	err = m.AppendChange(chg)
+	r.NoError(err)
+
+	_, err = m.IncrementHeightTo(11)
+	r.NoError(err)
+
+	chg = change.New(change.AddSupport).SetName(name1).SetOutPoint(out3.String()).SetHeight(12).SetAmount(2)
+	chg.ClaimID = NewClaimID(*out1).String()
+	err = m.AppendChange(chg)
+	r.NoError(err)
+
+	chg = change.New(change.AddSupport).SetName(name1).SetOutPoint(out4.String()).SetHeight(12).SetAmount(2)
+	chg.ClaimID = NewClaimID(*out2).String()
+	err = m.AppendChange(chg)
+	r.NoError(err)
+
+	chg = change.New(change.SpendSupport).SetName(name1).SetOutPoint(out4.String()).SetHeight(12).SetAmount(2)
+	chg.ClaimID = NewClaimID(*out2).String()
+	err = m.AppendChange(chg)
+	r.NoError(err)
+
+	_, err = m.IncrementHeightTo(20)
+	r.NoError(err)
+
+	n1, err := m.Node(name1)
+	r.NoError(err)
+	r.Equal(2, len(n1.Claims))
+	r.Equal(int64(5), n1.BestClaim.Amount+n1.SupportSums[n1.BestClaim.ClaimID])
 }
 
 func TestNodeSort(t *testing.T) {

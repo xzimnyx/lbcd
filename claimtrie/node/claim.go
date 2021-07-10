@@ -101,23 +101,6 @@ func (c *Claim) setStatus(status Status) *Claim {
 	return c
 }
 
-func (c *Claim) EffectiveAmount(supports ClaimList) int64 {
-
-	if c.Status != Activated {
-		return 0
-	}
-
-	amt := c.Amount
-
-	for _, s := range supports {
-		if s.Status == Activated && s.ClaimID == c.ClaimID { // TODO: this comparison is hit a lot; byte comparison instead of hex would be faster
-			amt += s.Amount
-		}
-	}
-
-	return amt
-}
-
 func (c *Claim) ExpireAt() int32 {
 
 	if c.AcceptedAt+param.OriginalClaimExpirationTime > param.ExtendedClaimExpirationForkHeight {
