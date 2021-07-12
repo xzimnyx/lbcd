@@ -3,6 +3,7 @@ package claimtrie
 import (
 	"testing"
 
+	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/merkletrie"
 	"github.com/btcsuite/btcd/claimtrie/node"
 	"github.com/btcsuite/btcd/claimtrie/param"
@@ -13,9 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var cfg = config.DefaultConfig
+
 func setup(t *testing.T) {
-	param.SetNetwork(wire.TestNet, "")
-	param.ClaimtrieDataFolder = t.TempDir()
+	param.SetNetwork(wire.TestNet)
+	cfg.DataDir = t.TempDir()
 }
 
 func b(s string) []byte {
@@ -35,7 +38,7 @@ func TestFixedHashes(t *testing.T) {
 	r := require.New(t)
 
 	setup(t)
-	ct, err := New(false)
+	ct, err := New(cfg)
 	r.NoError(err)
 	defer func() {
 		err = ct.Close()
@@ -75,7 +78,7 @@ func TestNormalizationFork(t *testing.T) {
 
 	setup(t)
 	param.NormalizedNameForkHeight = 2
-	ct, err := New(false)
+	ct, err := New(cfg)
 	r.NoError(err)
 	r.NotNil(ct)
 	defer func() {
@@ -139,7 +142,7 @@ func TestActivationsOnNormalizationFork(t *testing.T) {
 
 	setup(t)
 	param.NormalizedNameForkHeight = 4
-	ct, err := New(false)
+	ct, err := New(cfg)
 	r.NoError(err)
 	r.NotNil(ct)
 	defer func() {
@@ -185,7 +188,7 @@ func TestNormalizationSortOrder(t *testing.T) {
 	// alas, it's now part of our history; we hereby test it to keep it that way
 	setup(t)
 	param.NormalizedNameForkHeight = 2
-	ct, err := New(false)
+	ct, err := New(cfg)
 	r.NoError(err)
 	r.NotNil(ct)
 	defer func() {

@@ -23,7 +23,7 @@ var temporalCmd = &cobra.Command{
 
 func runListNodes(cmd *cobra.Command, args []string) error {
 
-	repo, err := temporalrepo.NewPebble(localConfig.TemporalRepoPebble.Path)
+	repo, err := temporalrepo.NewPebble(cfg.TemporalRepoPebble.Path)
 	if err != nil {
 		log.Fatalf("can't open reported block repo: %s", err)
 	}

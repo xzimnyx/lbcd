@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"math"
+	"path/filepath"
 	"strconv"
 
 	"github.com/btcsuite/btcd/claimtrie/node"
@@ -29,7 +30,7 @@ var nodeDumpCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		repo, err := noderepo.NewPebble(localConfig.NodeRepoPebble.Path)
+		repo, err := noderepo.NewPebble(filepath.Join(cfg.DataDir, cfg.NodeRepoPebble.Path))
 		if err != nil {
 			return fmt.Errorf("open node repo: %w", err)
 		}
@@ -66,7 +67,7 @@ var nodeReplayCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		repo, err := noderepo.NewPebble(localConfig.NodeRepoPebble.Path)
+		repo, err := noderepo.NewPebble(filepath.Join(cfg.DataDir, cfg.NodeRepoPebble.Path))
 		if err != nil {
 			return fmt.Errorf("open node repo: %w", err)
 		}

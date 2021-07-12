@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"path/filepath"
 	"strconv"
 
 	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
@@ -32,7 +33,7 @@ var blockLastCmd = &cobra.Command{
 	Short: "Show the Merkle Hash of the last block",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		repo, err := blockrepo.NewPebble(localConfig.ReportedBlockRepoPebble.Path)
+		repo, err := blockrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ReportedBlockRepoPebble.Path))
 		if err != nil {
 			log.Fatalf("can't open reported block repo: %s", err)
 		}
@@ -59,7 +60,7 @@ var blockListCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		repo, err := blockrepo.NewPebble(localConfig.ReportedBlockRepoPebble.Path)
+		repo, err := blockrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ReportedBlockRepoPebble.Path))
 		if err != nil {
 			log.Fatalf("can't open reported block repo: %s", err)
 		}
@@ -104,7 +105,7 @@ var blockNameCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(2, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		repo, err := blockrepo.NewPebble(localConfig.BlockRepoPebble.Path)
+		repo, err := blockrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.BlockRepoPebble.Path))
 		if err != nil {
 			return fmt.Errorf("can't open reported block repo: %w", err)
 		}
@@ -129,7 +130,7 @@ var blockNameCmd = &cobra.Command{
 			return fmt.Errorf("load previous height: %w", err)
 		}
 
-		trieRepo, err := merkletrierepo.NewPebble(localConfig.MerkleTrieRepoPebble.Path)
+		trieRepo, err := merkletrierepo.NewPebble(filepath.Join(cfg.DataDir, cfg.MerkleTrieRepoPebble.Path))
 		if err != nil {
 			return fmt.Errorf("can't open merkle trie repo: %w", err)
 		}
@@ -140,7 +141,7 @@ var blockNameCmd = &cobra.Command{
 		if len(args) > 1 {
 			trie.Dump(args[1], param.AllClaimsInMerkleForkHeight >= int32(height))
 		} else {
-			tmpRepo, err := temporalrepo.NewPebble(localConfig.TemporalRepoPebble.Path)
+			tmpRepo, err := temporalrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.TemporalRepoPebble.Path))
 			if err != nil {
 				return fmt.Errorf("can't open temporal repo: %w", err)
 			}

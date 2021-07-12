@@ -3,6 +3,7 @@ package claimtrie
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"runtime"
 	"sort"
 
@@ -58,18 +59,17 @@ type ClaimTrie struct {
 	cleanups []func() error
 }
 
-func New(record bool) (*ClaimTrie, error) {
+func New(cfg config.Config) (*ClaimTrie, error) {
 
-	cfg := config.GenerateConfig(param.ClaimtrieDataFolder)
 	var cleanups []func() error
 
-	blockRepo, err := blockrepo.NewPebble(cfg.BlockRepoPebble.Path)
+	blockRepo, err := blockrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.BlockRepoPebble.Path))
 	if err != nil {
 		return nil, fmt.Errorf("new block repo: %w", err)
 	}
 	cleanups = append(cleanups, blockRepo.Close)
 
-	temporalRepo, err := temporalrepo.NewPebble(cfg.TemporalRepoPebble.Path)
+	temporalRepo, err := temporalrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.TemporalRepoPebble.Path))
 	if err != nil {
 		return nil, fmt.Errorf("new temporal repo: %w", err)
 	}
@@ -77,7 +77,7 @@ func New(record bool) (*ClaimTrie, error) {
 
 	// Initialize repository for changes to nodes.
 	// The cleanup is delegated to the Node Manager.
-	nodeRepo, err := noderepo.NewPebble(cfg.NodeRepoPebble.Path)
+	nodeRepo, err := noderepo.NewPebble(filepath.Join(cfg.DataDir, cfg.NodeRepoPebble.Path))
 	if err != nil {
 		return nil, fmt.Errorf("new node repo: %w", err)
 	}
@@ -91,7 +91,7 @@ func New(record bool) (*ClaimTrie, error) {
 
 	// Initialize repository for MerkleTrie.
 	// The cleanup is delegated to MerkleTrie.
-	trieRepo, err := merkletrierepo.NewPebble(cfg.MerkleTrieRepoPebble.Path)
+	trieRepo, err := merkletrierepo.NewPebble(filepath.Join(cfg.DataDir, cfg.MerkleTrieRepoPebble.Path))
 	if err != nil {
 		return nil, fmt.Errorf("new trie repo: %w", err)
 	}
@@ -128,15 +128,15 @@ func New(record bool) (*ClaimTrie, error) {
 		height: previousHeight,
 	}
 
-	if record {
-		chainRepo, err := chainrepo.NewPebble(cfg.ChainRepoPebble.Path)
+	if cfg.Record {
+		chainRepo, err := chainrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ChainRepoPebble.Path))
 		if err != nil {
 			return nil, fmt.Errorf("new change change repo: %w", err)
 		}
 		cleanups = append(cleanups, chainRepo.Close)
 		ct.chainRepo = chainRepo
 
-		reportedBlockRepo, err := blockrepo.NewPebble(cfg.ReportedBlockRepoPebble.Path)
+		reportedBlockRepo, err := blockrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ReportedBlockRepoPebble.Path))
 		if err != nil {
 			return nil, fmt.Errorf("new reported block repo: %w", err)
 		}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/btcsuite/btcd/claimtrie"
@@ -11,6 +12,7 @@ import (
 	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
 	"github.com/btcsuite/btcd/claimtrie/chain/chainrepo"
 	"github.com/btcsuite/btcd/claimtrie/change"
+	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/node"
 
 	"github.com/cockroachdb/pebble"
@@ -48,7 +50,7 @@ var chainDumpCmd = &cobra.Command{
 			}
 		}
 
-		chainRepo, err := chainrepo.NewPebble(localConfig.ChainRepoPebble.Path)
+		chainRepo, err := chainrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ChainRepoPebble.Path))
 		if err != nil {
 			return fmt.Errorf("open node repo: %w", err)
 		}
@@ -93,24 +95,25 @@ var chainReplayCmd = &cobra.Command{
 			}
 		}
 
-		err = os.RemoveAll(localConfig.NodeRepoPebble.Path)
+		err = os.RemoveAll(filepath.Join(cfg.DataDir, cfg.NodeRepoPebble.Path))
 		if err != nil {
 			return fmt.Errorf("delete node repo: %w", err)
 		}
 
 		fmt.Printf("Deleted node repo\n")
 
-		chainRepo, err := chainrepo.NewPebble(localConfig.ChainRepoPebble.Path)
+		chainRepo, err := chainrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ChainRepoPebble.Path))
 		if err != nil {
 			return fmt.Errorf("open change repo: %w", err)
 		}
 
-		reportedBlockRepo, err := blockrepo.NewPebble(localConfig.ReportedBlockRepoPebble.Path)
+		reportedBlockRepo, err := blockrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ReportedBlockRepoPebble.Path))
 		if err != nil {
 			return fmt.Errorf("open block repo: %w", err)
 		}
 
-		ct, err := claimtrie.New(false)
+		cfg := config.DefaultConfig
+		ct, err := claimtrie.New(cfg)
 		if err != nil {
 			return fmt.Errorf("create claimtrie: %w", err)
 		}

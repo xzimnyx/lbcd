@@ -2,8 +2,6 @@ package param
 
 import (
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
-	"path/filepath"
 )
 
 var (
@@ -20,16 +18,12 @@ var (
 
 	NormalizedNameForkHeight    int32
 	AllClaimsInMerkleForkHeight int32
-
-	ClaimtrieDataFolder string
 )
 
-func SetNetwork(net wire.BitcoinNet, subfolder string) {
+func SetNetwork(net wire.BitcoinNet) {
 	MaxActiveDelay = 4032
 	ActiveDelayFactor = 32
 	MaxNodeManagerCacheSize = 16000
-	appDir := btcutil.AppDataDir("chain", false)
-	ClaimtrieDataFolder = filepath.Join(appDir, "data", subfolder, "claim_dbs")
 
 	switch net {
 	case wire.MainNet:

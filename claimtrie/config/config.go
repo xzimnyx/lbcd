@@ -2,33 +2,43 @@ package config
 
 import (
 	"path/filepath"
+
+	"github.com/btcsuite/btcutil"
 )
 
-func GenerateConfig(folder string) *DBConfig {
-	return &DBConfig{
-		BlockRepoPebble: pebbleConfig{
-			Path: filepath.Join(folder, "blocks_pebble_db"),
-		},
-		NodeRepoPebble: pebbleConfig{
-			Path: filepath.Join(folder, "node_change_pebble_db"),
-		},
-		TemporalRepoPebble: pebbleConfig{
-			Path: filepath.Join(folder, "temporal_pebble_db"),
-		},
-		MerkleTrieRepoPebble: pebbleConfig{
-			Path: filepath.Join(folder, "merkletrie_pebble_db"),
-		},
-		ChainRepoPebble: pebbleConfig{
-			Path: filepath.Join(folder, "chain_pebble_db"),
-		},
-		ReportedBlockRepoPebble: pebbleConfig{
-			Path: filepath.Join(folder, "reported_blocks_pebble_db"),
-		},
-	}
+var DefaultConfig = Config{
+	Record:  false,
+	RamTrie: false,
+
+	DataDir: filepath.Join(btcutil.AppDataDir("chain", false), "data", "mainnet", "claim_dbs"),
+
+	BlockRepoPebble: pebbleConfig{
+		Path: "blocks_pebble_db",
+	},
+	NodeRepoPebble: pebbleConfig{
+		Path: "node_change_pebble_db",
+	},
+	TemporalRepoPebble: pebbleConfig{
+		Path: "temporal_pebble_db",
+	},
+	MerkleTrieRepoPebble: pebbleConfig{
+		Path: "merkletrie_pebble_db",
+	},
+	ChainRepoPebble: pebbleConfig{
+		Path: "chain_pebble_db",
+	},
+	ReportedBlockRepoPebble: pebbleConfig{
+		Path: "reported_blocks_pebble_db",
+	},
 }
 
-// DBConfig is the container of all configurations.
-type DBConfig struct {
+// Config is the container of all configurations.
+type Config struct {
+	Record  bool
+	RamTrie bool
+
+	DataDir string
+
 	BlockRepoPebble      pebbleConfig
 	NodeRepoPebble       pebbleConfig
 	TemporalRepoPebble   pebbleConfig

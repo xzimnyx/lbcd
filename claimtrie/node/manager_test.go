@@ -45,7 +45,7 @@ func TestSimpleAddClaim(t *testing.T) {
 
 	r := require.New(t)
 
-	param.SetNetwork(wire.TestNet, "")
+	param.SetNetwork(wire.TestNet)
 	repo, err := noderepo.NewPebble(t.TempDir())
 	r.NoError(err)
 

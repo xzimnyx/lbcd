@@ -8,11 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var localConfig *config.DBConfig
+var cfg = config.DefaultConfig
 
 func init() {
-	param.SetNetwork(wire.MainNet, "mainnet")
-	localConfig = config.GenerateConfig(param.ClaimtrieDataFolder)
+	param.SetNetwork(wire.MainNet)
 }
 
 var rootCmd = &cobra.Command{
