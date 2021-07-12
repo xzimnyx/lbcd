@@ -96,12 +96,6 @@ func New(record bool) (*ClaimTrie, error) {
 		return nil, fmt.Errorf("new trie repo: %w", err)
 	}
 
-	reportedBlockRepo, err := blockrepo.NewPebble(cfg.ReportedBlockRepoPebble.Path)
-	if err != nil {
-		return nil, fmt.Errorf("new reported block repo: %w", err)
-	}
-	cleanups = append(cleanups, reportedBlockRepo.Close)
-
 	trie := merkletrie.New(nodeManager, trieRepo)
 	cleanups = append(cleanups, trie.Close)
 
