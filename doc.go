@@ -45,6 +45,9 @@ Application Options:
                               50000)
       --blocksonly            Do not accept transactions from remote peers.
   -C, --configfile=           Path to configuration file
+	    --clmtimpl=             Implementation of ClaimTrie
+	    --clmtrecord=           Record claim operations
+	    --clmtheight=           Reset height of ClaimTrie
       --connect=              Connect only to the specified peers at startup
       --cpuprofile=           Write CPU profile to the specified file
   -b, --datadir=              Directory to store data

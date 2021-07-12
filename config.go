@@ -108,6 +108,9 @@ type config struct {
 	BlockPrioritySize    uint32        `long:"blockprioritysize" description:"Size in bytes for high-priority/low-fee transactions when creating a block"`
 	BlocksOnly           bool          `long:"blocksonly" description:"Do not accept transactions from remote peers."`
 	ConfigFile           string        `short:"C" long:"configfile" description:"Path to configuration file"`
+	ClaimTrieImpl        string        `long:"clmtimpl" description:"Implementation of ClaimTrie"`
+	ClaimTrieRecord      bool          `long:"clmtrecord" description:"Record claim operations made to ClaimTrie"`
+	ClaimTrieHeight      uint32        `long:"clmtheight" description:"Reset height of ClaimTrie"`
 	ConnectPeers         []string      `long:"connect" description:"Connect only to the specified peers at startup"`
 	CPUProfile           string        `long:"cpuprofile" description:"Write CPU profile to the specified file"`
 	DataDir              string        `short:"b" long:"datadir" description:"Directory to store data"`
