@@ -42,3 +42,9 @@ profile.cov
 # IDE
 .idea
 .vscode
+
+# Binaries
+btcd
+btcctl
+chain
+chainctl
