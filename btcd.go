@@ -165,7 +165,9 @@ func btcdMain(serverChan chan<- *server) error {
 		server.WaitForShutdown()
 		srvrLog.Infof("Server shutdown complete")
 		// TODO: tie into the sync manager for shutdown instead
-		server.chain.ClaimTrie().Close()
+		if ct := server.chain.ClaimTrie(); ct != nil {
+			ct.Close()
+		}
 	}()
 	server.Start()
 	if serverChan != nil {

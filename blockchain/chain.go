@@ -575,8 +575,10 @@ func (b *BlockChain) connectBlock(node *blockNode, block *btcutil.Block,
 	}
 
 	// Handle LBRY Claim Scripts
-	if err := b.ParseClaimScripts(block, node, view, false); err != nil {
-		return ruleError(ErrBadClaimTrie, err.Error())
+	if b.claimTrie != nil {
+		if err := b.ParseClaimScripts(block, node, view, false); err != nil {
+			return ruleError(ErrBadClaimTrie, err.Error())
+		}
 	}
 
 	// No warnings about unknown rules until the chain is current.
@@ -1718,6 +1720,8 @@ type Config struct {
 	// This field can be nil if the caller is not interested in using a
 	// signature cache.
 	HashCache *txscript.HashCache
+
+	ClaimTrie *claimtrie.ClaimTrie
 }
 
 // New returns a BlockChain instance using the provided configuration details.
@@ -1772,6 +1776,7 @@ func New(config *Config) (*BlockChain, error) {
 		prevOrphans:         make(map[chainhash.Hash][]*orphanBlock),
 		warningCaches:       newThresholdCaches(vbNumBits),
 		deploymentCaches:    newThresholdCaches(chaincfg.DefinedDeployments),
+		claimTrie:           config.ClaimTrie,
 	}
 
 	// Initialize the chain state from the passed database.  When the db
@@ -1814,18 +1819,12 @@ func New(config *Config) (*BlockChain, error) {
 		return nil, err
 	}
 
-	ct, err := claimtrie.New(true)
-	if err != nil {
-		return nil, err
-	}
-	b.claimTrie = ct
-
-	// ct.ResetHeight(760140) // TODO: add an optional CLI parameter for this
-
-	err = rebuildMissingClaimTrieData(&b, config.Interrupt)
-	if err != nil {
-		ct.Close()
-		return nil, err
+	if b.claimTrie != nil {
+		err := rebuildMissingClaimTrieData(&b, config.Interrupt)
+		if err != nil {
+			b.claimTrie.Close()
+			return nil, err
+		}
 	}
 
 	bestNode := b.bestChain.Tip()

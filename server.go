@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -27,6 +28,8 @@ import (
 	"github.com/btcsuite/btcd/blockchain/indexers"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/btcsuite/btcd/claimtrie"
+	claimtrieconfig "github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/connmgr"
 	"github.com/btcsuite/btcd/database"
 	"github.com/btcsuite/btcd/mempool"
@@ -2721,8 +2724,34 @@ func newServer(listenAddrs, agentBlacklist, agentWhitelist []string,
 		checkpoints = mergeCheckpoints(s.chainParams.Checkpoints, cfg.addCheckpoints)
 	}
 
-	// Create a new block chain instance with the appropriate configuration.
 	var err error
+
+	claimTrieCfg := claimtrieconfig.DefaultConfig
+	claimTrieCfg.DataDir = filepath.Join(cfg.DataDir, "claim_dbs")
+	claimTrieCfg.Record = cfg.ClaimTrieRecord
+
+	var ct *claimtrie.ClaimTrie
+
+	switch cfg.ClaimTrieImpl {
+	case "none":
+		// Disable ClaimTrie for development purpose.
+		clmtLog.Infof("ClaimTrie is disabled")
+	default:
+		ct, err = claimtrie.New(claimTrieCfg)
+		if err != nil {
+			return nil, err
+		}
+		if h := cfg.ClaimTrieHeight; h != 0 {
+			clmtLog.Infof("Reseting height to %d", h)
+			err := ct.ResetHeight(int32(h))
+			if err != nil {
+				return nil, err
+			}
+			clmtLog.Infof("Height is reset to %d", h)
+		}
+	}
+
+	// Create a new block chain instance with the appropriate configuration.
 	s.chain, err = blockchain.New(&blockchain.Config{
 		DB:           s.db,
 		Interrupt:    interrupt,
@@ -2732,6 +2761,7 @@ func newServer(listenAddrs, agentBlacklist, agentWhitelist []string,
 		SigCache:     s.sigCache,
 		IndexManager: indexManager,
 		HashCache:    s.hashCache,
+		ClaimTrie:    ct,
 	})
 	if err != nil {
 		return nil, err
