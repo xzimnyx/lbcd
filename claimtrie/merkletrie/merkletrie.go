@@ -3,6 +3,7 @@ package merkletrie
 import (
 	"bytes"
 	"fmt"
+	"runtime"
 	"sort"
 	"sync"
 
@@ -55,6 +56,7 @@ func NewPersistentTrie(store ValueStore, repo Repo) *PersistentTrie {
 // SetRoot drops all resolved nodes in the PersistentTrie, and set the Root with specified hash.
 func (t *PersistentTrie) SetRoot(h *chainhash.Hash, names [][]byte) {
 	t.root = newVertex(h)
+	runtime.GC()
 }
 
 // Update updates the nodes along the path to the key.

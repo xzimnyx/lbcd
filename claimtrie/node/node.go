@@ -25,6 +25,10 @@ func New() *Node {
 	return &Node{SupportSums: map[string]int64{}}
 }
 
+func (n *Node) HasActiveBestClaim() bool {
+	return n.BestClaim != nil && n.BestClaim.Status == Activated
+}
+
 func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 
 	out := NewOutPointFromString(chg.OutPoint)
@@ -132,7 +136,7 @@ func (n *Node) updateTakeoverHeight(height int32, name []byte, refindBest bool) 
 	}
 
 	hasCandidate := candidate != nil
-	hasCurrentWinner := n.BestClaim != nil && n.BestClaim.Status == Activated
+	hasCurrentWinner := n.HasActiveBestClaim()
 
 	takeoverHappening := !hasCandidate || !hasCurrentWinner || candidate.ClaimID != n.BestClaim.ClaimID
 

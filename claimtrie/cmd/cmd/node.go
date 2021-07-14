@@ -17,6 +17,7 @@ func init() {
 
 	nodeCmd.AddCommand(nodeDumpCmd)
 	nodeCmd.AddCommand(nodeReplayCmd)
+	nodeCmd.AddCommand(nodeChildrenCmd)
 }
 
 var nodeCmd = &cobra.Command{
@@ -99,6 +100,28 @@ var nodeReplayCmd = &cobra.Command{
 		}
 
 		showNode(n)
+		return nil
+	},
+}
+
+var nodeChildrenCmd = &cobra.Command{
+	Use:   "children <node_name>",
+	Short: "Show all the children names of a given node name",
+	Args:  cobra.RangeArgs(1, 1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+
+		repo, err := noderepo.NewPebble(localConfig.NodeRepoPebble.Path)
+		if err != nil {
+			return fmt.Errorf("open node repo: %w", err)
+		}
+
+		repo.IterateChildren([]byte(args[0]), func(changes []change.Change) bool {
+			// TODO: dump all the changes?
+			fmt.Printf("Name: %s, Height: %d, %d\n", changes[0].Name, changes[0].Height,
+				changes[len(changes)-1].Height)
+			return true
+		})
+
 		return nil
 	},
 }

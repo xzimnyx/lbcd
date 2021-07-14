@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/claimtrie/node"
+	"runtime"
 	"sync"
 )
 
@@ -35,6 +36,7 @@ func NewRamTrie(s ValueStore) *RamTrie {
 
 func (rt *RamTrie) SetRoot(h *chainhash.Hash, names [][]byte) {
 	if rt.Root.merkleHash.IsEqual(h) {
+		runtime.GC()
 		return
 	}
 
@@ -51,6 +53,7 @@ func (rt *RamTrie) SetRoot(h *chainhash.Hash, names [][]byte) {
 			rt.Update(name, false)
 		}
 	}
+	runtime.GC()
 }
 
 func (rt *RamTrie) Update(name []byte, _ bool) {

@@ -107,13 +107,18 @@ func (repo *Pebble) DropChanges(name []byte, finalHeight int32) error {
 }
 
 func (repo *Pebble) IterateChildren(name []byte, f func(changes []change.Change) bool) {
-	end := bytes.NewBuffer(nil)
-	end.Write(name)
-	end.Write(bytes.Repeat([]byte{255, 255, 255, 255}, 64))
+	start := make([]byte, len(name)+1) // zeros that last byte; need a constant len for stack alloc?
+	copy(start, name)
+
+	end := make([]byte, 256) // max name length is 255
+	copy(end, name)
+	for i := len(name); i < 256; i++ {
+		end[i] = 255
+	}
 
 	prefixIterOptions := &pebble.IterOptions{
-		LowerBound: name,
-		UpperBound: end.Bytes(),
+		LowerBound: start,
+		UpperBound: end,
 	}
 
 	iter := repo.db.NewIter(prefixIterOptions)

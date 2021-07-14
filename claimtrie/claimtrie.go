@@ -23,7 +23,6 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	"runtime"
 	"sort"
 )
 
@@ -150,6 +149,7 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 			ct.Close()
 			return nil, fmt.Errorf("node manager init: %w", err)
 		}
+		// TODO: pass in the interrupt signal here:
 		trie.SetRoot(hash, nil) // keep this after IncrementHeightTo
 
 		if !ct.MerkleHash().IsEqual(hash) {
@@ -289,7 +289,6 @@ func (ct *ClaimTrie) AppendBlock() error {
 
 	if hitFork {
 		ct.merkleTrie.SetRoot(h, names) // for clearing the memory entirely
-		runtime.GC()
 	}
 
 	return nil

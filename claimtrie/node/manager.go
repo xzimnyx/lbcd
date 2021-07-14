@@ -66,6 +66,9 @@ func (nm *BaseManager) Node(name []byte) (*Node, error) {
 		return nil, nil
 	}
 
+	if len(nm.cache) > param.MaxNodeManagerCacheSize {
+		nm.cache = map[string]*Node{} // TODO: let's get a real LRU cache in here
+	}
 	nm.cache[nameStr] = n
 	return n, nil
 }
@@ -90,6 +93,7 @@ func (nm *BaseManager) newNodeFromChanges(changes []change.Change, height int32)
 			count = i
 			break
 		}
+
 		if previous < chg.Height {
 			n.AdjustTo(previous, chg.Height-1, chg.Name) // update bids and activation
 			previous = chg.Height
@@ -110,16 +114,6 @@ func (nm *BaseManager) newNodeFromChanges(changes []change.Change, height int32)
 }
 
 func (nm *BaseManager) AppendChange(chg change.Change) error {
-
-	if len(nm.changes) <= 0 {
-		// this little code block is acting as a "block complete" method
-		// that could be called after the merkle hash is complete
-		if len(nm.cache) > param.MaxNodeManagerCacheSize {
-			// TODO: use a better cache model?
-			fmt.Printf("Clearing manager cache at height %d\n", nm.height)
-			nm.cache = map[string]*Node{}
-		}
-	}
 
 	delete(nm.cache, string(chg.Name))
 	nm.changes = append(nm.changes, chg)
@@ -171,7 +165,12 @@ func (nm *BaseManager) DecrementHeightTo(affectedNames [][]byte, height int32) e
 }
 
 func (nm *BaseManager) getDelayForName(n *Node, chg change.Change) int32 {
-	hasBest := n.BestClaim != nil // && n.BestClaim.Status == Activated
+	// Note: we don't consider the active status of BestClaim here on purpose.
+	// That's because we deactivate and reactivate as part of claim updates.
+	// However, the final status will be accounted for when we compute the takeover heights;
+	// claims may get activated early at that point.
+
+	hasBest := n.BestClaim != nil
 	if hasBest && n.BestClaim.ClaimID == chg.ClaimID {
 		return 0
 	}
@@ -182,10 +181,8 @@ func (nm *BaseManager) getDelayForName(n *Node, chg change.Change) int32 {
 		return 0
 	}
 
-	needsWorkaround := nm.decideIfWorkaroundNeeded(n, chg)
-
 	delay := calculateDelay(chg.Height, n.TakenOverAt)
-	if delay > 0 && needsWorkaround {
+	if delay > 0 && nm.aWorkaroundIsNeeded(n, chg) {
 		// TODO: log this (but only once per name-height combo)
 		//fmt.Printf("Delay workaround applies to %s at %d\n", chg.Name, chg.Height)
 		return 0
@@ -193,30 +190,55 @@ func (nm *BaseManager) getDelayForName(n *Node, chg change.Change) int32 {
 	return delay
 }
 
-// decideIfWorkaroundNeeded handles bugs that existed in previous versions
-func (nm *BaseManager) decideIfWorkaroundNeeded(n *Node, chg change.Change) bool {
+func isInDelayPart2(chg change.Change) bool {
+	heights, ok := param.DelayWorkaroundsPart2[string(chg.Name)]
+	if ok {
+		for _, h := range heights {
+			if h == chg.Height {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func hasZeroActiveClaims(n *Node) bool {
+	// this isn't quite the same as having an active best (since that is only updated after all changes are processed)
+	for _, c := range n.Claims {
+		if c.Status == Activated {
+			return false
+		}
+	}
+	return true
+}
+
+// aWorkaroundIsNeeded handles bugs that existed in previous versions
+func (nm *BaseManager) aWorkaroundIsNeeded(n *Node, chg change.Change) bool {
+
+	if chg.Type == change.SpendClaim || chg.Type == change.SpendSupport {
+		return false
+	}
 
 	if chg.Height >= param.MaxRemovalWorkaroundHeight {
 		// TODO: hard fork this out; it's a bug from previous versions:
 
+		// old 17.3 C++ code we're trying to mimic (where empty means no active claims):
+		// auto it = nodesToAddOrUpdate.find(name); // nodesToAddOrUpdate is the working changes, base is previous block
+		// auto answer = (it || (it = base->find(name))) && !it->empty() ? nNextHeight - it->nHeightOfLastTakeover : 0;
+
+		needed := hasZeroActiveClaims(n) && nm.hasChildren(chg.Name, chg.Height, 2)
 		if chg.Height <= 933294 {
-			heights, ok := param.DelayWorkaroundsPart2[string(chg.Name)]
-			if ok {
-				for _, h := range heights {
-					if h == chg.Height {
-						//hc := nm.hasChildrenButNoSelf(chg.Name, chg.Height, 2)
-						hc := true
-						fmt.Printf("HC: %s: %t\n", chg.Name, hc)
-						return true
-					}
+			w := isInDelayPart2(chg)
+			if w {
+				if !needed {
+					fmt.Printf("FALSE NEGATIVE! %d: %s: %t\n", chg.Height, chg.Name, needed)
 				}
+			} else if needed {
+				fmt.Printf("FALSE POSITIVE! %d: %s: %t\n", chg.Height, chg.Name, needed)
 			}
-		} else {
-			// Known hits:
-			if nm.hasChildrenButNoSelf(chg.Name, chg.Height, 2) {
-				return true
-			}
+			// return w // if you want to sync to 933294+
 		}
+		return needed
 	} else if len(n.Claims) > 0 {
 		// NOTE: old code had a bug in it where nodes with no claims but with children would get left in the cache after removal.
 		// This would cause the getNumBlocksOfContinuousOwnership to return zero (causing incorrect takeover height calc).
@@ -266,7 +288,7 @@ func (nm *BaseManager) Close() error {
 	return nil
 }
 
-func (nm *BaseManager) hasChildrenButNoSelf(name []byte, height int32, required int) bool {
+func (nm *BaseManager) hasChildren(name []byte, height int32, required int) bool {
 	c := map[byte]bool{}
 
 	nm.repo.IterateChildren(name, func(changes []change.Change) bool {
@@ -275,11 +297,11 @@ func (nm *BaseManager) hasChildrenButNoSelf(name []byte, height int32, required 
 		if len(changes) == 0 {
 			return true
 		}
+		if c[changes[0].Name[len(name)]] { // assuming all names here are longer than starter name
+			return true // we already checked a similar name
+		}
 		n, _ := nm.newNodeFromChanges(changes, height)
-		if n != nil && n.BestClaim != nil && n.BestClaim.Status == Activated {
-			if len(name) >= len(changes[0].Name) {
-				return false // hit self
-			}
+		if n != nil && n.HasActiveBestClaim() {
 			c[changes[0].Name[len(name)]] = true
 			if len(c) >= required {
 				return false
@@ -300,6 +322,7 @@ func (nm *BaseManager) claimHashes(name []byte) *chainhash.Hash {
 	if err != nil || n == nil {
 		return nil
 	}
+
 	n.SortClaims()
 	claimHashes := make([]*chainhash.Hash, 0, len(n.Claims))
 	for _, c := range n.Claims {
