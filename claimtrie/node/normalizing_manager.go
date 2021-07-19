@@ -86,7 +86,6 @@ func (nm *NormalizingManager) addNormalizationForkChangesIfNecessary(height int3
 				OutPoint:      c.OutPoint,
 				ClaimID:       c.ClaimID,
 				Amount:        c.Amount,
-				Value:         c.Value,
 				ActiveHeight:  c.ActiveAt, // necessary to match the old hash
 				VisibleHeight: height,     // necessary to match the old hash; it would have been much better without
 			})
@@ -105,7 +104,6 @@ func (nm *NormalizingManager) addNormalizationForkChangesIfNecessary(height int3
 				OutPoint:      c.OutPoint,
 				ClaimID:       c.ClaimID,
 				Amount:        c.Amount,
-				Value:         c.Value,
 				ActiveHeight:  c.ActiveAt,
 				VisibleHeight: height,
 			})

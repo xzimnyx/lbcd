@@ -114,15 +114,14 @@ func (h *handler) handleTxOuts(ct *claimtrie.ClaimTrie) error {
 		var id change.ClaimID
 		name := cs.Name()
 		amt := txOut.Value
-		value := cs.Value()
 
 		switch cs.Opcode() {
 		case txscript.OP_CLAIMNAME:
 			id = change.NewClaimID(op)
-			err = ct.AddClaim(name, op, id, amt, value)
+			err = ct.AddClaim(name, op, id, amt)
 		case txscript.OP_SUPPORTCLAIM:
 			copy(id[:], cs.ClaimID())
-			err = ct.AddSupport(name, value, op, amt, id)
+			err = ct.AddSupport(name, op, amt, id)
 		case txscript.OP_UPDATECLAIM:
 			// old code wouldn't run the update if name or claimID didn't match existing data
 			// that was a safety feature, but it should have rejected the transaction instead
@@ -135,7 +134,7 @@ func (h *handler) handleTxOuts(ct *claimtrie.ClaimTrie) error {
 			}
 
 			delete(h.spent, id.Key())
-			err = ct.UpdateClaim(name, op, amt, id, value)
+			err = ct.UpdateClaim(name, op, amt, id)
 		}
 		if err != nil {
 			return errors.Wrapf(err, "handleTxOuts")

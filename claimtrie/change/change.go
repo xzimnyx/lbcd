@@ -20,7 +20,6 @@ type Change struct {
 	ClaimID  ClaimID
 	OutPoint wire.OutPoint
 	Amount   int64
-	Value    []byte
 
 	ActiveHeight  int32 // for normalization fork
 	VisibleHeight int32
@@ -49,10 +48,5 @@ func (c Change) SetOutPoint(op *wire.OutPoint) Change {
 
 func (c Change) SetAmount(amt int64) Change {
 	c.Amount = amt
-	return c
-}
-
-func (c Change) SetValue(value []byte) Change {
-	c.Value = value
 	return c
 }

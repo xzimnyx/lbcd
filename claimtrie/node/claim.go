@@ -27,7 +27,6 @@ type Claim struct {
 	AcceptedAt int32 // when arrived (aka, originally landed in block)
 	ActiveAt   int32 // AcceptedAt + actual delay
 	Status     Status
-	Value      []byte
 	VisibleAt  int32
 }
 
@@ -48,11 +47,6 @@ func (c *Claim) setAccepted(height int32) *Claim {
 
 func (c *Claim) setActiveAt(height int32) *Claim {
 	c.ActiveAt = height
-	return c
-}
-
-func (c *Claim) SetValue(value []byte) *Claim {
-	c.Value = value
 	return c
 }
 

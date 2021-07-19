@@ -161,7 +161,7 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 }
 
 // AddClaim adds a Claim to the ClaimTrie.
-func (ct *ClaimTrie) AddClaim(name []byte, op wire.OutPoint, id change.ClaimID, amt int64, val []byte) error {
+func (ct *ClaimTrie) AddClaim(name []byte, op wire.OutPoint, id change.ClaimID, amt int64) error {
 
 	chg := change.Change{
 		Type:     change.AddClaim,
@@ -169,14 +169,13 @@ func (ct *ClaimTrie) AddClaim(name []byte, op wire.OutPoint, id change.ClaimID, 
 		OutPoint: op,
 		Amount:   amt,
 		ClaimID:  id,
-		Value:    val,
 	}
 
 	return ct.forwardNodeChange(chg)
 }
 
 // UpdateClaim updates a Claim in the ClaimTrie.
-func (ct *ClaimTrie) UpdateClaim(name []byte, op wire.OutPoint, amt int64, id change.ClaimID, val []byte) error {
+func (ct *ClaimTrie) UpdateClaim(name []byte, op wire.OutPoint, amt int64, id change.ClaimID) error {
 
 	chg := change.Change{
 		Type:     change.UpdateClaim,
@@ -184,7 +183,6 @@ func (ct *ClaimTrie) UpdateClaim(name []byte, op wire.OutPoint, amt int64, id ch
 		OutPoint: op,
 		Amount:   amt,
 		ClaimID:  id,
-		Value:    val,
 	}
 
 	return ct.forwardNodeChange(chg)
@@ -204,7 +202,7 @@ func (ct *ClaimTrie) SpendClaim(name []byte, op wire.OutPoint, id change.ClaimID
 }
 
 // AddSupport adds a Support to the ClaimTrie.
-func (ct *ClaimTrie) AddSupport(name []byte, value []byte, op wire.OutPoint, amt int64, id change.ClaimID) error {
+func (ct *ClaimTrie) AddSupport(name []byte, op wire.OutPoint, amt int64, id change.ClaimID) error {
 
 	chg := change.Change{
 		Type:     change.AddSupport,
@@ -212,7 +210,6 @@ func (ct *ClaimTrie) AddSupport(name []byte, value []byte, op wire.OutPoint, amt
 		OutPoint: op,
 		Amount:   amt,
 		ClaimID:  id,
-		Value:    value,
 	}
 
 	return ct.forwardNodeChange(chg)

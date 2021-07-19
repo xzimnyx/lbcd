@@ -135,16 +135,16 @@ var chainReplayCmd = &cobra.Command{
 
 				switch chg.Type {
 				case change.AddClaim:
-					err = ct.AddClaim(chg.Name, chg.OutPoint, chg.ClaimID, chg.Amount, chg.Value)
+					err = ct.AddClaim(chg.Name, chg.OutPoint, chg.ClaimID, chg.Amount)
 
 				case change.UpdateClaim:
-					err = ct.UpdateClaim(chg.Name, chg.OutPoint, chg.Amount, chg.ClaimID, chg.Value)
+					err = ct.UpdateClaim(chg.Name, chg.OutPoint, chg.Amount, chg.ClaimID)
 
 				case change.SpendClaim:
 					err = ct.SpendClaim(chg.Name, chg.OutPoint, chg.ClaimID)
 
 				case change.AddSupport:
-					err = ct.AddSupport(chg.Name, chg.Value, chg.OutPoint, chg.Amount, chg.ClaimID)
+					err = ct.AddSupport(chg.Name, chg.OutPoint, chg.Amount, chg.ClaimID)
 
 				case change.SpendSupport:
 					err = ct.SpendSupport(chg.Name, chg.OutPoint, chg.ClaimID)

@@ -44,7 +44,6 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 			ClaimID:    chg.ClaimID,
 			AcceptedAt: chg.Height, // not tracking original height in this version (but we could)
 			ActiveAt:   chg.Height + delay,
-			Value:      chg.Value,
 			VisibleAt:  visibleAt,
 		}
 		old := n.Claims.find(byOut(chg.OutPoint)) // TODO: remove this after proving ResetHeight works
@@ -72,7 +71,7 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 
 			// Keep its ID, which was generated from the spent claim.
 			// And update the rest of properties.
-			c.setOutPoint(chg.OutPoint).SetAmt(chg.Amount).SetValue(chg.Value)
+			c.setOutPoint(chg.OutPoint).SetAmt(chg.Amount)
 			c.setStatus(Accepted) // it was Deactivated in the spend (but we only activate at the end of the block)
 			// that's because the old code would put all insertions into the "queue" that was processed at block's end
 
@@ -90,7 +89,6 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 			Amount:     chg.Amount,
 			ClaimID:    chg.ClaimID,
 			AcceptedAt: chg.Height,
-			Value:      chg.Value,
 			ActiveAt:   chg.Height + delay,
 			VisibleAt:  visibleAt,
 		})
