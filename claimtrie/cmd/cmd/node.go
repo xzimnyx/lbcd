@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/node"
 	"github.com/btcsuite/btcd/claimtrie/node/noderepo"
 
@@ -110,7 +111,7 @@ var nodeChildrenCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(1, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		repo, err := noderepo.NewPebble(localConfig.NodeRepoPebble.Path)
+		repo, err := noderepo.NewPebble(filepath.Join(cfg.DataDir, cfg.NodeRepoPebble.Path))
 		if err != nil {
 			return fmt.Errorf("open node repo: %w", err)
 		}

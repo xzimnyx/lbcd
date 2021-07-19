@@ -8,7 +8,7 @@ import (
 
 var DefaultConfig = Config{
 	Record:  false,
-	RamTrie: false,
+	RamTrie: true, // as it stands the other trie uses more RAM, more time, and 40GB+ of disk space
 
 	DataDir: filepath.Join(btcutil.AppDataDir("chain", false), "data", "mainnet", "claim_dbs"),
 

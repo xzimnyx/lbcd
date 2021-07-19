@@ -235,7 +235,7 @@ func verifyBestIndex(t *testing.T, ct *ClaimTrie, name string, idx uint32, claim
 func TestRebuild(t *testing.T) {
 	r := require.New(t)
 	setup(t)
-	ct, err := New(true)
+	ct, err := New(cfg)
 	r.NoError(err)
 	r.NotNil(ct)
 	defer func() {

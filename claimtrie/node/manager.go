@@ -274,10 +274,10 @@ func (nm *BaseManager) aWorkaroundIsNeeded(n *Node, chg change.Change) bool {
 			w := isInDelayPart2(chg)
 			if w {
 				if !needed {
-					fmt.Printf("FALSE NEGATIVE! %d: %s: %t\n", chg.Height, chg.Name, needed)
+					fmt.Printf("DELAY WORKAROUND FALSE NEGATIVE! %d: %s: %t\n", chg.Height, chg.Name, needed)
 				}
 			} else if needed {
-				fmt.Printf("FALSE POSITIVE! %d: %s: %t\n", chg.Height, chg.Name, needed)
+				fmt.Printf("DELAY WORKAROUND FALSE POSITIVE! %d: %s: %t\n", chg.Height, chg.Name, needed)
 			}
 			// return w // if you want to sync to 933294+
 		}

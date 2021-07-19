@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"sort"
 
 	"github.com/btcsuite/btcd/claimtrie/block"
@@ -23,7 +22,6 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	"sort"
 )
 
 // ClaimTrie implements a Merkle Trie supporting linear history of commits.
@@ -90,15 +88,16 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 	nodeManager := node.NewNormalizingManager(baseManager)
 	cleanups = append(cleanups, nodeManager.Close)
 
-	// Initialize repository for MerkleTrie.
-	// The cleanup is delegated to MerkleTrie.
-	trieRepo, err := merkletrierepo.NewPebble(filepath.Join(cfg.DataDir, cfg.MerkleTrieRepoPebble.Path))
-	if err != nil {
-		return nil, fmt.Errorf("new trie repo: %w", err)
-	}
+	var trie merkletrie.MerkleTrie
+	if cfg.RamTrie {
+		trie = merkletrie.NewRamTrie(nodeManager)
+	} else {
 
-	trie := merkletrie.New(nodeManager, trieRepo)
-	cleanups = append(cleanups, trie.Close)
+		// Initialize repository for MerkleTrie. The cleanup is delegated to MerkleTrie.
+		trieRepo, err := merkletrierepo.NewPebble(filepath.Join(cfg.DataDir, cfg.MerkleTrieRepoPebble.Path))
+		if err != nil {
+			return nil, fmt.Errorf("new trie repo: %w", err)
+		}
 
 		persistentTrie := merkletrie.NewPersistentTrie(nodeManager, trieRepo)
 		cleanups = append(cleanups, persistentTrie.Close)
@@ -404,8 +403,9 @@ func (ct *ClaimTrie) forwardNodeChange(chg change.Change) error {
 		return fmt.Errorf("node manager handle change: %w", err)
 	}
 
-	ct.changes = append(ct.changes, chg)
-
+	if ct.chainRepo != nil { // for debugging only
+		ct.changes = append(ct.changes, chg)
+	}
 	return nil
 }
 
