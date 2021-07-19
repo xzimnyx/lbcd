@@ -161,14 +161,14 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 }
 
 // AddClaim adds a Claim to the ClaimTrie.
-func (ct *ClaimTrie) AddClaim(name []byte, op wire.OutPoint, id node.ClaimID, amt int64, val []byte) error {
+func (ct *ClaimTrie) AddClaim(name []byte, op wire.OutPoint, id change.ClaimID, amt int64, val []byte) error {
 
 	chg := change.Change{
 		Type:     change.AddClaim,
 		Name:     name,
-		OutPoint: op.String(),
+		OutPoint: op,
 		Amount:   amt,
-		ClaimID:  id.String(),
+		ClaimID:  id,
 		Value:    val,
 	}
 
@@ -176,14 +176,14 @@ func (ct *ClaimTrie) AddClaim(name []byte, op wire.OutPoint, id node.ClaimID, am
 }
 
 // UpdateClaim updates a Claim in the ClaimTrie.
-func (ct *ClaimTrie) UpdateClaim(name []byte, op wire.OutPoint, amt int64, id node.ClaimID, val []byte) error {
+func (ct *ClaimTrie) UpdateClaim(name []byte, op wire.OutPoint, amt int64, id change.ClaimID, val []byte) error {
 
 	chg := change.Change{
 		Type:     change.UpdateClaim,
 		Name:     name,
-		OutPoint: op.String(),
+		OutPoint: op,
 		Amount:   amt,
-		ClaimID:  id.String(),
+		ClaimID:  id,
 		Value:    val,
 	}
 
@@ -191,27 +191,27 @@ func (ct *ClaimTrie) UpdateClaim(name []byte, op wire.OutPoint, amt int64, id no
 }
 
 // SpendClaim spends a Claim in the ClaimTrie.
-func (ct *ClaimTrie) SpendClaim(name []byte, op wire.OutPoint, id node.ClaimID) error {
+func (ct *ClaimTrie) SpendClaim(name []byte, op wire.OutPoint, id change.ClaimID) error {
 
 	chg := change.Change{
 		Type:     change.SpendClaim,
 		Name:     name,
-		OutPoint: op.String(),
-		ClaimID:  id.String(),
+		OutPoint: op,
+		ClaimID:  id,
 	}
 
 	return ct.forwardNodeChange(chg)
 }
 
 // AddSupport adds a Support to the ClaimTrie.
-func (ct *ClaimTrie) AddSupport(name []byte, value []byte, op wire.OutPoint, amt int64, id node.ClaimID) error {
+func (ct *ClaimTrie) AddSupport(name []byte, value []byte, op wire.OutPoint, amt int64, id change.ClaimID) error {
 
 	chg := change.Change{
 		Type:     change.AddSupport,
 		Name:     name,
-		OutPoint: op.String(),
+		OutPoint: op,
 		Amount:   amt,
-		ClaimID:  id.String(),
+		ClaimID:  id,
 		Value:    value,
 	}
 
@@ -219,13 +219,13 @@ func (ct *ClaimTrie) AddSupport(name []byte, value []byte, op wire.OutPoint, amt
 }
 
 // SpendSupport spends a Support in the ClaimTrie.
-func (ct *ClaimTrie) SpendSupport(name []byte, op wire.OutPoint, id node.ClaimID) error {
+func (ct *ClaimTrie) SpendSupport(name []byte, op wire.OutPoint, id change.ClaimID) error {
 
 	chg := change.Change{
 		Type:     change.SpendSupport,
 		Name:     name,
-		OutPoint: op.String(),
-		ClaimID:  id.String(),
+		OutPoint: op,
+		ClaimID:  id,
 	}
 
 	return ct.forwardNodeChange(chg)

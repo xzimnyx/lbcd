@@ -57,13 +57,13 @@ func TestSimpleAddClaim(t *testing.T) {
 	_, err = m.IncrementHeightTo(10)
 	r.NoError(err)
 
-	chg := change.New(change.AddClaim).SetName(name1).SetOutPoint(out1.String()).SetHeight(11)
+	chg := change.NewChange(change.AddClaim).SetName(name1).SetOutPoint(out1).SetHeight(11)
 	err = m.AppendChange(chg)
 	r.NoError(err)
 	_, err = m.IncrementHeightTo(11)
 	r.NoError(err)
 
-	chg = chg.SetName(name2).SetOutPoint(out2.String()).SetHeight(12)
+	chg = chg.SetName(name2).SetOutPoint(out2).SetHeight(12)
 	err = m.AppendChange(chg)
 	r.NoError(err)
 	_, err = m.IncrementHeightTo(12)
@@ -107,31 +107,31 @@ func TestSupportAmounts(t *testing.T) {
 	_, err = m.IncrementHeightTo(10)
 	r.NoError(err)
 
-	chg := change.New(change.AddClaim).SetName(name1).SetOutPoint(out1.String()).SetHeight(11).SetAmount(3)
-	chg.ClaimID = NewClaimID(*out1).String()
+	chg := change.NewChange(change.AddClaim).SetName(name1).SetOutPoint(out1).SetHeight(11).SetAmount(3)
+	chg.ClaimID = change.NewClaimID(*out1)
 	err = m.AppendChange(chg)
 	r.NoError(err)
 
-	chg = change.New(change.AddClaim).SetName(name1).SetOutPoint(out2.String()).SetHeight(11).SetAmount(4)
-	chg.ClaimID = NewClaimID(*out2).String()
+	chg = change.NewChange(change.AddClaim).SetName(name1).SetOutPoint(out2).SetHeight(11).SetAmount(4)
+	chg.ClaimID = change.NewClaimID(*out2)
 	err = m.AppendChange(chg)
 	r.NoError(err)
 
 	_, err = m.IncrementHeightTo(11)
 	r.NoError(err)
 
-	chg = change.New(change.AddSupport).SetName(name1).SetOutPoint(out3.String()).SetHeight(12).SetAmount(2)
-	chg.ClaimID = NewClaimID(*out1).String()
+	chg = change.NewChange(change.AddSupport).SetName(name1).SetOutPoint(out3).SetHeight(12).SetAmount(2)
+	chg.ClaimID = change.NewClaimID(*out1)
 	err = m.AppendChange(chg)
 	r.NoError(err)
 
-	chg = change.New(change.AddSupport).SetName(name1).SetOutPoint(out4.String()).SetHeight(12).SetAmount(2)
-	chg.ClaimID = NewClaimID(*out2).String()
+	chg = change.NewChange(change.AddSupport).SetName(name1).SetOutPoint(out4).SetHeight(12).SetAmount(2)
+	chg.ClaimID = change.NewClaimID(*out2)
 	err = m.AppendChange(chg)
 	r.NoError(err)
 
-	chg = change.New(change.SpendSupport).SetName(name1).SetOutPoint(out4.String()).SetHeight(12).SetAmount(2)
-	chg.ClaimID = NewClaimID(*out2).String()
+	chg = change.NewChange(change.SpendSupport).SetName(name1).SetOutPoint(out4).SetHeight(12).SetAmount(2)
+	chg.ClaimID = change.NewClaimID(*out2)
 	err = m.AppendChange(chg)
 	r.NoError(err)
 
@@ -141,7 +141,7 @@ func TestSupportAmounts(t *testing.T) {
 	n1, err := m.Node(name1)
 	r.NoError(err)
 	r.Equal(2, len(n1.Claims))
-	r.Equal(int64(5), n1.BestClaim.Amount+n1.SupportSums[n1.BestClaim.ClaimID])
+	r.Equal(int64(5), n1.BestClaim.Amount+n1.SupportSums[n1.BestClaim.ClaimID.Key()])
 }
 
 func TestNodeSort(t *testing.T) {
@@ -154,14 +154,14 @@ func TestNodeSort(t *testing.T) {
 	r.True(OutPointLess(*out1, *out3))
 
 	n := New()
-	n.Claims = append(n.Claims, &Claim{OutPoint: *out1, AcceptedAt: 3, Amount: 3, ClaimID: "a"})
-	n.Claims = append(n.Claims, &Claim{OutPoint: *out2, AcceptedAt: 3, Amount: 3, ClaimID: "b"})
+	n.Claims = append(n.Claims, &Claim{OutPoint: *out1, AcceptedAt: 3, Amount: 3, ClaimID: change.ClaimID{1}})
+	n.Claims = append(n.Claims, &Claim{OutPoint: *out2, AcceptedAt: 3, Amount: 3, ClaimID: change.ClaimID{2}})
 	n.handleExpiredAndActivated(3)
 	n.updateTakeoverHeight(3, []byte{}, true)
 
 	r.Equal(n.Claims.find(byOut(*out1)).OutPoint.String(), n.BestClaim.OutPoint.String())
 
-	n.Claims = append(n.Claims, &Claim{OutPoint: *out3, AcceptedAt: 3, Amount: 3, ClaimID: "c"})
+	n.Claims = append(n.Claims, &Claim{OutPoint: *out3, AcceptedAt: 3, Amount: 3, ClaimID: change.ClaimID{3}})
 	n.handleExpiredAndActivated(3)
 	n.updateTakeoverHeight(3, []byte{}, true)
 	r.Equal(n.Claims.find(byOut(*out1)).OutPoint.String(), n.BestClaim.OutPoint.String())
@@ -174,10 +174,10 @@ func TestClaimSort(t *testing.T) {
 	param.ExtendedClaimExpirationTime = 1000
 
 	n := New()
-	n.Claims = append(n.Claims, &Claim{OutPoint: *out2, AcceptedAt: 3, Amount: 3, ClaimID: "b"})
-	n.Claims = append(n.Claims, &Claim{OutPoint: *out3, AcceptedAt: 3, Amount: 2, ClaimID: "c"})
-	n.Claims = append(n.Claims, &Claim{OutPoint: *out3, AcceptedAt: 4, Amount: 2, ClaimID: "d"})
-	n.Claims = append(n.Claims, &Claim{OutPoint: *out1, AcceptedAt: 3, Amount: 4, ClaimID: "a"})
+	n.Claims = append(n.Claims, &Claim{OutPoint: *out2, AcceptedAt: 3, Amount: 3, ClaimID: change.ClaimID{2}})
+	n.Claims = append(n.Claims, &Claim{OutPoint: *out3, AcceptedAt: 3, Amount: 2, ClaimID: change.ClaimID{3}})
+	n.Claims = append(n.Claims, &Claim{OutPoint: *out3, AcceptedAt: 4, Amount: 2, ClaimID: change.ClaimID{4}})
+	n.Claims = append(n.Claims, &Claim{OutPoint: *out1, AcceptedAt: 3, Amount: 4, ClaimID: change.ClaimID{1}})
 	n.SortClaims()
 
 	r.Equal(int64(4), n.Claims[0].Amount)

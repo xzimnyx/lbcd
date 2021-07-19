@@ -3,9 +3,9 @@ package claimtrie
 import (
 	"testing"
 
+	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/merkletrie"
-	"github.com/btcsuite/btcd/claimtrie/node"
 	"github.com/btcsuite/btcd/claimtrie/param"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -52,16 +52,16 @@ func TestFixedHashes(t *testing.T) {
 	tx3 := buildTx(tx2.TxHash())
 	tx4 := buildTx(tx3.TxHash())
 
-	err = ct.AddClaim(b("test"), tx1.TxIn[0].PreviousOutPoint, node.NewClaimID(tx1.TxIn[0].PreviousOutPoint), 50, nil)
+	err = ct.AddClaim(b("test"), tx1.TxIn[0].PreviousOutPoint, change.NewClaimID(tx1.TxIn[0].PreviousOutPoint), 50, nil)
 	r.NoError(err)
 
-	err = ct.AddClaim(b("test2"), tx2.TxIn[0].PreviousOutPoint, node.NewClaimID(tx2.TxIn[0].PreviousOutPoint), 50, nil)
+	err = ct.AddClaim(b("test2"), tx2.TxIn[0].PreviousOutPoint, change.NewClaimID(tx2.TxIn[0].PreviousOutPoint), 50, nil)
 	r.NoError(err)
 
-	err = ct.AddClaim(b("test"), tx3.TxIn[0].PreviousOutPoint, node.NewClaimID(tx3.TxIn[0].PreviousOutPoint), 50, nil)
+	err = ct.AddClaim(b("test"), tx3.TxIn[0].PreviousOutPoint, change.NewClaimID(tx3.TxIn[0].PreviousOutPoint), 50, nil)
 	r.NoError(err)
 
-	err = ct.AddClaim(b("tes"), tx4.TxIn[0].PreviousOutPoint, node.NewClaimID(tx4.TxIn[0].PreviousOutPoint), 50, nil)
+	err = ct.AddClaim(b("tes"), tx4.TxIn[0].PreviousOutPoint, change.NewClaimID(tx4.TxIn[0].PreviousOutPoint), 50, nil)
 	r.NoError(err)
 
 	err = ct.AppendBlock()
@@ -89,27 +89,27 @@ func TestNormalizationFork(t *testing.T) {
 	hash := chainhash.HashH([]byte{1, 2, 3})
 
 	o1 := wire.OutPoint{Hash: hash, Index: 1}
-	err = ct.AddClaim([]byte("AÑEJO"), o1, node.NewClaimID(o1), 10, nil)
+	err = ct.AddClaim([]byte("AÑEJO"), o1, change.NewClaimID(o1), 10, nil)
 	r.NoError(err)
 
 	o2 := wire.OutPoint{Hash: hash, Index: 2}
-	err = ct.AddClaim([]byte("AÑejo"), o2, node.NewClaimID(o2), 5, nil)
+	err = ct.AddClaim([]byte("AÑejo"), o2, change.NewClaimID(o2), 5, nil)
 	r.NoError(err)
 
 	o3 := wire.OutPoint{Hash: hash, Index: 3}
-	err = ct.AddClaim([]byte("あてはまる"), o3, node.NewClaimID(o3), 5, nil)
+	err = ct.AddClaim([]byte("あてはまる"), o3, change.NewClaimID(o3), 5, nil)
 	r.NoError(err)
 
 	o4 := wire.OutPoint{Hash: hash, Index: 4}
-	err = ct.AddClaim([]byte("Aḿlie"), o4, node.NewClaimID(o4), 5, nil)
+	err = ct.AddClaim([]byte("Aḿlie"), o4, change.NewClaimID(o4), 5, nil)
 	r.NoError(err)
 
 	o5 := wire.OutPoint{Hash: hash, Index: 5}
-	err = ct.AddClaim([]byte("TEST"), o5, node.NewClaimID(o5), 5, nil)
+	err = ct.AddClaim([]byte("TEST"), o5, change.NewClaimID(o5), 5, nil)
 	r.NoError(err)
 
 	o6 := wire.OutPoint{Hash: hash, Index: 6}
-	err = ct.AddClaim([]byte("test"), o6, node.NewClaimID(o6), 7, nil)
+	err = ct.AddClaim([]byte("test"), o6, change.NewClaimID(o6), 7, nil)
 	r.NoError(err)
 
 	err = ct.AppendBlock()
@@ -122,7 +122,7 @@ func TestNormalizationFork(t *testing.T) {
 	r.Equal(int32(1), n.TakenOverAt)
 
 	o7 := wire.OutPoint{Hash: hash, Index: 7}
-	err = ct.AddClaim([]byte("aÑEJO"), o7, node.NewClaimID(o7), 8, nil)
+	err = ct.AddClaim([]byte("aÑEJO"), o7, change.NewClaimID(o7), 8, nil)
 	r.NoError(err)
 
 	err = ct.AppendBlock()
@@ -153,7 +153,7 @@ func TestActivationsOnNormalizationFork(t *testing.T) {
 	hash := chainhash.HashH([]byte{1, 2, 3})
 
 	o7 := wire.OutPoint{Hash: hash, Index: 7}
-	err = ct.AddClaim([]byte("A"), o7, node.NewClaimID(o7), 1, nil)
+	err = ct.AddClaim([]byte("A"), o7, change.NewClaimID(o7), 1, nil)
 	r.NoError(err)
 	err = ct.AppendBlock()
 	r.NoError(err)
@@ -164,7 +164,7 @@ func TestActivationsOnNormalizationFork(t *testing.T) {
 	verifyBestIndex(t, ct, "A", 7, 1)
 
 	o8 := wire.OutPoint{Hash: hash, Index: 8}
-	err = ct.AddClaim([]byte("A"), o8, node.NewClaimID(o8), 2, nil)
+	err = ct.AddClaim([]byte("A"), o8, change.NewClaimID(o8), 2, nil)
 	r.NoError(err)
 	err = ct.AppendBlock()
 	r.NoError(err)
@@ -199,15 +199,15 @@ func TestNormalizationSortOrder(t *testing.T) {
 	hash := chainhash.HashH([]byte{1, 2, 3})
 
 	o1 := wire.OutPoint{Hash: hash, Index: 1}
-	err = ct.AddClaim([]byte("A"), o1, node.NewClaimID(o1), 1, nil)
+	err = ct.AddClaim([]byte("A"), o1, change.NewClaimID(o1), 1, nil)
 	r.NoError(err)
 
 	o2 := wire.OutPoint{Hash: hash, Index: 2}
-	err = ct.AddClaim([]byte("A"), o2, node.NewClaimID(o2), 2, nil)
+	err = ct.AddClaim([]byte("A"), o2, change.NewClaimID(o2), 2, nil)
 	r.NoError(err)
 
 	o3 := wire.OutPoint{Hash: hash, Index: 3}
-	err = ct.AddClaim([]byte("a"), o3, node.NewClaimID(o3), 3, nil)
+	err = ct.AddClaim([]byte("a"), o3, change.NewClaimID(o3), 3, nil)
 	r.NoError(err)
 
 	err = ct.AppendBlock()
@@ -246,11 +246,11 @@ func TestRebuild(t *testing.T) {
 	hash := chainhash.HashH([]byte{1, 2, 3})
 
 	o1 := wire.OutPoint{Hash: hash, Index: 1}
-	err = ct.AddClaim([]byte("test1"), o1, node.NewClaimID(o1), 1, nil)
+	err = ct.AddClaim([]byte("test1"), o1, change.NewClaimID(o1), 1, nil)
 	r.NoError(err)
 
 	o2 := wire.OutPoint{Hash: hash, Index: 2}
-	err = ct.AddClaim([]byte("test2"), o2, node.NewClaimID(o2), 2, nil)
+	err = ct.AddClaim([]byte("test2"), o2, change.NewClaimID(o2), 2, nil)
 	r.NoError(err)
 
 	err = ct.AppendBlock()

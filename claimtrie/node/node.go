@@ -31,8 +31,6 @@ func (n *Node) HasActiveBestClaim() bool {
 
 func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 
-	out := NewOutPointFromString(chg.OutPoint)
-
 	visibleAt := chg.VisibleHeight
 	if visibleAt <= 0 {
 		visibleAt = chg.Height
@@ -41,7 +39,7 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 	switch chg.Type {
 	case change.AddClaim:
 		c := &Claim{
-			OutPoint:   *out,
+			OutPoint:   chg.OutPoint,
 			Amount:     chg.Amount,
 			ClaimID:    chg.ClaimID,
 			AcceptedAt: chg.Height, // not tracking original height in this version (but we could)
@@ -49,14 +47,14 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 			Value:      chg.Value,
 			VisibleAt:  visibleAt,
 		}
-		old := n.Claims.find(byOut(*out)) // TODO: remove this after proving ResetHeight works
+		old := n.Claims.find(byOut(chg.OutPoint)) // TODO: remove this after proving ResetHeight works
 		if old != nil {
 			fmt.Printf("CONFLICT WITH EXISTING TXO! Name: %s, Height: %d\n", chg.Name, chg.Height)
 		}
 		n.Claims = append(n.Claims, c)
 
 	case change.SpendClaim:
-		c := n.Claims.find(byOut(*out))
+		c := n.Claims.find(byOut(chg.OutPoint))
 		if c != nil {
 			c.setStatus(Deactivated)
 		} else if !mispents[fmt.Sprintf("%d_%s", chg.Height, chg.ClaimID)] {
@@ -74,7 +72,7 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 
 			// Keep its ID, which was generated from the spent claim.
 			// And update the rest of properties.
-			c.setOutPoint(*out).SetAmt(chg.Amount).SetValue(chg.Value)
+			c.setOutPoint(chg.OutPoint).SetAmt(chg.Amount).SetValue(chg.Value)
 			c.setStatus(Accepted) // it was Deactivated in the spend (but we only activate at the end of the block)
 			// that's because the old code would put all insertions into the "queue" that was processed at block's end
 
@@ -88,7 +86,7 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 		}
 	case change.AddSupport:
 		n.Supports = append(n.Supports, &Claim{
-			OutPoint:   *out,
+			OutPoint:   chg.OutPoint,
 			Amount:     chg.Amount,
 			ClaimID:    chg.ClaimID,
 			AcceptedAt: chg.Height,
@@ -98,10 +96,10 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 		})
 
 	case change.SpendSupport:
-		s := n.Supports.find(byOut(*out))
+		s := n.Supports.find(byOut(chg.OutPoint))
 		if s != nil {
 			if s.Status == Activated {
-				n.SupportSums[s.ClaimID] -= s.Amount
+				n.SupportSums[s.ClaimID.Key()] -= s.Amount
 			}
 			// TODO: we could do without this Deactivated flag if we set expiration instead
 			// That would eliminate the above Sum update.
@@ -170,7 +168,7 @@ func (n *Node) handleExpiredAndActivated(height int32) int {
 				c.setStatus(Activated)
 				changes++
 				if sums != nil {
-					sums[c.ClaimID] += c.Amount
+					sums[c.ClaimID.Key()] += c.Amount
 				}
 			}
 			if c.ExpireAt() <= height || c.Status == Deactivated {
@@ -181,7 +179,7 @@ func (n *Node) handleExpiredAndActivated(height int32) int {
 				items = items[:len(items)-1]
 				changes++
 				if sums != nil && c.Status != Deactivated {
-					sums[c.ClaimID] -= c.Amount
+					sums[c.ClaimID.Key()] -= c.Amount
 				}
 			}
 		}
@@ -252,9 +250,9 @@ func (n Node) findBestClaim() *Claim {
 			continue
 		}
 
-		candidateAmount := candidate.Amount + n.SupportSums[candidate.ClaimID]
+		candidateAmount := candidate.Amount + n.SupportSums[candidate.ClaimID.Key()]
 		if bestAmount <= 0 {
-			bestAmount = best.Amount + n.SupportSums[best.ClaimID]
+			bestAmount = best.Amount + n.SupportSums[best.ClaimID.Key()]
 		}
 
 		switch {
@@ -292,7 +290,7 @@ func (n *Node) activateAllClaims(height int32) int {
 			s.setActiveAt(height) // don't necessarily need to change this number?
 			s.setStatus(Activated)
 			count++
-			n.SupportSums[s.ClaimID] += s.Amount
+			n.SupportSums[s.ClaimID.Key()] += s.Amount
 		}
 	}
 	return count
@@ -302,8 +300,8 @@ func (n *Node) SortClaims() {
 
 	// purposefully sorting by descent
 	sort.Slice(n.Claims, func(j, i int) bool {
-		iAmount := n.Claims[i].Amount + n.SupportSums[n.Claims[i].ClaimID]
-		jAmount := n.Claims[j].Amount + n.SupportSums[n.Claims[j].ClaimID]
+		iAmount := n.Claims[i].Amount + n.SupportSums[n.Claims[i].ClaimID.Key()]
+		jAmount := n.Claims[j].Amount + n.SupportSums[n.Claims[j].ClaimID.Key()]
 		switch {
 		case iAmount < jAmount:
 			return true

@@ -13,8 +13,6 @@ import (
 	"github.com/btcsuite/btcd/claimtrie/chain/chainrepo"
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/config"
-	"github.com/btcsuite/btcd/claimtrie/node"
-
 	"github.com/cockroachdb/pebble"
 	"github.com/spf13/cobra"
 )
@@ -134,30 +132,22 @@ var chainReplayCmd = &cobra.Command{
 			}
 
 			for _, chg := range changes {
-				claimID, _ := node.NewIDFromString(chg.ClaimID)
 
 				switch chg.Type {
 				case change.AddClaim:
-					op := *node.NewOutPointFromString(chg.OutPoint)
-					err = ct.AddClaim(chg.Name, op, claimID, chg.Amount, chg.Value)
+					err = ct.AddClaim(chg.Name, chg.OutPoint, chg.ClaimID, chg.Amount, chg.Value)
 
 				case change.UpdateClaim:
-					op := *node.NewOutPointFromString(chg.OutPoint)
-					err = ct.UpdateClaim(chg.Name, op, chg.Amount, claimID, chg.Value)
+					err = ct.UpdateClaim(chg.Name, chg.OutPoint, chg.Amount, chg.ClaimID, chg.Value)
 
 				case change.SpendClaim:
-					op := *node.NewOutPointFromString(chg.OutPoint)
-					err = ct.SpendClaim(chg.Name, op, claimID)
+					err = ct.SpendClaim(chg.Name, chg.OutPoint, chg.ClaimID)
 
 				case change.AddSupport:
-					op := *node.NewOutPointFromString(chg.OutPoint)
-					claimID, _ := node.NewIDFromString(chg.ClaimID)
-					id := claimID
-					err = ct.AddSupport(chg.Name, chg.Value, op, chg.Amount, id)
+					err = ct.AddSupport(chg.Name, chg.Value, chg.OutPoint, chg.Amount, chg.ClaimID)
 
 				case change.SpendSupport:
-					op := *node.NewOutPointFromString(chg.OutPoint)
-					err = ct.SpendSupport(chg.Name, op, claimID)
+					err = ct.SpendSupport(chg.Name, chg.OutPoint, chg.ClaimID)
 
 				default:
 					err = fmt.Errorf("invalid change: %v", chg)

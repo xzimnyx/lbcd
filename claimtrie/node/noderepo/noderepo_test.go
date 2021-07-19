@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	opStr1        = "0000000000000000000000000000000000000000000000000000000000000000:1"
+	out1          = node.NewOutPointFromString("0000000000000000000000000000000000000000000000000000000000000000:1")
 	testNodeName1 = []byte("name1")
 )
 
@@ -39,7 +39,7 @@ func testNodeRepo(t *testing.T, repo node.Repo, setup, cleanup func()) {
 
 	r := require.New(t)
 
-	chg := change.New(change.AddClaim).SetName(testNodeName1).SetOutPoint(opStr1)
+	chg := change.NewChange(change.AddClaim).SetName(testNodeName1).SetOutPoint(out1)
 
 	testcases := []struct {
 		name     string

@@ -1,5 +1,7 @@
 package change
 
+import "github.com/btcsuite/btcd/wire"
+
 type ChangeType int
 
 const (
@@ -15,8 +17,8 @@ type Change struct {
 	Height int32
 
 	Name     []byte
-	ClaimID  string // TODO: can we store this and OutPoint as bytes?
-	OutPoint string
+	ClaimID  ClaimID
+	OutPoint wire.OutPoint
 	Amount   int64
 	Value    []byte
 
@@ -26,7 +28,7 @@ type Change struct {
 	SpentChildren map[string]bool
 }
 
-func New(typ ChangeType) Change {
+func NewChange(typ ChangeType) Change {
 	return Change{Type: typ}
 }
 
@@ -36,17 +38,12 @@ func (c Change) SetHeight(height int32) Change {
 }
 
 func (c Change) SetName(name []byte) Change {
-	c.Name = name
+	c.Name = name // need to clone it?
 	return c
 }
 
-func (c Change) SetClaimID(claimID string) Change {
-	c.ClaimID = claimID
-	return c
-}
-
-func (c Change) SetOutPoint(op string) Change {
-	c.OutPoint = op
+func (c Change) SetOutPoint(op *wire.OutPoint) Change {
+	c.OutPoint = *op
 	return c
 }
 

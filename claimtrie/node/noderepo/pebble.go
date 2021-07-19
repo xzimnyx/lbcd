@@ -3,14 +3,80 @@ package noderepo
 import (
 	"bytes"
 	"fmt"
+	"reflect"
+	"sort"
+
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/claimtrie/change"
+	"github.com/btcsuite/btcd/claimtrie/node"
+	"github.com/btcsuite/btcd/wire"
+
 	"github.com/cockroachdb/pebble"
 	"github.com/vmihailenco/msgpack/v5"
-	"sort"
 )
 
 type Pebble struct {
 	db *pebble.DB
+}
+
+func init() {
+	claimEncoder := func(e *msgpack.Encoder, v reflect.Value) error {
+		claim := v.Interface().(change.ClaimID)
+		return e.EncodeBytes(claim[:])
+	}
+	claimDecoder := func(e *msgpack.Decoder, v reflect.Value) error {
+		data, err := e.DecodeBytes()
+		if err != nil {
+			s, err := e.DecodeString()
+			if err != nil {
+				return err
+			}
+			id, err := change.NewIDFromString(s)
+			if err != nil {
+				return err
+			}
+			v.Set(reflect.ValueOf(id))
+		} else {
+			id := change.ClaimID{}
+			copy(id[:], data)
+			v.Set(reflect.ValueOf(id))
+		}
+		return nil
+	}
+	msgpack.Register(change.ClaimID{}, claimEncoder, claimDecoder)
+
+	opEncoder := func(e *msgpack.Encoder, v reflect.Value) error {
+		op := v.Interface().(wire.OutPoint)
+		if err := e.EncodeBytes(op.Hash[:]); err != nil {
+			return err
+		}
+		return e.EncodeUint32(op.Index)
+	}
+	opDecoder := func(e *msgpack.Decoder, v reflect.Value) error {
+		data, err := e.DecodeBytes()
+		if err != nil {
+			// try the older data:
+			s, err := e.DecodeString()
+			if err != nil {
+				return err
+			}
+			op := node.NewOutPointFromString(s)
+			v.Set(reflect.ValueOf(op))
+		} else {
+			index, err := e.DecodeUint32()
+			if err != nil {
+				return err
+			}
+			hash, err := chainhash.NewHash(data)
+			if err != nil {
+				return err
+			}
+			op := wire.NewOutPoint(hash, index)
+			v.Set(reflect.ValueOf(*op))
+		}
+		return nil
+	}
+	msgpack.Register(wire.OutPoint{}, opEncoder, opDecoder)
 }
 
 func NewPebble(path string) (*Pebble, error) {

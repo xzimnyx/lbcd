@@ -1,12 +1,15 @@
 package node
 
-import "github.com/btcsuite/btcd/wire"
+import (
+	"github.com/btcsuite/btcd/claimtrie/change"
+	"github.com/btcsuite/btcd/wire"
+)
 
 type ClaimList []*Claim
 
 type comparator func(c *Claim) bool
 
-func byID(id string) comparator {
+func byID(id change.ClaimID) comparator {
 	return func(c *Claim) bool {
 		return c.ClaimID == id
 	}

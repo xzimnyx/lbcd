@@ -2,54 +2,14 @@ package node
 
 import (
 	"bytes"
-	"encoding/binary"
-	"encoding/hex"
 	"strconv"
 	"strings"
 
-	"github.com/btcsuite/btcd/claimtrie/param"
-
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/btcsuite/btcd/claimtrie/change"
+	"github.com/btcsuite/btcd/claimtrie/param"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
 )
-
-// ClaimID represents a Claim's ClaimID.
-type ClaimID [20]byte
-
-// NewClaimID returns a Claim ID calculated from Ripemd160(Sha256(OUTPOINT).
-func NewClaimID(op wire.OutPoint) ClaimID {
-
-	w := bytes.NewBuffer(op.Hash[:])
-	if err := binary.Write(w, binary.BigEndian, op.Index); err != nil {
-		panic(err)
-	}
-	var id ClaimID
-	copy(id[:], btcutil.Hash160(w.Bytes()))
-
-	return id
-}
-
-// NewIDFromString returns a Claim ID from a string.
-func NewIDFromString(s string) (ClaimID, error) {
-
-	var id ClaimID
-	_, err := hex.Decode(id[:], []byte(s))
-	for i, j := 0, len(id)-1; i < j; i, j = i+1, j-1 {
-		id[i], id[j] = id[j], id[i]
-	}
-
-	return id, err
-}
-
-func (id ClaimID) String() string {
-
-	for i, j := 0, len(id)-1; i < j; i, j = i+1, j-1 {
-		id[i], id[j] = id[j], id[i]
-	}
-
-	return hex.EncodeToString(id[:])
-}
 
 type Status int
 
@@ -62,7 +22,7 @@ const (
 // Claim defines a structure of stake, which could be a Claim or Support.
 type Claim struct {
 	OutPoint   wire.OutPoint
-	ClaimID    string
+	ClaimID    change.ClaimID
 	Amount     int64
 	AcceptedAt int32 // when arrived (aka, originally landed in block)
 	ActiveAt   int32 // AcceptedAt + actual delay

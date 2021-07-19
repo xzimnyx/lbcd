@@ -83,7 +83,7 @@ func (nm *NormalizingManager) addNormalizationForkChangesIfNecessary(height int3
 				Type:          change.AddClaim,
 				Name:          norm,
 				Height:        c.AcceptedAt,
-				OutPoint:      c.OutPoint.String(),
+				OutPoint:      c.OutPoint,
 				ClaimID:       c.ClaimID,
 				Amount:        c.Amount,
 				Value:         c.Value,
@@ -94,7 +94,7 @@ func (nm *NormalizingManager) addNormalizationForkChangesIfNecessary(height int3
 				Type:     change.SpendClaim,
 				Name:     clone,
 				Height:   height,
-				OutPoint: c.OutPoint.String(),
+				OutPoint: c.OutPoint,
 			})
 		}
 		for _, c := range n.Supports {
@@ -102,7 +102,7 @@ func (nm *NormalizingManager) addNormalizationForkChangesIfNecessary(height int3
 				Type:          change.AddSupport,
 				Name:          norm,
 				Height:        c.AcceptedAt,
-				OutPoint:      c.OutPoint.String(),
+				OutPoint:      c.OutPoint,
 				ClaimID:       c.ClaimID,
 				Amount:        c.Amount,
 				Value:         c.Value,
@@ -113,7 +113,7 @@ func (nm *NormalizingManager) addNormalizationForkChangesIfNecessary(height int3
 				Type:     change.SpendSupport,
 				Name:     clone,
 				Height:   height,
-				OutPoint: c.OutPoint.String(),
+				OutPoint: c.OutPoint,
 			})
 		}
 
