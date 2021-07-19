@@ -2,6 +2,7 @@ package node
 
 import (
 	"bytes"
+	"container/list"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
@@ -25,11 +26,63 @@ type Manager interface {
 	Hash(name []byte) *chainhash.Hash
 }
 
+type nodeCacheLeaf struct {
+	node *Node
+	key string
+}
+
+type nodeCache struct {
+	elements map[string]*list.Element
+	data *list.List
+	maxElements int
+}
+
+func newNodeCache(size int) *nodeCache {
+	return &nodeCache{elements:
+		make(map[string]*list.Element, size),
+		data: list.New(),
+		maxElements: size,
+	}
+}
+
+func (nc *nodeCache) Get(key string) *Node {
+	element := nc.elements[key]
+	if element != nil {
+		return element.Value.(nodeCacheLeaf).node
+	}
+	return nil
+}
+
+func (nc *nodeCache) Put(key string, element *Node) {
+	existing := nc.elements[key]
+	if existing != nil {
+		existing.Value = nodeCacheLeaf{element, key}
+		nc.data.MoveToFront(existing)
+	} else if len(nc.elements) >= nc.maxElements {
+		existing = nc.data.Back()
+		delete(nc.elements, existing.Value.(nodeCacheLeaf).key)
+		existing.Value = nodeCacheLeaf{element, key}
+		nc.data.MoveToFront(existing)
+		nc.elements[key] = existing
+	} else {
+		nc.elements[key] = nc.data.PushFront(nodeCacheLeaf{element, key})
+	}
+}
+
+func (nc *nodeCache) Delete(key string) {
+	existing := nc.elements[key]
+	if existing != nil {
+		delete(nc.elements, key)
+		nc.data.Remove(existing)
+	}
+}
+
+
 type BaseManager struct {
 	repo Repo
 
 	height  int32
-	cache   map[string]*Node
+	cache   *nodeCache
 	changes []change.Change
 }
 
@@ -37,7 +90,7 @@ func NewBaseManager(repo Repo) (Manager, error) {
 
 	nm := &BaseManager{
 		repo:  repo,
-		cache: map[string]*Node{},
+		cache: newNodeCache(param.MaxNodeManagerCacheSize),
 	}
 
 	return nm, nil
@@ -48,8 +101,8 @@ func NewBaseManager(repo Repo) (Manager, error) {
 func (nm *BaseManager) Node(name []byte) (*Node, error) {
 
 	nameStr := string(name)
-	n, ok := nm.cache[nameStr]
-	if ok && n != nil {
+	n := nm.cache.Get(nameStr)
+	if n != nil {
 		return n.AdjustTo(nm.height, -1, name), nil
 	}
 
@@ -67,10 +120,7 @@ func (nm *BaseManager) Node(name []byte) (*Node, error) {
 		return nil, nil
 	}
 
-	if len(nm.cache) > param.MaxNodeManagerCacheSize {
-		nm.cache = map[string]*Node{} // TODO: let's get a real LRU cache in here
-	}
-	nm.cache[nameStr] = n
+	nm.cache.Put(nameStr, n)
 	return n, nil
 }
 
@@ -116,7 +166,7 @@ func (nm *BaseManager) newNodeFromChanges(changes []change.Change, height int32)
 
 func (nm *BaseManager) AppendChange(chg change.Change) error {
 
-	delete(nm.cache, string(chg.Name))
+	nm.cache.Delete(string(chg.Name))
 	nm.changes = append(nm.changes, chg)
 
 	return nil
@@ -196,7 +246,7 @@ func (nm *BaseManager) DecrementHeightTo(affectedNames [][]byte, height int32) e
 	}
 
 	for _, name := range affectedNames {
-		delete(nm.cache, string(name))
+		nm.cache.Delete(string(name))
 		if err := nm.repo.DropChanges(name, height); err != nil {
 			return err
 		}

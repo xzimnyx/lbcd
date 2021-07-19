@@ -23,7 +23,7 @@ var (
 func SetNetwork(net wire.BitcoinNet) {
 	MaxActiveDelay = 4032
 	ActiveDelayFactor = 32
-	MaxNodeManagerCacheSize = 16000
+	MaxNodeManagerCacheSize = 32000
 
 	switch net {
 	case wire.MainNet:
