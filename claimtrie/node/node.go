@@ -75,7 +75,8 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 			// Keep its ID, which was generated from the spent claim.
 			// And update the rest of properties.
 			c.setOutPoint(*out).SetAmt(chg.Amount).SetValue(chg.Value)
-			c.setStatus(Accepted) // it was Deactivated in the spend
+			c.setStatus(Accepted) // it was Deactivated in the spend (but we only activate at the end of the block)
+			// that's because the old code would put all insertions into the "queue" that was processed at block's end
 
 			// It's a bug, but the old code would update these.
 			// That forces this to be newer, which may in an unintentional takeover if there's an older one.

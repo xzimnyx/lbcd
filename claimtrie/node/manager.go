@@ -1,6 +1,7 @@
 package node
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
@@ -121,10 +122,52 @@ func (nm *BaseManager) AppendChange(chg change.Change) error {
 	return nil
 }
 
+func collectChildNames(changes []change.Change) {
+	// we need to determine which children (names that start with the same name) go with which change
+	// if we have the names in order then we can avoid iterating through all names in the change list
+	// and we can possibly reuse the previous list.
+	// eh. optimize it some other day
+
+	// what would happen in the old code:
+	// spending a claim (which happens before every update) could remove a node from the cached trie
+	// in which case we would fall back on the data from the previous block (where it obviously wasn't spent).
+	// It would only delete the node if it had no children, but have even some rare situations
+	// Where all of the children happen to be deleted first. That's what we must detect here.
+
+	// Algorithm:
+	// For each non-spend change
+	//    Loop through all the spends before you and add them to your child list if they are your child
+
+	for i := range changes {
+		t := changes[i].Type
+		if t == change.SpendClaim || t == change.SpendSupport {
+			continue
+		}
+		a := changes[i].Name
+		sc := map[string]bool{}
+		for j := 0; j < i; j++ {
+			t = changes[j].Type
+			if t != change.SpendClaim {
+				continue
+			}
+			b := changes[j].Name
+			if len(b) >= len(a) && bytes.Equal(a, b[:len(a)]) {
+				sc[string(b)] = true
+			}
+		}
+		changes[i].SpentChildren = sc
+	}
+}
+
 func (nm *BaseManager) IncrementHeightTo(height int32) ([][]byte, error) {
 
 	if height <= nm.height {
 		panic("invalid height")
+	}
+
+	if height >= param.MaxRemovalWorkaroundHeight {
+		// not technically needed until block 884430, but to be true to the arbitrary rollback length...
+		collectChildNames(nm.changes)
 	}
 
 	names := make([][]byte, 0, len(nm.changes))
@@ -226,7 +269,7 @@ func (nm *BaseManager) aWorkaroundIsNeeded(n *Node, chg change.Change) bool {
 		// auto it = nodesToAddOrUpdate.find(name); // nodesToAddOrUpdate is the working changes, base is previous block
 		// auto answer = (it || (it = base->find(name))) && !it->empty() ? nNextHeight - it->nHeightOfLastTakeover : 0;
 
-		needed := hasZeroActiveClaims(n) && nm.hasChildren(chg.Name, chg.Height, 2)
+		needed := hasZeroActiveClaims(n) && nm.hasChildren(chg.Name, chg.Height, chg.SpentChildren, 2)
 		if chg.Height <= 933294 {
 			w := isInDelayPart2(chg)
 			if w {
@@ -288,8 +331,11 @@ func (nm *BaseManager) Close() error {
 	return nil
 }
 
-func (nm *BaseManager) hasChildren(name []byte, height int32, required int) bool {
+func (nm *BaseManager) hasChildren(name []byte, height int32, spentChildren map[string]bool, required int) bool {
 	c := map[byte]bool{}
+	if spentChildren == nil {
+		spentChildren = map[string]bool{}
+	}
 
 	nm.repo.IterateChildren(name, func(changes []change.Change) bool {
 		// if the key is unseen, generate a node for it to height
@@ -299,6 +345,9 @@ func (nm *BaseManager) hasChildren(name []byte, height int32, required int) bool
 		}
 		if c[changes[0].Name[len(name)]] { // assuming all names here are longer than starter name
 			return true // we already checked a similar name
+		}
+		if spentChildren[string(changes[0].Name)] {
+			return true // children that are spent in the same block cannot count as active children
 		}
 		n, _ := nm.newNodeFromChanges(changes, height)
 		if n != nil && n.HasActiveBestClaim() {

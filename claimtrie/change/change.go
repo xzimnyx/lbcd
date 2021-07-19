@@ -22,6 +22,8 @@ type Change struct {
 
 	ActiveHeight  int32 // for normalization fork
 	VisibleHeight int32
+
+	SpentChildren map[string]bool
 }
 
 func New(typ ChangeType) Change {
