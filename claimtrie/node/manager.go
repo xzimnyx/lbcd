@@ -48,6 +48,7 @@ func newNodeCache(size int) *nodeCache {
 func (nc *nodeCache) Get(key string) *Node {
 	element := nc.elements[key]
 	if element != nil {
+		nc.data.MoveToFront(element)
 		return element.Value.(nodeCacheLeaf).node
 	}
 	return nil
