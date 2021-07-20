@@ -9,7 +9,9 @@ import (
 )
 
 // ClaimID represents a Claim's ClaimID.
-type ClaimID [20]byte
+const ClaimIDSize = 20
+
+type ClaimID [ClaimIDSize]byte
 
 // NewClaimID returns a Claim ID calculated from Ripemd160(Sha256(OUTPOINT).
 func NewClaimID(op wire.OutPoint) (id ClaimID) {

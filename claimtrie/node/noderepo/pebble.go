@@ -27,11 +27,10 @@ func init() {
 	claimDecoder := func(e *msgpack.Decoder, v reflect.Value) error {
 		data, err := e.DecodeBytes()
 		if err != nil {
-			s, err := e.DecodeString()
-			if err != nil {
-				return err
-			}
-			id, err := change.NewIDFromString(s)
+			return err
+		}
+		if len(data) > change.ClaimIDSize {
+			id, err := change.NewIDFromString(string(data))
 			if err != nil {
 				return err
 			}
@@ -55,13 +54,12 @@ func init() {
 	opDecoder := func(e *msgpack.Decoder, v reflect.Value) error {
 		data, err := e.DecodeBytes()
 		if err != nil {
+			return err
+		}
+		if len(data) > chainhash.HashSize {
 			// try the older data:
-			s, err := e.DecodeString()
-			if err != nil {
-				return err
-			}
-			op := node.NewOutPointFromString(s)
-			v.Set(reflect.ValueOf(op))
+			op := node.NewOutPointFromString(string(data))
+			v.Set(reflect.ValueOf(*op))
 		} else {
 			index, err := e.DecodeUint32()
 			if err != nil {
@@ -71,8 +69,8 @@ func init() {
 			if err != nil {
 				return err
 			}
-			op := wire.NewOutPoint(hash, index)
-			v.Set(reflect.ValueOf(*op))
+			op := wire.OutPoint{Hash: *hash, Index: index}
+			v.Set(reflect.ValueOf(op))
 		}
 		return nil
 	}

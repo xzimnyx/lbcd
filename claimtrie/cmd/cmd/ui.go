@@ -32,7 +32,7 @@ func changeName(c change.ChangeType) string {
 
 func showChange(chg change.Change) {
 	fmt.Printf(">>> Height: %6d: %s for %04s, %d, %s\n",
-		chg.Height, changeName(chg.Type), chg.ClaimID.String(), chg.Amount, chg.OutPoint)
+		chg.Height, changeName(chg.Type), chg.ClaimID.String(), chg.Amount, chg.OutPoint.String())
 }
 
 func showClaim(c *node.Claim, n *node.Node) {
@@ -42,12 +42,12 @@ func showClaim(c *node.Claim, n *node.Node) {
 	}
 
 	fmt.Printf("%s  C  ID: %s, TXO: %s\n   %5d/%-5d, Status: %9s, Amount: %15d, Support Amount: %15d\n",
-		mark, c.ClaimID.String(), c.OutPoint, c.AcceptedAt, c.ActiveAt, status[c.Status], c.Amount, n.SupportSums[c.ClaimID.Key()])
+		mark, c.ClaimID.String(), c.OutPoint.String(), c.AcceptedAt, c.ActiveAt, status[c.Status], c.Amount, n.SupportSums[c.ClaimID.Key()])
 }
 
 func showSupport(c *node.Claim) {
 	fmt.Printf("    S id: %s, op: %s, %5d/%-5d, %9s, amt: %15d\n",
-		c.ClaimID.String(), c.OutPoint, c.AcceptedAt, c.ActiveAt, status[c.Status], c.Amount)
+		c.ClaimID.String(), c.OutPoint.String(), c.AcceptedAt, c.ActiveAt, status[c.Status], c.Amount)
 }
 
 func showNode(n *node.Node) {
