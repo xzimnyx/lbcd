@@ -96,12 +96,14 @@ func (repo *Pebble) AppendChanges(changes []change.Change) error {
 
 	// TODO: switch to buffer pool and reuse encoder
 	for _, chg := range changes {
+		name := chg.Name
+		chg.Name = nil // don't waste the storage space on this (annotation a better approach?)
 		value, err := msgpack.Marshal(chg)
 		if err != nil {
 			return fmt.Errorf("msgpack marshal value: %w", err)
 		}
 
-		err = batch.Merge(chg.Name, value, pebble.NoSync)
+		err = batch.Merge(name, value, pebble.NoSync)
 		if err != nil {
 			return fmt.Errorf("pebble set: %w", err)
 		}
@@ -124,10 +126,10 @@ func (repo *Pebble) LoadChanges(name []byte) ([]change.Change, error) {
 		defer closer.Close()
 	}
 
-	return unmarshalChanges(data)
+	return unmarshalChanges(name, data)
 }
 
-func unmarshalChanges(data []byte) ([]change.Change, error) {
+func unmarshalChanges(name, data []byte) ([]change.Change, error) {
 	var changes []change.Change
 	dec := msgpack.GetDecoder()
 	defer msgpack.PutDecoder(dec)
@@ -140,6 +142,7 @@ func unmarshalChanges(data []byte) ([]change.Change, error) {
 		if err != nil {
 			return nil, fmt.Errorf("msgpack unmarshal: %w", err)
 		}
+		chg.Name = name
 		changes = append(changes, chg)
 	}
 
@@ -189,7 +192,8 @@ func (repo *Pebble) IterateChildren(name []byte, f func(changes []change.Change)
 	defer iter.Close()
 
 	for iter.First(); iter.Valid(); iter.Next() {
-		changes, err := unmarshalChanges(iter.Value())
+		// NOTE! iter.Key() is ephemeral!
+		changes, err := unmarshalChanges(iter.Key(), iter.Value())
 		if err != nil {
 			panic(err)
 		}

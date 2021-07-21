@@ -226,7 +226,7 @@ func (nm *BaseManager) IncrementHeightTo(height int32) ([][]byte, error) {
 		names = append(names, nm.changes[i].Name)
 	}
 
-	if err := nm.repo.AppendChanges(nm.changes); err != nil {
+	if err := nm.repo.AppendChanges(nm.changes); err != nil { // destroys names
 		return nil, fmt.Errorf("save changes to node repo: %w", err)
 	}
 

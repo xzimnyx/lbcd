@@ -179,10 +179,10 @@ func TestIterator(t *testing.T) {
 	err = repo.AppendChanges(creation)
 	r.NoError(err)
 
-	var received []change.Change
+	i := 0
 	repo.IterateChildren([]byte{}, func(changes []change.Change) bool {
-		received = append(received, changes...)
+		r.Equal(creation[i], changes[0])
+		i++
 		return true
 	})
-	r.Equal(creation, received)
 }
