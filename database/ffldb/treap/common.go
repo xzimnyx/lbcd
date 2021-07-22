@@ -42,6 +42,13 @@ type treapNode struct {
 	right    *treapNode
 }
 
+func (n *treapNode) Reset() {
+	n.key = nil
+	n.value = nil
+	n.left = nil
+	n.right = nil
+}
+
 // nodeSize returns the number of bytes the specified node occupies including
 // the struct fields and the contents of the key and value.
 func nodeSize(node *treapNode) uint64 {

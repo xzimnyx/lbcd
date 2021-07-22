@@ -502,6 +502,8 @@ func (c *dbCache) flush() error {
 	c.cacheLock.RLock()
 	cachedKeys := c.cachedKeys
 	cachedRemove := c.cachedRemove
+	c.cachedKeys = treap.NewImmutable()
+	c.cachedRemove = treap.NewImmutable()
 	c.cacheLock.RUnlock()
 
 	// Nothing to do if there is no data to flush.
@@ -514,11 +516,8 @@ func (c *dbCache) flush() error {
 		return err
 	}
 
-	// Clear the cache since it has been flushed.
-	c.cacheLock.Lock()
-	c.cachedKeys = treap.NewImmutable()
-	c.cachedRemove = treap.NewImmutable()
-	c.cacheLock.Unlock()
+	cachedKeys.Recycle()
+	cachedRemove.Recycle()
 
 	return nil
 }
@@ -578,9 +577,16 @@ func (c *dbCache) commitTx(tx *transaction) error {
 			return err
 		}
 
+		pk := tx.pendingKeys
+		pr := tx.pendingRemove
+
 		// Clear the transaction entries since they have been committed.
 		tx.pendingKeys = nil
 		tx.pendingRemove = nil
+
+		pk.Recycle()
+		pr.Recycle()
+
 		return nil
 	}
 

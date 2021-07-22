@@ -7,17 +7,20 @@ package treap
 import (
 	"bytes"
 	"math/rand"
+	"sync"
 )
+
+var nodePool = &sync.Pool{New: func() interface{} { return newTreapNode(nil, nil, 0) }}
 
 // cloneTreapNode returns a shallow copy of the passed node.
 func cloneTreapNode(node *treapNode) *treapNode {
-	return &treapNode{
-		key:      node.key,
-		value:    node.value,
-		priority: node.priority,
-		left:     node.left,
-		right:    node.right,
-	}
+	clone := nodePool.Get().(*treapNode)
+	clone.key = node.key
+	clone.value = node.value
+	clone.priority = node.priority
+	clone.left = node.left
+	clone.right = node.right
+	return clone
 }
 
 // Immutable represents a treap data structure which is used to hold ordered
@@ -165,7 +168,10 @@ func (t *Immutable) Put(key, value []byte) *Immutable {
 	}
 
 	// Link the new node into the binary tree in the correct position.
-	node := newTreapNode(key, value, rand.Int())
+	node := nodePool.Get().(*treapNode)
+	node.key = key
+	node.value = value
+	node.priority = rand.Int()
 	parent := parents.At(0)
 	if compareResult < 0 {
 		parent.left = node
@@ -358,3 +364,24 @@ func (t *Immutable) ForEach(fn func(k, v []byte) bool) {
 func NewImmutable() *Immutable {
 	return &Immutable{}
 }
+
+func (t *Immutable) Recycle() {
+	var parents parentStack
+	for node := t.root; node != nil; node = node.left {
+		parents.Push(node)
+	}
+
+	for parents.Len() > 0 {
+		node := parents.Pop()
+
+		// Extend the nodes to traverse by all children to the left of
+		// the current node's right child.
+		for n := node.right; n != nil; n = n.left {
+			parents.Push(n)
+		}
+
+		node.Reset()
+		nodePool.Put(node)
+	}
+}
+

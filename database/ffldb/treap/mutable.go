@@ -145,7 +145,10 @@ func (t *Mutable) Put(key, value []byte) {
 	}
 
 	// Link the new node into the binary tree in the correct position.
-	node := newTreapNode(key, value, rand.Int())
+	node := nodePool.Get().(*treapNode)
+	node.key = key
+	node.value = value
+	node.priority = rand.Int()
 	t.count++
 	t.totalSize += nodeSize(node)
 	parent := parents.At(0)
@@ -276,3 +279,24 @@ func (t *Mutable) Reset() {
 func NewMutable() *Mutable {
 	return &Mutable{}
 }
+
+func (t *Mutable) Recycle() {
+	var parents parentStack
+	for node := t.root; node != nil; node = node.left {
+		parents.Push(node)
+	}
+
+	for parents.Len() > 0 {
+		node := parents.Pop()
+
+		// Extend the nodes to traverse by all children to the left of
+		// the current node's right child.
+		for n := node.right; n != nil; n = n.left {
+			parents.Push(n)
+		}
+
+		node.Reset()
+		nodePool.Put(node)
+	}
+}
+
