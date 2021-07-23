@@ -430,6 +430,9 @@ type ScriptPubKeyResult struct {
 	Hex       string   `json:"hex,omitempty"`
 	ReqSigs   int32    `json:"reqSigs,omitempty"`
 	Type      string   `json:"type"`
+	SubType   string   `json:"subtype"`
+	IsClaim   bool     `json:"isclaim"`
+	IsSupport bool     `json:"issupport"`
 	Addresses []string `json:"addresses,omitempty"`
 }
 
@@ -588,6 +591,8 @@ func (v *Vin) MarshalJSON() ([]byte, error) {
 type PrevOut struct {
 	Addresses []string `json:"addresses,omitempty"`
 	Value     float64  `json:"value"`
+	IsClaim   bool     `json:"isclaim"`
+	IsSupport bool     `json:"issupport"`
 }
 
 // VinPrevOut is like Vin except it includes PrevOut.  It is used by searchrawtransaction

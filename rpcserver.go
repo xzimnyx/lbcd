@@ -701,11 +701,12 @@ func createVoutList(mtx *wire.MsgTx, chainParams *chaincfg.Params, filterAddrMap
 		// script doesn't fully parse, so ignore the error here.
 		disbuf, _ := txscript.DisasmString(v.PkScript)
 
+		script := txscript.StripClaimScriptPrefix(v.PkScript)
+
 		// Ignore the error here since an error means the script
 		// couldn't parse and there is no additional information about
 		// it anyways.
-		scriptClass, addrs, reqSigs, _ := txscript.ExtractPkScriptAddrs(
-			v.PkScript, chainParams)
+		scriptClass, addrs, reqSigs, _ := txscript.ExtractPkScriptAddrs(script, chainParams)
 
 		// Encode the addresses while checking if the address passes the
 		// filter when needed.
@@ -735,8 +736,18 @@ func createVoutList(mtx *wire.MsgTx, chainParams *chaincfg.Params, filterAddrMap
 		vout.ScriptPubKey.Addresses = encodedAddrs
 		vout.ScriptPubKey.Asm = disbuf
 		vout.ScriptPubKey.Hex = hex.EncodeToString(v.PkScript)
-		vout.ScriptPubKey.Type = scriptClass.String()
 		vout.ScriptPubKey.ReqSigs = int32(reqSigs)
+
+		if len(script) < len(v.PkScript) {
+			vout.ScriptPubKey.IsClaim = v.PkScript[0] == txscript.OP_CLAIMNAME || v.PkScript[0] == txscript.OP_UPDATECLAIM
+			vout.ScriptPubKey.IsSupport = v.PkScript[0] == txscript.OP_SUPPORTCLAIM
+			vout.ScriptPubKey.SubType = scriptClass.String()
+			vout.ScriptPubKey.Type = txscript.ScriptClass.String(0)
+		} else {
+			vout.ScriptPubKey.Type = scriptClass.String()
+		}
+
+		// TODO here: isclaim, issupport, subtype,
 
 		voutList = append(voutList, vout)
 	}
@@ -2778,10 +2789,12 @@ func handleGetTxOut(s *rpcServer, cmd interface{}, closeChan <-chan struct{}) (i
 	// doesn't fully parse, so ignore the error here.
 	disbuf, _ := txscript.DisasmString(pkScript)
 
+	script := txscript.StripClaimScriptPrefix(pkScript)
+
 	// Get further info about the script.
 	// Ignore the error here since an error means the script couldn't parse
 	// and there is no additional information about it anyways.
-	scriptClass, addrs, reqSigs, _ := txscript.ExtractPkScriptAddrs(pkScript,
+	scriptClass, addrs, reqSigs, _ := txscript.ExtractPkScriptAddrs(script,
 		s.cfg.ChainParams)
 	addresses := make([]string, len(addrs))
 	for i, addr := range addrs {
@@ -2796,11 +2809,20 @@ func handleGetTxOut(s *rpcServer, cmd interface{}, closeChan <-chan struct{}) (i
 			Asm:       disbuf,
 			Hex:       hex.EncodeToString(pkScript),
 			ReqSigs:   int32(reqSigs),
-			Type:      scriptClass.String(),
 			Addresses: addresses,
 		},
 		Coinbase: isCoinbase,
 	}
+
+	if len(script) < len(pkScript) {
+		txOutReply.ScriptPubKey.IsClaim = pkScript[0] == txscript.OP_CLAIMNAME || pkScript[0] == txscript.OP_UPDATECLAIM
+		txOutReply.ScriptPubKey.IsSupport = pkScript[0] == txscript.OP_SUPPORTCLAIM
+		txOutReply.ScriptPubKey.SubType = scriptClass.String()
+		txOutReply.ScriptPubKey.Type = txscript.ScriptClass.String(0)
+	} else {
+		txOutReply.ScriptPubKey.Type = scriptClass.String()
+	}
+
 	return txOutReply, nil
 }
 
@@ -3012,7 +3034,7 @@ func createVinListPrevOut(s *rpcServer, mtx *wire.MsgTx, chainParams *chaincfg.P
 		// Ignore the error here since an error means the script
 		// couldn't parse and there is no additional information about
 		// it anyways.
-		_, addrs, _, _ := txscript.ExtractPkScriptAddrs(
+		class, addrs, _, _ := txscript.ExtractPkScriptAddrs(
 			originTxOut.PkScript, chainParams)
 
 		// Encode the addresses while checking if the address passes the
@@ -3049,6 +3071,9 @@ func createVinListPrevOut(s *rpcServer, mtx *wire.MsgTx, chainParams *chaincfg.P
 			vinListEntry.PrevOut = &btcjson.PrevOut{
 				Addresses: encodedAddrs,
 				Value:     btcutil.Amount(originTxOut.Value).ToBTC(),
+				IsClaim: class == txscript.NonStandardTy &&
+					(originTxOut.PkScript[0] == txscript.OP_CLAIMNAME || originTxOut.PkScript[0] == txscript.OP_UPDATECLAIM),
+				IsSupport: class == txscript.NonStandardTy && originTxOut.PkScript[0] == txscript.OP_SUPPORTCLAIM,
 			}
 		}
 	}

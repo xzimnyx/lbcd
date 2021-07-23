@@ -56,6 +56,9 @@ func UpdateClaimScript(name string, claimID []byte, value string) ([]byte, error
 
 // DecodeClaimScript ...
 func DecodeClaimScript(script []byte) (*ClaimScript, error) {
+	if len(script) == 0 {
+		return nil, ErrNotClaimScript
+	}
 	op := script[0]
 	if op != OP_CLAIMNAME && op != OP_SUPPORTCLAIM && op != OP_UPDATECLAIM {
 		return nil, ErrNotClaimScript
