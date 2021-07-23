@@ -28,19 +28,18 @@ type Manager interface {
 
 type nodeCacheLeaf struct {
 	node *Node
-	key string
+	key  string
 }
 
 type nodeCache struct {
-	elements map[string]*list.Element
-	data *list.List
+	elements    map[string]*list.Element
+	data        *list.List
 	maxElements int
 }
 
 func newNodeCache(size int) *nodeCache {
-	return &nodeCache{elements:
-		make(map[string]*list.Element, size),
-		data: list.New(),
+	return &nodeCache{elements: make(map[string]*list.Element, size),
+		data:        list.New(),
 		maxElements: size,
 	}
 }
@@ -77,7 +76,6 @@ func (nc *nodeCache) Delete(key string) {
 		nc.data.Remove(existing)
 	}
 }
-
 
 type BaseManager struct {
 	repo Repo
