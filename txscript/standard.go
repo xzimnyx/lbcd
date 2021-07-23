@@ -543,9 +543,11 @@ func ExtractPkScriptAddrs(pkScript []byte, chainParams *chaincfg.Params) (Script
 	var addrs []btcutil.Address
 	var requiredSigs int
 
+	stripped := StripClaimScriptPrefix(pkScript)
+
 	// No valid addresses or required signatures if the script doesn't
 	// parse.
-	pops, err := parseScript(pkScript)
+	pops, err := parseScript(stripped)
 	if err != nil {
 		return NonStandardTy, nil, 0, err
 	}
@@ -637,6 +639,10 @@ func ExtractPkScriptAddrs(pkScript []byte, chainParams *chaincfg.Params) (Script
 	case NonStandardTy:
 		// Don't attempt to extract addresses or required signatures for
 		// nonstandard transactions.
+	}
+
+	if len(stripped) < len(pkScript) {
+		scriptClass = NonStandardTy
 	}
 
 	return scriptClass, addrs, requiredSigs, nil
