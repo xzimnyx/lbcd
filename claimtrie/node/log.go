@@ -35,3 +35,7 @@ func LogOnce(s string) {
 	loggedStrings[s] = true
 	log.Info(s)
 }
+
+func Warn(s string) {
+	log.Warn(s)
+}

@@ -574,19 +574,20 @@ func (b *BlockChain) connectBlock(node *blockNode, block *btcutil.Block,
 			"spent transaction out information")
 	}
 
-	// Handle LBRY Claim Scripts
-	if b.claimTrie != nil {
-		if err := b.ParseClaimScripts(block, node, view, false); err != nil {
-			return ruleError(ErrBadClaimTrie, err.Error())
-		}
-	}
-
 	// No warnings about unknown rules until the chain is current.
-	if b.isCurrent() {
+	current := b.isCurrent()
+	if current {
 		// Warn if any unknown new rules are either about to activate or
 		// have already been activated.
 		if err := b.warnUnknownRuleActivations(node); err != nil {
 			return err
+		}
+	}
+
+	// Handle LBRY Claim Scripts
+	if b.claimTrie != nil {
+		if err := b.ParseClaimScripts(block, node, view, false, current); err != nil {
+			return ruleError(ErrBadClaimTrie, err.Error())
 		}
 	}
 
@@ -1223,7 +1224,7 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *btcutil.Block, fla
 // factors are used to guess, but the key factors that allow the chain to
 // believe it is current are:
 //  - Latest block height is after the latest checkpoint (if enabled)
-//  - Latest block has a timestamp newer than 24 hours ago
+//  - Latest block has a timestamp newer than ~6 hours ago (as LBRY block time is one fourth of bitcoin)
 //
 // This function MUST be called with the chain state lock held (for reads).
 func (b *BlockChain) isCurrent() bool {
@@ -1234,13 +1235,13 @@ func (b *BlockChain) isCurrent() bool {
 		return false
 	}
 
-	// Not current if the latest best block has a timestamp before 24 hours
+	// Not current if the latest best block has a timestamp before 7 hours
 	// ago.
 	//
 	// The chain appears to be current if none of the checks reported
 	// otherwise.
-	minus24Hours := b.timeSource.AdjustedTime().Add(-24 * time.Hour).Unix()
-	return b.bestChain.Tip().timestamp >= minus24Hours
+	hours := b.timeSource.AdjustedTime().Add(-7 * time.Hour).Unix()
+	return b.bestChain.Tip().timestamp >= hours
 }
 
 // IsCurrent returns whether or not the chain believes it is current.  Several
@@ -1879,7 +1880,7 @@ func rebuildMissingClaimTrieData(b *BlockChain, done <-chan struct{}) error {
 		}
 
 		if h >= b.claimTrie.Height() {
-			err = b.ParseClaimScripts(block, n, view, true)
+			err = b.ParseClaimScripts(block, n, view, true, false)
 			if err != nil {
 				return err
 			}

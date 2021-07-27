@@ -59,3 +59,8 @@ func (repo *Pebble) Close() error {
 	err = repo.db.Close()
 	return errors.Wrap(err, "on close")
 }
+
+func (repo *Pebble) Flush() error {
+	_, err := repo.db.AsyncFlush()
+	return err
+}

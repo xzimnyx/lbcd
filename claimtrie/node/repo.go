@@ -26,4 +26,6 @@ type Repo interface {
 
 	// IterateAll iterates keys until the predicate function returns false
 	IterateAll(predicate func(name []byte) bool)
+
+	Flush() error
 }

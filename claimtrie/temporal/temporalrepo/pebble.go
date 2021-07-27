@@ -14,7 +14,7 @@ type Pebble struct {
 
 func NewPebble(path string) (*Pebble, error) {
 
-	db, err := pebble.Open(path, &pebble.Options{Cache: pebble.NewCache(128 << 20)})
+	db, err := pebble.Open(path, &pebble.Options{Cache: pebble.NewCache(16 << 20)})
 	repo := &Pebble{db: db}
 
 	return repo, errors.Wrapf(err, "unable to open %s", path)
@@ -78,4 +78,9 @@ func (repo *Pebble) Close() error {
 
 	err = repo.db.Close()
 	return errors.Wrap(err, "on close")
+}
+
+func (repo *Pebble) Flush() error {
+	_, err := repo.db.AsyncFlush()
+	return err
 }

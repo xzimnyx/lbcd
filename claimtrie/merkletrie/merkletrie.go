@@ -272,3 +272,7 @@ func (t *PersistentTrie) Dump(s string) {
 		fmt.Printf("  Child %s hash: %s\n", string(key), value.merkleHash.String())
 	}
 }
+
+func (t *PersistentTrie) Flush() error {
+	return t.repo.Flush()
+}

@@ -25,6 +25,7 @@ type Manager interface {
 	NextUpdateHeightOfNode(name []byte) ([]byte, int32)
 	IterateNames(predicate func(name []byte) bool)
 	Hash(name []byte) *chainhash.Hash
+	Flush() error
 }
 
 type nodeCacheLeaf struct {
@@ -447,4 +448,8 @@ func calculateNodeHash(op wire.OutPoint, takeover int32) *chainhash.Hash {
 	hh := chainhash.DoubleHashH(h)
 
 	return &hh
+}
+
+func (nm *BaseManager) Flush() error {
+	return nm.repo.Flush()
 }

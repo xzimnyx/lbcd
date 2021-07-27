@@ -2,10 +2,12 @@ package merkletrie
 
 import (
 	"bytes"
+	"runtime"
+	"strconv"
+	"sync"
+
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/claimtrie/node"
-	"runtime"
-	"sync"
 )
 
 type MerkleTrie interface {
@@ -13,6 +15,7 @@ type MerkleTrie interface {
 	Update(name []byte, restoreChildren bool)
 	MerkleHash() *chainhash.Hash
 	MerkleHashAllClaims() *chainhash.Hash
+	Flush() error
 }
 
 type RamTrie struct {
@@ -50,10 +53,14 @@ func (rt *RamTrie) SetRoot(h *chainhash.Hash, names [][]byte) {
 			runtime.GC()
 		}
 
+		c := 0
 		rt.store.IterateNames(func(name []byte) bool {
 			rt.Update(name, false)
+			c++
 			return true
 		})
+
+		node.LogOnce("Completed claim trie construction. Name count: " + strconv.Itoa(c))
 	} else {
 		for _, name := range names {
 			rt.Update(name, false)
@@ -146,4 +153,8 @@ func (rt *RamTrie) merkleHashAllClaims(v *collapsedVertex) *chainhash.Hash {
 
 	v.merkleHash = node.HashMerkleBranches(childHash, claimHash)
 	return v.merkleHash
+}
+
+func (rt *RamTrie) Flush() error {
+	return nil
 }

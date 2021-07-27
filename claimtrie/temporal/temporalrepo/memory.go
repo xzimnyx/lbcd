@@ -39,3 +39,7 @@ func (repo *Memory) NodesAt(height int32) ([][]byte, error) {
 func (repo *Memory) Close() error {
 	return nil
 }
+
+func (repo *Memory) Flush() error {
+	return nil
+}

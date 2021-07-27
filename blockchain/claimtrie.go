@@ -15,7 +15,8 @@ import (
 	"github.com/btcsuite/btcd/claimtrie/node"
 )
 
-func (b *BlockChain) ParseClaimScripts(block *btcutil.Block, bn *blockNode, view *UtxoViewpoint, failOnHashMiss bool) error {
+func (b *BlockChain) ParseClaimScripts(block *btcutil.Block, bn *blockNode, view *UtxoViewpoint,
+	failOnHashMiss bool, shouldFlush bool) error {
 	ht := block.Height()
 
 	for _, tx := range block.Transactions() {
@@ -39,6 +40,10 @@ func (b *BlockChain) ParseClaimScripts(block *btcutil.Block, bn *blockNode, view
 		return errors.Wrapf(err, "in append block")
 	}
 	hash := b.claimTrie.MerkleHash()
+
+	if shouldFlush {
+		b.claimTrie.FlushToDisk()
+	}
 
 	if bn.claimTrie != *hash {
 		if failOnHashMiss {

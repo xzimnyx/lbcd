@@ -410,3 +410,29 @@ func (ct *ClaimTrie) forwardNodeChange(chg change.Change) error {
 func (ct *ClaimTrie) Node(name []byte) (*node.Node, error) {
 	return ct.nodeManager.Node(name)
 }
+
+func (ct *ClaimTrie) FlushToDisk() {
+	// maybe the user can fix the file lock shown in the warning before they shut down
+	if err := ct.nodeManager.Flush(); err != nil {
+		node.Warn("During nodeManager flush: " + err.Error())
+	}
+	if err := ct.temporalRepo.Flush(); err != nil {
+		node.Warn("During temporalRepo flush: " + err.Error())
+	}
+	if err := ct.merkleTrie.Flush(); err != nil {
+		node.Warn("During merkleTrie flush: " + err.Error())
+	}
+	if err := ct.blockRepo.Flush(); err != nil {
+		node.Warn("During blockRepo flush: " + err.Error())
+	}
+	if ct.reportedBlockRepo != nil {
+		if err := ct.reportedBlockRepo.Flush(); err != nil {
+			node.Warn("During reportedBlockRepo flush: " + err.Error())
+		}
+	}
+	if ct.chainRepo != nil {
+		if err := ct.chainRepo.Flush(); err != nil {
+			node.Warn("During chainRepo flush: " + err.Error())
+		}
+	}
+}
