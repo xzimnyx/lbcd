@@ -237,11 +237,9 @@ type Params struct {
 	Bech32HRPSegwit string
 
 	// Address encoding magics
-	PubKeyHashAddrID        byte // First byte of a P2PKH address
-	ScriptHashAddrID        byte // First byte of a P2SH address
-	PrivateKeyID            byte // First byte of a WIF private key
-	WitnessPubKeyHashAddrID byte // First byte of a P2WPKH address
-	WitnessScriptHashAddrID byte // First byte of a P2WSH address
+	PubKeyHashAddrID byte // First byte of a P2PKH address
+	ScriptHashAddrID byte // First byte of a P2SH address
+	PrivateKeyID     byte // First byte of a WIF private key
 
 	// BIP32 hierarchical deterministic extended key magics
 	HDPrivateKeyID [4]byte
@@ -270,9 +268,9 @@ var MainNetParams = Params{
 	GenesisHash:              &genesisHash,
 	PowLimit:                 mainPowLimit,
 	PowLimitBits:             0x1f00ffff,
-	BIP0034Height:            1,      // 000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8
-	BIP0065Height:            388381, // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
-	BIP0066Height:            363725, // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
+	BIP0034Height:            1,
+	BIP0065Height:            200000,
+	BIP0066Height:            200000,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 1 << 5,
 	TargetTimespan:           time.Second * 150, // retarget every block
@@ -329,8 +327,8 @@ var MainNetParams = Params{
 		},
 		DeploymentSegwit: {
 			BitNumber:  1,
-			StartTime:  math.MaxInt64, // Not in the roadmap
-			ExpireTime: math.MaxInt64, // Not in the roadmap
+			StartTime:  1547942400, // Jan 20, 2019
+			ExpireTime: 1548288000, // Jan 24, 2019
 		},
 	},
 
@@ -339,18 +337,16 @@ var MainNetParams = Params{
 
 	// Human-readable part for Bech32 encoded segwit addresses, as defined in
 	// BIP 173.
-	Bech32HRPSegwit: "bc", // always bc for main net
+	Bech32HRPSegwit: "lbc",
 
 	// Address encoding magics
-	PubKeyHashAddrID:        0x55, // starts with 1
-	ScriptHashAddrID:        0x7a, // starts with 3
-	PrivateKeyID:            0x1c, // starts with 5 (uncompressed) or K (compressed)
-	WitnessPubKeyHashAddrID: 0x06, // starts with p2
-	WitnessScriptHashAddrID: 0x0A, // starts with 7Xh
+	PubKeyHashAddrID: 0x55,
+	ScriptHashAddrID: 0x7a,
+	PrivateKeyID:     0x1c,
 
 	// BIP32 hierarchical deterministic extended key magics
-	HDPrivateKeyID: [4]byte{0x01, 0x9c, 0x35, 0x4f}, // starts with xprv
-	HDPublicKeyID:  [4]byte{0x01, 0x9c, 0x31, 0x18}, // starts with xpub
+	HDPrivateKeyID: [4]byte{0x04, 0x88, 0xad, 0xe4},
+	HDPublicKeyID:  [4]byte{0x04, 0x88, 0xb2, 0x1e},
 
 	// BIP44 coin type used in the hierarchical deterministic path for
 	// address generation.
@@ -405,7 +401,7 @@ var RegressionNetParams = Params{
 		},
 		DeploymentSegwit: {
 			BitNumber:  1,
-			StartTime:  math.MaxInt64, // Not in the roadmap
+			StartTime:  0,
 			ExpireTime: math.MaxInt64, // Not in the roadmap
 		},
 	},
@@ -415,12 +411,12 @@ var RegressionNetParams = Params{
 
 	// Human-readable part for Bech32 encoded segwit addresses, as defined in
 	// BIP 173.
-	Bech32HRPSegwit: "bcrt", // always bcrt for reg test net
+	Bech32HRPSegwit: "rlbc",
 
 	// Address encoding magics
-	PubKeyHashAddrID: 0x6f, // starts with m or n
-	ScriptHashAddrID: 0xc4, // starts with 2
-	PrivateKeyID:     0xef, // starts with 9 (uncompressed) or c (compressed)
+	PubKeyHashAddrID: 111, // starts with m or n
+	ScriptHashAddrID: 196, // starts with 2
+	PrivateKeyID:     239, // starts with 9 (uncompressed) or c (compressed)
 
 	// BIP32 hierarchical deterministic extended key magics
 	HDPrivateKeyID: [4]byte{0x04, 0x35, 0x83, 0x94}, // starts with tprv
@@ -484,8 +480,8 @@ var TestNet3Params = Params{
 		},
 		DeploymentSegwit: {
 			BitNumber:  1,
-			StartTime:  math.MaxInt64, // Not in the roadmap
-			ExpireTime: math.MaxInt64, // Not in the roadmap
+			StartTime:  1462060800,
+			ExpireTime: 1493596800,
 		},
 	},
 
@@ -494,14 +490,12 @@ var TestNet3Params = Params{
 
 	// Human-readable part for Bech32 encoded segwit addresses, as defined in
 	// BIP 173.
-	Bech32HRPSegwit: "tb", // always tb for test net
+	Bech32HRPSegwit: "tlbc",
 
 	// Address encoding magics
-	PubKeyHashAddrID:        0x6f, // starts with m or n
-	ScriptHashAddrID:        0xc4, // starts with 2
-	WitnessPubKeyHashAddrID: 0x03, // starts with QW
-	WitnessScriptHashAddrID: 0x28, // starts with T7n
-	PrivateKeyID:            0xef, // starts with 9 (uncompressed) or c (compressed)
+	PubKeyHashAddrID: 111,
+	ScriptHashAddrID: 196,
+	PrivateKeyID:     0xef, // starts with 9 (uncompressed) or c (compressed)
 
 	// BIP32 hierarchical deterministic extended key magics
 	HDPrivateKeyID: [4]byte{0x04, 0x35, 0x83, 0x94}, // starts with tprv
@@ -574,14 +568,12 @@ var SimNetParams = Params{
 
 	// Human-readable part for Bech32 encoded segwit addresses, as defined in
 	// BIP 173.
-	Bech32HRPSegwit: "sb", // always sb for sim net
+	Bech32HRPSegwit: "slbc",
 
 	// Address encoding magics
-	PubKeyHashAddrID:        0x3f, // starts with S
-	ScriptHashAddrID:        0x7b, // starts with s
-	PrivateKeyID:            0x64, // starts with 4 (uncompressed) or F (compressed)
-	WitnessPubKeyHashAddrID: 0x19, // starts with Gg
-	WitnessScriptHashAddrID: 0x28, // starts with ?
+	PubKeyHashAddrID: 111,
+	ScriptHashAddrID: 196,
+	PrivateKeyID:     239,
 
 	// BIP32 hierarchical deterministic extended key magics
 	HDPrivateKeyID: [4]byte{0x04, 0x20, 0xb9, 0x00}, // starts with sprv
@@ -674,14 +666,12 @@ func CustomSignetParams(challenge []byte, dnsSeeds []DNSSeed) Params {
 
 		// Human-readable part for Bech32 encoded segwit addresses, as defined in
 		// BIP 173.
-		Bech32HRPSegwit: "tb", // always tb for test net
+		Bech32HRPSegwit: "slbc",
 
 		// Address encoding magics
-		PubKeyHashAddrID:        0x6f, // starts with m or n
-		ScriptHashAddrID:        0xc4, // starts with 2
-		WitnessPubKeyHashAddrID: 0x03, // starts with QW
-		WitnessScriptHashAddrID: 0x28, // starts with T7n
-		PrivateKeyID:            0xef, // starts with 9 (uncompressed) or c (compressed)
+		PubKeyHashAddrID: 0x6f, // starts with m or n
+		ScriptHashAddrID: 0xc4, // starts with 2
+		PrivateKeyID:     0xef, // starts with 9 (uncompressed) or c (compressed)
 
 		// BIP32 hierarchical deterministic extended key magics
 		HDPrivateKeyID: [4]byte{0x04, 0x35, 0x83, 0x94}, // starts with tprv
