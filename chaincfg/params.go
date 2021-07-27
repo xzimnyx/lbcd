@@ -284,8 +284,30 @@ var MainNetParams = Params{
 
 	// Checkpoints ordered from oldest to newest.
 	Checkpoints: []Checkpoint{
-		// {4000, newHashFromStr("a6bbb48f5343eb9b0287c22f3ea8b29f36cf10794a37f8a925a894d6f4519913")},
-		{946000, newHashFromStr("0d3b537afe49820e1c6efc555463f955251b1293c6e5130137e1e25744431172")},
+		{40000, newHashFromStr("4c55584b068108b15c0066a010d11971aa92f46b0a73d479f1b7fa57df8b05f4")},
+		{80000, newHashFromStr("6e9facdfb87ba8394a46c61a7c093f7f00b1397a2dabc6a04f2911e0efdcf50a")},
+		{120000, newHashFromStr("6a9dba420ec544b927769765dccec8b29e214e6ca9f82b54a52bf20ca517b75a")},
+		{160000, newHashFromStr("87b2913a509d857401f7587903c90214db7847af1a1ad63a3b6f245936e3ae9d")},
+		{200000, newHashFromStr("0fe8ed6019a83028006435e47be4e37a0d3ed48019cde1dc7ede6562e5829839")},
+		{240000, newHashFromStr("cb3c2342afbe7291012f2288403a9d105f46987f78b279d516db2deb4d35b0b7")},
+		{280000, newHashFromStr("9835d03eb527ea4ce45c217350c68042926d497c21fb31413b2f7824ff6fc6c3")},
+		{320000, newHashFromStr("ad80c7cb91ca1d9c9b7bf68ca1b6d4ba217fe25ca5ded6a7e8acbaba663b143f")},
+		{360000, newHashFromStr("f9fd013252439663c1e729a8afb27187a8b9cc63a253336060f867e3cfbe4dcb")},
+		{400000, newHashFromStr("f0e56e70782af63ccb49c76e852540688755869ba59ec68cac9c04a6b4d9f5ca")},
+		{440000, newHashFromStr("52760e00c369b40781a2ced32836711fab82a720fafb121118c815bb46afd996")},
+		{480000, newHashFromStr("cecacaf4d1a8d1ef60da39343540781115abb91f5f0c976bb08afc4d4e3218ac")},
+		{520000, newHashFromStr("fa5e9d6dcf9ad57ba60d8ba26fb05585741098d10f42ed9d5e6b5e90ebc278d6")},
+		{560000, newHashFromStr("95c6229bd9b40f03a8426b2fec740026b3f06b1628cfb87527b0cbd0da328c0c")},
+		{600000, newHashFromStr("532657a97d480feb2d0423bb736cbfd7400b3ac8311e81ac749a2f29103a6c6b")},
+		{640000, newHashFromStr("68b69e3e8765e1ddbac63cbfbbf12e1a920da994d242a26fd07624f067743080")},
+		{680000, newHashFromStr("7b9f30c959405b5b96d0b0c2ba8fc7c5586cd0ce40df51427de4b8a217859c45")},
+		{720000, newHashFromStr("42084d5f88c71c0ae09b8677070969df9c3ef875c5f434133f552d863204f0cb")},
+		{760000, newHashFromStr("1887cd8b50375a9ac0dc9686c98fa8ac69bca618eab6254310647057f6fe4fc9")},
+		{800000, newHashFromStr("d34bb871b21e6fda4bd9d9e530ebf12e044814004007f088415035c651ecf322")},
+		{840000, newHashFromStr("d0e73c5ce3ad5d6fdb4483aa450f0b1cf7e4570987ee3a3806ace4ad2f7cc9af")},
+		{880000, newHashFromStr("806a95f26bab603f1d9132b5d4ea72aab9d1198ad55ae18dac1e149f6cb70ce4")},
+		{920000, newHashFromStr("83bc84555105436c51728ab200e8da4d9b3a365fd3d1d47a60048ad0f977c55b")},
+		{960000, newHashFromStr("60e37b1c2d1f8771290b7f84865cbadf22b5b89d3ce1201d454b09f0775b42c2")},
 	},
 
 	// Consensus rule change deployments.
