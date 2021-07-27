@@ -31,6 +31,6 @@ jobs:
       - name: Create Datadir
         run: echo "TEMP_DIR=$(mktemp -d)" >> $GITHUB_ENV
       - name: Full-Sync
-        run: ./chain --datadir ${{env.TEMP_DIR}} --connect 127.0.0.1 --rpclisten 0.0.0.0:9427
+        run: ./chain --datadir ${{env.TEMP_DIR}} --connect 127.0.0.1 --norpc
       - name: Remove Datadir
         run: rm -rf --datadir ${{env.TEMP_DIR}}
