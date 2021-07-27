@@ -59,16 +59,15 @@ func logMemoryUsage() {
 
 		ds, err := dirSize(cfg.DataDir)
 		if err != nil {
-			btcdLog.Warnf("When reading directory: %s", err.Error())
+			btcdLog.Debugf("When reading directory: %s", err.Error())
 			continue
 		}
 
 		cur := fmt.Sprintf("RAM: using %.1f GB with %.1f available, DISK: using %.1f GB with %.1f available",
-			toGB(m2.RSS), toGB(m.Free), toGB(uint64(ds)), toGB(d.Free))
+			toGB(m2.RSS), toGB(m.Available), toGB(uint64(ds)), toGB(d.Free))
 		if cur != last {
 			btcdLog.Infof(cur)
 			last = cur
 		}
 	}
 }
-

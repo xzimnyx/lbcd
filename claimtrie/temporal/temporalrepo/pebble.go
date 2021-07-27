@@ -3,7 +3,7 @@ package temporalrepo
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/cockroachdb/pebble"
 )
@@ -15,13 +15,9 @@ type Pebble struct {
 func NewPebble(path string) (*Pebble, error) {
 
 	db, err := pebble.Open(path, &pebble.Options{Cache: pebble.NewCache(128 << 20)})
-	if err != nil {
-		return nil, fmt.Errorf("pebble open %s, %w", path, err)
-	}
-
 	repo := &Pebble{db: db}
 
-	return repo, nil
+	return repo, errors.Wrapf(err, "unable to open %s", path)
 }
 
 func (repo *Pebble) SetNodesAt(name [][]byte, heights []int32) error {
@@ -38,10 +34,10 @@ func (repo *Pebble) SetNodesAt(name [][]byte, heights []int32) error {
 
 		err := batch.Set(key.Bytes(), nil, pebble.NoSync)
 		if err != nil {
-			return fmt.Errorf("pebble set: %w", err)
+			return errors.Wrap(err, "in set")
 		}
 	}
-	return batch.Commit(pebble.NoSync)
+	return errors.Wrap(batch.Commit(pebble.NoSync), "in commit")
 }
 
 func (repo *Pebble) NodesAt(height int32) ([][]byte, error) {
@@ -69,25 +65,17 @@ func (repo *Pebble) NodesAt(height int32) ([][]byte, error) {
 		names = append(names, name)
 	}
 
-	err := iter.Close()
-	if err != nil {
-		return nil, fmt.Errorf("pebble get: %w", err)
-	}
-
-	return names, nil
+	return names, errors.Wrap(iter.Close(), "in close")
 }
 
 func (repo *Pebble) Close() error {
 
 	err := repo.db.Flush()
 	if err != nil {
-		return fmt.Errorf("pebble fludh: %w", err)
+		// if we fail to close are we going to try again later?
+		return errors.Wrap(err, "on flush")
 	}
 
 	err = repo.db.Close()
-	if err != nil {
-		return fmt.Errorf("pebble close: %w", err)
-	}
-
-	return nil
+	return errors.Wrap(err, "on close")
 }

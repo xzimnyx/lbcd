@@ -2,15 +2,13 @@ package node
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"math"
 	"sort"
 
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/param"
 )
-
-// ErrNotFound is returned when a claim or support is not found.
-var mispents = map[string]bool{}
 
 type Node struct {
 	BestClaim   *Claim    // The claim that has most effective amount at the current height.
@@ -48,7 +46,7 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 		}
 		old := n.Claims.find(byOut(chg.OutPoint)) // TODO: remove this after proving ResetHeight works
 		if old != nil {
-			fmt.Printf("CONFLICT WITH EXISTING TXO! Name: %s, Height: %d\n", chg.Name, chg.Height)
+			return errors.Errorf("CONFLICT WITH EXISTING TXO! Name: %s, Height: %d", chg.Name, chg.Height)
 		}
 		n.Claims = append(n.Claims, c)
 
@@ -56,10 +54,9 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 		c := n.Claims.find(byOut(chg.OutPoint))
 		if c != nil {
 			c.setStatus(Deactivated)
-		} else if !mispents[fmt.Sprintf("%d_%s", chg.Height, chg.ClaimID)] {
-			mispents[fmt.Sprintf("%d_%s", chg.Height, chg.ClaimID)] = true
-			fmt.Printf("Spending claim but missing existing claim with TXO %s\n   "+
-				"Name: %s, ID: %s\n", chg.OutPoint, chg.Name, chg.ClaimID)
+		} else {
+			LogOnce(fmt.Sprintf("Spending claim but missing existing claim with TXO %s, "+
+				"Name: %s, ID: %s", chg.OutPoint, chg.Name, chg.ClaimID))
 		}
 		// apparently it's legit to be absent in the map:
 		// 'two' at 481100, 36a719a156a1df178531f3c712b8b37f8e7cc3b36eea532df961229d936272a1:0
@@ -81,7 +78,7 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 			c.setActiveAt(chg.Height + delay) // TODO: Fork this out
 
 		} else {
-			fmt.Printf("Updating claim but missing existing claim with ID %s", chg.ClaimID)
+			LogOnce(fmt.Sprintf("Updating claim but missing existing claim with ID %s", chg.ClaimID))
 		}
 	case change.AddSupport:
 		n.Supports = append(n.Supports, &Claim{
@@ -104,8 +101,8 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 			// We would also need to track the update situation, though, but that could be done locally.
 			s.setStatus(Deactivated)
 		} else {
-			fmt.Printf("Spending support but missing existing support with TXO %s\n   "+
-				"Name: %s, ID: %s\n", chg.OutPoint, chg.Name, chg.ClaimID)
+			LogOnce(fmt.Sprintf("Spending support but missing existing claim with TXO %s, "+
+				"Name: %s, ID: %s", chg.OutPoint, chg.Name, chg.ClaimID))
 		}
 	}
 	return nil

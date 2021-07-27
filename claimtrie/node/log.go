@@ -1,4 +1,4 @@
-package claimtrie
+package node
 
 import (
 	"github.com/btcsuite/btclog"
@@ -25,4 +25,13 @@ func DisableLog() {
 // using btclog.
 func UseLogger(logger btclog.Logger) {
 	log = logger
+}
+
+var loggedStrings = map[string]bool{} // is this gonna get too large?
+func LogOnce(s string) {
+	if loggedStrings[s] {
+		return
+	}
+	loggedStrings[s] = true
+	log.Info(s)
 }

@@ -185,3 +185,44 @@ func TestClaimSort(t *testing.T) {
 	r.Equal(int64(2), n.Claims[2].Amount)
 	r.Equal(int32(4), n.Claims[3].AcceptedAt)
 }
+
+func TestHasChildren(t *testing.T) {
+	r := require.New(t)
+
+	param.SetNetwork(wire.TestNet)
+	repo, err := noderepo.NewPebble(t.TempDir())
+	r.NoError(err)
+
+	m, err := NewBaseManager(repo)
+	r.NoError(err)
+	defer m.Close()
+
+	chg := change.NewChange(change.AddClaim).SetName([]byte("a")).SetOutPoint(out1).SetHeight(1).SetAmount(2)
+	chg.ClaimID = change.NewClaimID(*out1)
+	r.NoError(m.AppendChange(chg))
+	_, err = m.IncrementHeightTo(1)
+	r.NoError(err)
+	r.False(m.hasChildren([]byte("a"), 1, nil, 1))
+
+	chg = change.NewChange(change.AddClaim).SetName([]byte("ab")).SetOutPoint(out2).SetHeight(2).SetAmount(2)
+	chg.ClaimID = change.NewClaimID(*out2)
+	r.NoError(m.AppendChange(chg))
+	_, err = m.IncrementHeightTo(2)
+	r.NoError(err)
+	r.False(m.hasChildren([]byte("a"), 2, nil, 2))
+	r.True(m.hasChildren([]byte("a"), 2, nil, 1))
+
+	chg = change.NewChange(change.AddClaim).SetName([]byte("abc")).SetOutPoint(out3).SetHeight(3).SetAmount(2)
+	chg.ClaimID = change.NewClaimID(*out3)
+	r.NoError(m.AppendChange(chg))
+	_, err = m.IncrementHeightTo(3)
+	r.NoError(err)
+	r.False(m.hasChildren([]byte("a"), 3, nil, 2))
+
+	chg = change.NewChange(change.AddClaim).SetName([]byte("ac")).SetOutPoint(out1).SetHeight(4).SetAmount(2)
+	chg.ClaimID = change.NewClaimID(*out4)
+	r.NoError(m.AppendChange(chg))
+	_, err = m.IncrementHeightTo(4)
+	r.NoError(err)
+	r.True(m.hasChildren([]byte("a"), 4, nil, 2))
+}

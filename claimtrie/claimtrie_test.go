@@ -40,10 +40,7 @@ func TestFixedHashes(t *testing.T) {
 	setup(t)
 	ct, err := New(cfg)
 	r.NoError(err)
-	defer func() {
-		err = ct.Close()
-		r.NoError(err)
-	}()
+	defer ct.Close()
 
 	r.Equal(merkletrie.EmptyTrieHash[:], ct.MerkleHash()[:])
 
@@ -81,10 +78,7 @@ func TestNormalizationFork(t *testing.T) {
 	ct, err := New(cfg)
 	r.NoError(err)
 	r.NotNil(ct)
-	defer func() {
-		err = ct.Close()
-		r.NoError(err)
-	}()
+	defer ct.Close()
 
 	hash := chainhash.HashH([]byte{1, 2, 3})
 
@@ -145,10 +139,7 @@ func TestActivationsOnNormalizationFork(t *testing.T) {
 	ct, err := New(cfg)
 	r.NoError(err)
 	r.NotNil(ct)
-	defer func() {
-		err = ct.Close()
-		r.NoError(err)
-	}()
+	defer ct.Close()
 
 	hash := chainhash.HashH([]byte{1, 2, 3})
 
@@ -191,10 +182,7 @@ func TestNormalizationSortOrder(t *testing.T) {
 	ct, err := New(cfg)
 	r.NoError(err)
 	r.NotNil(ct)
-	defer func() {
-		err := ct.Close()
-		r.NoError(err)
-	}()
+	defer ct.Close()
 
 	hash := chainhash.HashH([]byte{1, 2, 3})
 
@@ -238,10 +226,7 @@ func TestRebuild(t *testing.T) {
 	ct, err := New(cfg)
 	r.NoError(err)
 	r.NotNil(ct)
-	defer func() {
-		err := ct.Close()
-		r.NoError(err)
-	}()
+	defer ct.Close()
 
 	hash := chainhash.HashH([]byte{1, 2, 3})
 

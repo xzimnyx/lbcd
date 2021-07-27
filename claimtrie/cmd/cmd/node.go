@@ -84,11 +84,11 @@ var nodeReplayCmd = &cobra.Command{
 			}
 		}
 
-		nm, err := node.NewBaseManager(repo)
+		bm, err := node.NewBaseManager(repo)
 		if err != nil {
 			return fmt.Errorf("create node manager: %w", err)
 		}
-		nm = node.NewNormalizingManager(nm)
+		nm := node.NewNormalizingManager(bm)
 
 		_, err = nm.IncrementHeightTo(int32(height))
 		if err != nil {

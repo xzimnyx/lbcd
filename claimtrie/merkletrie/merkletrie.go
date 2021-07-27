@@ -3,14 +3,13 @@ package merkletrie
 import (
 	"bytes"
 	"fmt"
+	"github.com/pkg/errors"
 	"runtime"
 	"sort"
 	"sync"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/claimtrie/node"
-
-	"github.com/cockroachdb/pebble"
 )
 
 var (
@@ -97,7 +96,7 @@ func (t *PersistentTrie) resolveChildLinks(n *vertex, key []byte) {
 	b.Write(n.merkleHash[:])
 
 	result, closer, err := t.repo.Get(b.Bytes())
-	if err == pebble.ErrNotFound { // TODO: leaky abstraction
+	if result == nil {
 		return
 	} else if err != nil {
 		panic(err)
@@ -247,10 +246,13 @@ func (t *PersistentTrie) merkleAllClaims(prefix []byte, v *vertex) *chainhash.Ha
 }
 
 func (t *PersistentTrie) Close() error {
-	return t.repo.Close()
+	return errors.WithStack(t.repo.Close())
 }
 
-func (t *PersistentTrie) Dump(s string, allClaims bool) {
+func (t *PersistentTrie) Dump(s string) {
+	// TODO: this function is in the wrong spot; either it goes with its caller or it needs to be a generic iterator
+	// we don't want fmt used in here either way
+
 	v := t.root
 
 	for i := 0; i < len(s); i++ {

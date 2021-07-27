@@ -1,12 +1,9 @@
 package merkletrierepo
 
 import (
-	"fmt"
-	"io"
-	"time"
-
 	"github.com/cockroachdb/pebble"
-	humanize "github.com/dustin/go-humanize"
+	"github.com/pkg/errors"
+	"io"
 )
 
 type Pebble struct {
@@ -16,37 +13,35 @@ type Pebble struct {
 func NewPebble(path string) (*Pebble, error) {
 
 	cache := pebble.NewCache(512 << 20)
-	defer cache.Unref()
-
-	go func() {
-		tick := time.NewTicker(60 * time.Second)
-		for range tick.C {
-
-			m := cache.Metrics()
-			fmt.Printf("cnt: %s, objs: %s, hits: %s, miss: %s, hitrate: %.2f\n",
-				humanize.Bytes(uint64(m.Size)),
-				humanize.Comma(m.Count),
-				humanize.Comma(m.Hits),
-				humanize.Comma(m.Misses),
-				float64(m.Hits)/float64(m.Hits+m.Misses))
-
-		}
-	}()
+	//defer cache.Unref()
+	//
+	//go func() {
+	//	tick := time.NewTicker(60 * time.Second)
+	//	for range tick.C {
+	//
+	//		m := cache.Metrics()
+	//		fmt.Printf("cnt: %s, objs: %s, hits: %s, miss: %s, hitrate: %.2f\n",
+	//			humanize.Bytes(uint64(m.Size)),
+	//			humanize.Comma(m.Count),
+	//			humanize.Comma(m.Hits),
+	//			humanize.Comma(m.Misses),
+	//			float64(m.Hits)/float64(m.Hits+m.Misses))
+	//
+	//	}
+	//}()
 
 	db, err := pebble.Open(path, &pebble.Options{Cache: cache, BytesPerSync: 32 << 20})
-	if err != nil {
-		return nil, fmt.Errorf("pebble open %s, %w", path, err)
-	}
+	repo := &Pebble{db: db}
 
-	repo := &Pebble{
-		db: db,
-	}
-
-	return repo, nil
+	return repo, errors.Wrapf(err, "unable to open %s", path)
 }
 
 func (repo *Pebble) Get(key []byte) ([]byte, io.Closer, error) {
-	return repo.db.Get(key)
+	d, c, e := repo.db.Get(key)
+	if e == pebble.ErrNotFound {
+		return nil, c, nil
+	}
+	return d, c, e
 }
 
 func (repo *Pebble) Set(key, value []byte) error {
@@ -57,13 +52,10 @@ func (repo *Pebble) Close() error {
 
 	err := repo.db.Flush()
 	if err != nil {
-		return fmt.Errorf("pebble fludh: %w", err)
+		// if we fail to close are we going to try again later?
+		return errors.Wrap(err, "on flush")
 	}
 
 	err = repo.db.Close()
-	if err != nil {
-		return fmt.Errorf("pebble close: %w", err)
-	}
-
-	return nil
+	return errors.Wrap(err, "on close")
 }

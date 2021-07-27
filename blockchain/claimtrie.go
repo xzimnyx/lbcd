@@ -15,10 +15,7 @@ import (
 	"github.com/btcsuite/btcd/claimtrie/node"
 )
 
-// Hack: print which block mismatches happened, but keep recording.
-var mismatchedPrinted bool
-
-func (b *BlockChain) ParseClaimScripts(block *btcutil.Block, node *blockNode, view *UtxoViewpoint, failOnHashMiss bool) error {
+func (b *BlockChain) ParseClaimScripts(block *btcutil.Block, bn *blockNode, view *UtxoViewpoint, failOnHashMiss bool) error {
 	ht := block.Height()
 
 	for _, tx := range block.Transactions() {
@@ -32,22 +29,22 @@ func (b *BlockChain) ParseClaimScripts(block *btcutil.Block, node *blockNode, vi
 	}
 
 	// Hack: let the claimtrie know the expected Hash.
-	b.claimTrie.ReportHash(ht, node.claimTrie)
-
-	err := b.claimTrie.AppendBlock()
+	err := b.claimTrie.ReportHash(ht, bn.claimTrie)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "in report hash")
+	}
+
+	err = b.claimTrie.AppendBlock()
+	if err != nil {
+		return errors.Wrapf(err, "in append block")
 	}
 	hash := b.claimTrie.MerkleHash()
 
-	if node.claimTrie != *hash {
+	if bn.claimTrie != *hash {
 		if failOnHashMiss {
-			return fmt.Errorf("height: %d, ct.MerkleHash: %s != node.ClaimTrie: %s", ht, *hash, node.claimTrie)
+			return errors.Errorf("height: %d, ct.MerkleHash: %s != node.ClaimTrie: %s", ht, *hash, bn.claimTrie)
 		}
-		if !mismatchedPrinted {
-			fmt.Printf("\n\nHeight: %d, ct.MerkleHash: %s != node.ClaimTrie: %s, Error: %s\n", ht, *hash, node.claimTrie, err)
-			mismatchedPrinted = true
-		}
+		node.LogOnce(fmt.Sprintf("\n\nHeight: %d, ct.MerkleHash: %s != node.ClaimTrie: %s, Error: %s", ht, *hash, bn.claimTrie, err))
 	}
 	return nil
 }
@@ -67,7 +64,7 @@ func (h *handler) handleTxIns(ct *claimtrie.ClaimTrie) error {
 		op := txIn.PreviousOutPoint
 		e := h.view.LookupEntry(op)
 		if e == nil {
-			return fmt.Errorf("missing input in view for %s", op.String())
+			return errors.Errorf("missing input in view for %s", op.String())
 		}
 		cs, err := txscript.DecodeClaimScript(e.pkScript)
 		if err == txscript.ErrNotClaimScript {
@@ -129,7 +126,8 @@ func (h *handler) handleTxOuts(ct *claimtrie.ClaimTrie) error {
 			copy(id[:], cs.ClaimID())
 			normName := node.NormalizeIfNecessary(name, ct.Height())
 			if !bytes.Equal(h.spent[id.Key()], normName) {
-				fmt.Printf("Invalid update operation: name or ID mismatch for %s, %s\n", normName, id.String())
+				node.LogOnce(fmt.Sprintf("Invalid update operation: name or ID mismatch at %d for: %s, %s",
+					ct.Height(), normName, id.String()))
 				continue
 			}
 

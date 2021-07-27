@@ -2735,19 +2735,19 @@ func newServer(listenAddrs, agentBlacklist, agentWhitelist []string,
 	switch cfg.ClaimTrieImpl {
 	case "none":
 		// Disable ClaimTrie for development purpose.
-		clmtLog.Infof("ClaimTrie is disabled")
+		lbryLog.Infof("ClaimTrie is disabled")
 	default:
 		ct, err = claimtrie.New(claimTrieCfg)
 		if err != nil {
 			return nil, err
 		}
 		if h := cfg.ClaimTrieHeight; h != 0 {
-			clmtLog.Infof("Reseting height to %d", h)
+			lbryLog.Infof("Reseting height to %d", h)
 			err := ct.ResetHeight(int32(h))
 			if err != nil {
 				return nil, err
 			}
-			clmtLog.Infof("Height is reset to %d", h)
+			lbryLog.Infof("Height is reset to %d", h)
 		}
 	}
 

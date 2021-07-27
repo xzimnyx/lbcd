@@ -2,7 +2,7 @@ package blockrepo
 
 import (
 	"encoding/binary"
-	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 
@@ -16,31 +16,22 @@ type Pebble struct {
 func NewPebble(path string) (*Pebble, error) {
 
 	db, err := pebble.Open(path, nil)
-	if err != nil {
-		return nil, fmt.Errorf("pebble open %s, %w", path, err)
-	}
-
 	repo := &Pebble{db: db}
 
-	return repo, nil
+	return repo, errors.Wrapf(err, "unable to open %s", path)
 }
 
 func (repo *Pebble) Load() (int32, error) {
 
 	iter := repo.db.NewIter(nil)
 	if !iter.Last() {
-		if err := iter.Close(); err != nil {
-			return 0, fmt.Errorf("close iter: %w", err)
-		}
-		return 0, nil
+		err := iter.Close()
+		return 0, errors.Wrap(err, "closing iterator with no last")
 	}
 
 	height := int32(binary.BigEndian.Uint32(iter.Key()))
-	if err := iter.Close(); err != nil {
-		return height, fmt.Errorf("close iter: %w", err)
-	}
-
-	return height, nil
+	err := iter.Close()
+	return height, errors.Wrap(err, "closing iterator")
 }
 
 func (repo *Pebble) Get(height int32) (*chainhash.Hash, error) {
@@ -49,14 +40,14 @@ func (repo *Pebble) Get(height int32) (*chainhash.Hash, error) {
 	binary.BigEndian.PutUint32(key, uint32(height))
 
 	b, closer, err := repo.db.Get(key)
-	if err != nil {
-		return nil, err
+	if closer != nil {
+		defer closer.Close()
 	}
-	defer closer.Close()
-
+	if err != nil {
+		return nil, errors.Wrap(err, "in get")
+	}
 	hash, err := chainhash.NewHash(b)
-
-	return hash, err
+	return hash, errors.Wrap(err, "creating hash")
 }
 
 func (repo *Pebble) Set(height int32, hash *chainhash.Hash) error {
@@ -64,20 +55,17 @@ func (repo *Pebble) Set(height int32, hash *chainhash.Hash) error {
 	key := make([]byte, 4)
 	binary.BigEndian.PutUint32(key, uint32(height))
 
-	return repo.db.Set(key, hash[:], pebble.NoSync)
+	return errors.WithStack(repo.db.Set(key, hash[:], pebble.NoSync))
 }
 
 func (repo *Pebble) Close() error {
 
 	err := repo.db.Flush()
 	if err != nil {
-		return fmt.Errorf("pebble fludh: %w", err)
+		// if we fail to close are we going to try again later?
+		return errors.Wrap(err, "on flush")
 	}
 
 	err = repo.db.Close()
-	if err != nil {
-		return fmt.Errorf("pebble close: %w", err)
-	}
-
-	return nil
+	return errors.Wrap(err, "on close")
 }

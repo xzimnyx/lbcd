@@ -283,37 +283,3 @@ func generateDelayWorkarounds() map[string][]int32 {
 		"yay-nc-bob-afet-kamera-arkas":             {657957},
 	}
 }
-
-var DelayWorkaroundsPart2 = generateDelayWorkaroundsPart2()
-
-func generateDelayWorkaroundsPart2() map[string][]int32 {
-	return map[string][]int32{
-		"en-vivo-hablando-de-bitcoin-y-3": {664642},
-		"en-vivo-hablando-de-bitcoin-y-4": {664642},
-		"@gn":                             {752630, 755269},
-		"putalocura":                      {809590},
-		"@isc":                            {813832},
-		"@pnl":                            {864618},
-		"@dreamr":                         {875433},
-		"2019-10-30":                      {878258},
-		"papi-16":                         {884431},
-		"papi-4":                          {884431},
-		"papi-18":                         {884431},
-		"papi-17":                         {884431},
-		"papi-7":                          {884431},
-		"papi-3":                          {884431},
-		"papi-30":                         {884431},
-		"papi":                            {884431},
-		"papi-9":                          {884431},
-		"papi-19":                         {884431},
-		"papi-papi-2":                     {884431},
-		"papi-6":                          {884431},
-		"viaje-a-la-luna-":                {887018, 887591, 888024},
-		"fortnite1":                       {900015},
-		"who-is-the-master-":              {900787},
-		"thp":                             {923634},
-		"thm":                             {923635},
-		"el-presidente":                   {923766},
-		"@erikh526":                       {933294},
-	}
-}

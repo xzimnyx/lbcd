@@ -2,7 +2,6 @@ package merkletrie
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/claimtrie/node"
 	"runtime"
@@ -42,8 +41,15 @@ func (rt *RamTrie) SetRoot(h *chainhash.Hash, names [][]byte) {
 
 	// if names is nil then we need to query all names
 	if names == nil {
-		fmt.Printf("Building the entire claim trie in RAM...\n")
-		// TODO: should technically clear the old trie first
+		node.LogOnce("Building the entire claim trie in RAM...") // could put this in claimtrie.go
+
+		//should technically clear the old trie first:
+		if rt.Nodes > 1 {
+			rt.Root = &collapsedVertex{key: make(KeyType, 0)}
+			rt.Nodes = 1
+			runtime.GC()
+		}
+
 		rt.store.IterateNames(func(name []byte) bool {
 			rt.Update(name, false)
 			return true
@@ -134,6 +140,7 @@ func (rt *RamTrie) merkleHashAllClaims(v *collapsedVertex) *chainhash.Hash {
 
 	childHash := NoChildrenHash
 	if len(childHashes) > 0 {
+		// this shouldn't be referencing node; where else can we put this merkle root func?
 		childHash = node.ComputeMerkleRoot(childHashes)
 	}
 

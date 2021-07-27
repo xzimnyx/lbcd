@@ -22,7 +22,7 @@ type Repo interface {
 
 	// IterateChildren returns change sets for each of name.+
 	// Return false on f to stop the iteration.
-	IterateChildren(name []byte, f func(changes []change.Change) bool)
+	IterateChildren(name []byte, f func(changes []change.Change) bool) error
 
 	// IterateAll iterates keys until the predicate function returns false
 	IterateAll(predicate func(name []byte) bool)

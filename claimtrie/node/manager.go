@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"github.com/pkg/errors"
 	"strconv"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -85,7 +86,7 @@ type BaseManager struct {
 	changes []change.Change
 }
 
-func NewBaseManager(repo Repo) (Manager, error) {
+func NewBaseManager(repo Repo) (*BaseManager, error) {
 
 	nm := &BaseManager{
 		repo:  repo,
@@ -107,12 +108,12 @@ func (nm *BaseManager) Node(name []byte) (*Node, error) {
 
 	changes, err := nm.repo.LoadChanges(name)
 	if err != nil {
-		return nil, fmt.Errorf("load changes from node repo: %w", err)
+		return nil, errors.Wrap(err, "in load changes")
 	}
 
 	n, err = nm.newNodeFromChanges(changes, nm.height)
 	if err != nil {
-		return nil, fmt.Errorf("create node from changes: %w", err)
+		return nil, errors.Wrap(err, "in new node")
 	}
 
 	if n == nil { // they've requested a nonexistent or expired name
@@ -137,7 +138,7 @@ func (nm *BaseManager) newNodeFromChanges(changes []change.Change, height int32)
 
 	for i, chg := range changes {
 		if chg.Height < previous {
-			return nil, fmt.Errorf("expected the changes to be in order by height")
+			panic("expected the changes to be in order by height")
 		}
 		if chg.Height > height {
 			count = i
@@ -152,7 +153,7 @@ func (nm *BaseManager) newNodeFromChanges(changes []change.Change, height int32)
 		delay := nm.getDelayForName(n, chg)
 		err := n.ApplyChange(chg, delay)
 		if err != nil {
-			return nil, fmt.Errorf("append change: %w", err)
+			return nil, errors.Wrap(err, "in apply change")
 		}
 	}
 
@@ -167,6 +168,9 @@ func (nm *BaseManager) AppendChange(chg change.Change) error {
 
 	nm.cache.Delete(string(chg.Name))
 	nm.changes = append(nm.changes, chg)
+
+	// worth putting in this kind of thing pre-emptively?
+	// log.Debugf("CHG: %d, %s, %v, %s, %d", chg.Height, chg.Name, chg.Type, chg.ClaimID, chg.Amount)
 
 	return nil
 }
@@ -225,7 +229,7 @@ func (nm *BaseManager) IncrementHeightTo(height int32) ([][]byte, error) {
 	}
 
 	if err := nm.repo.AppendChanges(nm.changes); err != nil { // destroys names
-		return nil, fmt.Errorf("save changes to node repo: %w", err)
+		return nil, errors.Wrap(err, "in append changes")
 	}
 
 	// Truncate the buffer size to zero.
@@ -241,13 +245,13 @@ func (nm *BaseManager) IncrementHeightTo(height int32) ([][]byte, error) {
 
 func (nm *BaseManager) DecrementHeightTo(affectedNames [][]byte, height int32) error {
 	if height >= nm.height {
-		return fmt.Errorf("invalid height")
+		return errors.Errorf("invalid height of %d for %d", height, nm.height)
 	}
 
 	for _, name := range affectedNames {
 		nm.cache.Delete(string(name))
 		if err := nm.repo.DropChanges(name, height); err != nil {
-			return err
+			return errors.Wrap(err, "in drop changes")
 		}
 	}
 
@@ -275,23 +279,13 @@ func (nm *BaseManager) getDelayForName(n *Node, chg change.Change) int32 {
 
 	delay := calculateDelay(chg.Height, n.TakenOverAt)
 	if delay > 0 && nm.aWorkaroundIsNeeded(n, chg) {
-		// TODO: log this (but only once per name-height combo)
-		//fmt.Printf("Delay workaround applies to %s at %d\n", chg.Name, chg.Height)
+		if chg.Height >= nm.height {
+			LogOnce(fmt.Sprintf("Delay workaround applies to %s at %d, ClaimID: %s",
+				chg.Name, chg.Height, chg.ClaimID))
+		}
 		return 0
 	}
 	return delay
-}
-
-func isInDelayPart2(chg change.Change) bool {
-	heights, ok := param.DelayWorkaroundsPart2[string(chg.Name)]
-	if ok {
-		for _, h := range heights {
-			if h == chg.Height {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func hasZeroActiveClaims(n *Node) bool {
@@ -318,19 +312,7 @@ func (nm *BaseManager) aWorkaroundIsNeeded(n *Node, chg change.Change) bool {
 		// auto it = nodesToAddOrUpdate.find(name); // nodesToAddOrUpdate is the working changes, base is previous block
 		// auto answer = (it || (it = base->find(name))) && !it->empty() ? nNextHeight - it->nHeightOfLastTakeover : 0;
 
-		needed := hasZeroActiveClaims(n) && nm.hasChildren(chg.Name, chg.Height, chg.SpentChildren, 2)
-		if chg.Height <= 933294 {
-			w := isInDelayPart2(chg)
-			if w {
-				if !needed {
-					fmt.Printf("DELAY WORKAROUND FALSE NEGATIVE! %d: %s: %t\n", chg.Height, chg.Name, needed)
-				}
-			} else if needed {
-				fmt.Printf("DELAY WORKAROUND FALSE POSITIVE! %d: %s: %t\n", chg.Height, chg.Name, needed)
-			}
-			// return w // if you want to sync to 933294+
-		}
-		return needed
+		return hasZeroActiveClaims(n) && nm.hasChildren(chg.Name, chg.Height, chg.SpentChildren, 2)
 	} else if len(n.Claims) > 0 {
 		// NOTE: old code had a bug in it where nodes with no claims but with children would get left in the cache after removal.
 		// This would cause the getNumBlocksOfContinuousOwnership to return zero (causing incorrect takeover height calc).
@@ -371,13 +353,7 @@ func (nm *BaseManager) Height() int32 {
 }
 
 func (nm *BaseManager) Close() error {
-
-	err := nm.repo.Close()
-	if err != nil {
-		return fmt.Errorf("close repo: %w", err)
-	}
-
-	return nil
+	return errors.WithStack(nm.repo.Close())
 }
 
 func (nm *BaseManager) hasChildren(name []byte, height int32, spentChildren map[string]bool, required int) bool {
@@ -386,7 +362,7 @@ func (nm *BaseManager) hasChildren(name []byte, height int32, spentChildren map[
 		spentChildren = map[string]bool{}
 	}
 
-	nm.repo.IterateChildren(name, func(changes []change.Change) bool {
+	err := nm.repo.IterateChildren(name, func(changes []change.Change) bool {
 		// if the key is unseen, generate a node for it to height
 		// if that node is active then increase the count
 		if len(changes) == 0 {
@@ -407,7 +383,7 @@ func (nm *BaseManager) hasChildren(name []byte, height int32, spentChildren map[
 		}
 		return true
 	})
-	return len(c) >= required
+	return err == nil && len(c) >= required
 }
 
 func (nm *BaseManager) IterateNames(predicate func(name []byte) bool) {

@@ -3,6 +3,7 @@ package claimtrie
 import (
 	"bytes"
 	"fmt"
+	"github.com/pkg/errors"
 	"path/filepath"
 	"sort"
 
@@ -64,13 +65,13 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 
 	blockRepo, err := blockrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.BlockRepoPebble.Path))
 	if err != nil {
-		return nil, fmt.Errorf("new block repo: %w", err)
+		return nil, errors.Wrap(err, "creating block repo")
 	}
 	cleanups = append(cleanups, blockRepo.Close)
 
 	temporalRepo, err := temporalrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.TemporalRepoPebble.Path))
 	if err != nil {
-		return nil, fmt.Errorf("new temporal repo: %w", err)
+		return nil, errors.Wrap(err, "creating temporal repo")
 	}
 	cleanups = append(cleanups, temporalRepo.Close)
 
@@ -78,12 +79,12 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 	// The cleanup is delegated to the Node Manager.
 	nodeRepo, err := noderepo.NewPebble(filepath.Join(cfg.DataDir, cfg.NodeRepoPebble.Path))
 	if err != nil {
-		return nil, fmt.Errorf("new node repo: %w", err)
+		return nil, errors.Wrap(err, "creating node repo")
 	}
 
 	baseManager, err := node.NewBaseManager(nodeRepo)
 	if err != nil {
-		return nil, fmt.Errorf("new node manager: %w", err)
+		return nil, errors.Wrap(err, "creating node base manager")
 	}
 	nodeManager := node.NewNormalizingManager(baseManager)
 	cleanups = append(cleanups, nodeManager.Close)
@@ -96,7 +97,7 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 		// Initialize repository for MerkleTrie. The cleanup is delegated to MerkleTrie.
 		trieRepo, err := merkletrierepo.NewPebble(filepath.Join(cfg.DataDir, cfg.MerkleTrieRepoPebble.Path))
 		if err != nil {
-			return nil, fmt.Errorf("new trie repo: %w", err)
+			return nil, errors.Wrap(err, "creating trie repo")
 		}
 
 		persistentTrie := merkletrie.NewPersistentTrie(nodeManager, trieRepo)
@@ -107,7 +108,7 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 	// Restore the last height.
 	previousHeight, err := blockRepo.Load()
 	if err != nil {
-		return nil, fmt.Errorf("load blocks: %w", err)
+		return nil, errors.Wrap(err, "load block tip")
 	}
 
 	ct := &ClaimTrie{
@@ -123,14 +124,14 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 	if cfg.Record {
 		chainRepo, err := chainrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ChainRepoPebble.Path))
 		if err != nil {
-			return nil, fmt.Errorf("new change change repo: %w", err)
+			return nil, errors.Wrap(err, "creating chain repo")
 		}
 		cleanups = append(cleanups, chainRepo.Close)
 		ct.chainRepo = chainRepo
 
 		reportedBlockRepo, err := blockrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ReportedBlockRepoPebble.Path))
 		if err != nil {
-			return nil, fmt.Errorf("new reported block repo: %w", err)
+			return nil, errors.Wrap(err, "creating reported block repo")
 		}
 		cleanups = append(cleanups, reportedBlockRepo.Close)
 		ct.reportedBlockRepo = reportedBlockRepo
@@ -141,19 +142,19 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 		hash, err := blockRepo.Get(previousHeight)
 		if err != nil {
 			ct.Close() // TODO: the cleanups aren't run when we exit with an err above here (but should be)
-			return nil, fmt.Errorf("get hash: %w", err)
+			return nil, errors.Wrap(err, "block repo get")
 		}
 		_, err = nodeManager.IncrementHeightTo(previousHeight)
 		if err != nil {
 			ct.Close()
-			return nil, fmt.Errorf("node manager init: %w", err)
+			return nil, errors.Wrap(err, "increment height to")
 		}
 		// TODO: pass in the interrupt signal here:
 		trie.SetRoot(hash, nil) // keep this after IncrementHeightTo
 
 		if !ct.MerkleHash().IsEqual(hash) {
 			ct.Close()
-			return nil, fmt.Errorf("unable to restore the claim hash to %s at height %d", hash.String(), previousHeight)
+			return nil, errors.Errorf("unable to restore the claim hash to %s at height %d", hash.String(), previousHeight)
 		}
 	}
 
@@ -236,19 +237,19 @@ func (ct *ClaimTrie) AppendBlock() error {
 	if len(ct.changes) > 0 && ct.chainRepo != nil {
 		err := ct.chainRepo.Save(ct.height, ct.changes)
 		if err != nil {
-			return fmt.Errorf("chain change repo save: %w", err)
+			return errors.Wrap(err, "chain change repo save")
 		}
 		ct.changes = ct.changes[:0]
 	}
 
 	names, err := ct.nodeManager.IncrementHeightTo(ct.height)
 	if err != nil {
-		return fmt.Errorf("node mgr increment: %w", err)
+		return errors.Wrap(err, "node manager increment")
 	}
 
 	expirations, err := ct.temporalRepo.NodesAt(ct.height)
 	if err != nil {
-		return fmt.Errorf("temporal repo nodes at: %w", err)
+		return errors.Wrap(err, "temporal repo get")
 	}
 
 	names = removeDuplicates(names) // comes out sorted
@@ -275,7 +276,7 @@ func (ct *ClaimTrie) AppendBlock() error {
 	}
 	err = ct.temporalRepo.SetNodesAt(updateNames, updateHeights)
 	if err != nil {
-		return fmt.Errorf("temporal repo set at: %w", err)
+		return errors.Wrap(err, "temporal repo set")
 	}
 
 	hitFork := ct.updateTrieForHashForkIfNecessary()
@@ -294,14 +295,16 @@ func (ct *ClaimTrie) updateTrieForHashForkIfNecessary() bool {
 	if ct.height != param.AllClaimsInMerkleForkHeight {
 		return false
 	}
-	fmt.Printf("Marking all trie nodes as dirty for the hash fork...")
+
+	node.LogOnce("Marking all trie nodes as dirty for the hash fork...")
+
 	// invalidate all names because we have to recompute the hash on everything
-	// requires its own 8GB of RAM in current trie impl.
 	ct.nodeManager.IterateNames(func(name []byte) bool {
 		ct.merkleTrie.Update(name, false)
 		return true
 	})
-	fmt.Printf(" Done. Now recomputing all hashes...\n")
+
+	node.LogOnce("Done. Now recomputing all hashes...")
 	return true
 }
 
@@ -358,7 +361,7 @@ func (ct *ClaimTrie) ResetHeight(height int32) error {
 	ct.merkleTrie.SetRoot(hash, names)
 
 	if !ct.MerkleHash().IsEqual(hash) {
-		return fmt.Errorf("unable to restore the hash at height %d", height)
+		return errors.Errorf("unable to restore the hash at height %d", height)
 	}
 	return nil
 }
@@ -378,17 +381,15 @@ func (ct *ClaimTrie) Height() int32 {
 
 // Close persists states.
 // Any calls to the ClaimTrie after Close() being called results undefined behaviour.
-func (ct *ClaimTrie) Close() error {
+func (ct *ClaimTrie) Close() {
 
 	for i := len(ct.cleanups) - 1; i >= 0; i-- {
 		cleanup := ct.cleanups[i]
 		err := cleanup()
-		if err != nil { // TODO: it would be better to cleanup what we can than exit
-			return fmt.Errorf("cleanup: %w", err)
+		if err != nil { // it would be better to cleanup what we can than exit early
+			node.LogOnce("On cleanup: " + err.Error())
 		}
 	}
-
-	return nil
 }
 
 func (ct *ClaimTrie) forwardNodeChange(chg change.Change) error {

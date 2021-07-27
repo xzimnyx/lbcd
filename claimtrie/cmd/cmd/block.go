@@ -9,7 +9,6 @@ import (
 	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
 	"github.com/btcsuite/btcd/claimtrie/merkletrie"
 	"github.com/btcsuite/btcd/claimtrie/merkletrie/merkletrierepo"
-	"github.com/btcsuite/btcd/claimtrie/param"
 	"github.com/btcsuite/btcd/claimtrie/temporal/temporalrepo"
 
 	"github.com/spf13/cobra"
@@ -139,7 +138,7 @@ var blockNameCmd = &cobra.Command{
 		defer trie.Close()
 		trie.SetRoot(hash, nil)
 		if len(args) > 1 {
-			trie.Dump(args[1], param.AllClaimsInMerkleForkHeight >= int32(height))
+			trie.Dump(args[1])
 		} else {
 			tmpRepo, err := temporalrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.TemporalRepoPebble.Path))
 			if err != nil {
@@ -151,7 +150,7 @@ var blockNameCmd = &cobra.Command{
 			}
 			for _, name := range nodes {
 				fmt.Printf("Name: %s, ", string(name))
-				trie.Dump(string(name), param.AllClaimsInMerkleForkHeight >= int32(height))
+				trie.Dump(string(name))
 			}
 		}
 		return nil

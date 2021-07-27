@@ -2,8 +2,6 @@ package node
 
 import (
 	"bytes"
-	"fmt"
-
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/param"
 )
@@ -58,7 +56,7 @@ func (nm *NormalizingManager) addNormalizationForkChangesIfNecessary(height int3
 		return
 	}
 	nm.normalizedAt = height
-	fmt.Printf("Generating necessary changes for the normalization fork...\n")
+	log.Info("Generating necessary changes for the normalization fork...")
 
 	// the original code had an unfortunate bug where many unnecessary takeovers
 	// were triggered at the normalization fork
