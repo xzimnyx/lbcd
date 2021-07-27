@@ -71,3 +71,17 @@ func TestCreationParseLoopSupport(t *testing.T) {
 	r.Equal(claimID, script.ClaimID())
 	r.Nil(script.Value())
 }
+
+func TestInvalidChars(t *testing.T) {
+	r := require.New(t)
+
+	script, err := ClaimNameScript("tester", "value")
+	r.NoError(err)
+	r.NoError(AllClaimsAreSane(script, true))
+
+	for i := range []byte(illegalChars) {
+		script, err := ClaimNameScript("a"+illegalChars[i:i+1], "value")
+		r.NoError(err)
+		r.Error(AllClaimsAreSane(script, true))
+	}
+}

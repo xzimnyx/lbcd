@@ -1,7 +1,9 @@
 package txscript
 
 import (
+	"bytes"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/btcsuite/btcd/wire"
 )
@@ -134,17 +136,8 @@ func StripClaimScriptPrefix(script []byte) []byte {
 	return script[cs.Size():]
 }
 
-// ClaimScriptSize returns size of the claim script minus the script pubkey part.
-func ClaimScriptSize(script []byte) int {
-	cs, err := DecodeClaimScript(script)
-	if err != nil {
-		return len(script)
-	}
-	return cs.Size()
-}
-
-// ClaimNameSize returns size of the name in a claim script or 0 if script is not a claimtrie transaction.
-func ClaimNameSize(script []byte) int {
+// claimNameSize returns size of the name in a claim script or 0 if script is not a claimtrie transaction.
+func claimNameSize(script []byte) int {
 	cs, err := DecodeClaimScript(script)
 	if err != nil {
 		return 0
@@ -156,8 +149,8 @@ func ClaimNameSize(script []byte) int {
 func CalcMinClaimTrieFee(tx *wire.MsgTx, minFeePerNameClaimChar int64) int64 {
 	var minFee int64
 	for _, txOut := range tx.TxOut {
-		// TODO: lbrycrd ignored transactions that weren't OP_CLAIMNAME
-		minFee += int64(ClaimNameSize(txOut.PkScript))
+		// TODO maybe: lbrycrd ignored transactions that weren't OP_CLAIMNAME
+		minFee += int64(claimNameSize(txOut.PkScript))
 	}
 	return minFee * minFeePerNameClaimChar
 }
@@ -199,4 +192,30 @@ func isUpdateClaim(pops []parsedOpcode) bool {
 		// canonicalPush(pops[3]) &&
 		pops[4].opcode.value == OP_2DROP &&
 		pops[5].opcode.value == OP_2DROP
+}
+
+const illegalChars = "=&#:*$@%?/\x00"
+
+func AllClaimsAreSane(script []byte, enforceSoftFork bool) error {
+	cs, err := DecodeClaimScript(script)
+	if err != ErrNotClaimScript {
+		if err != nil {
+			return fmt.Errorf("invalid claim script: %s", err.Error())
+		}
+		if cs.Size() > MaxClaimScriptSize {
+			return fmt.Errorf("claimscript exceeds max size of %v", MaxClaimScriptSize)
+		}
+		if len(cs.Name()) > MaxClaimNameSize {
+			return fmt.Errorf("claim name exceeds max size of %v", MaxClaimNameSize)
+		}
+		if enforceSoftFork {
+			if !utf8.Valid(cs.Name()) {
+				return fmt.Errorf("claim name is not valid UTF-8")
+			}
+			if bytes.ContainsAny(cs.Name(), illegalChars) {
+				return fmt.Errorf("claim name has illegal chars; it should not contain any of these: %s", illegalChars)
+			}
+		}
+	}
+	return nil
 }
