@@ -1,0 +1,36 @@
+name: Full Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: 'Note'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    name: Go CI
+    runs-on: self-hosted
+    strategy:
+      matrix:
+        go: [1.16]
+    steps:
+      - run: |
+          echo "Note ${{ github.event.inputs.note }}!"
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Check out source
+        uses: actions/checkout@v2
+      - name: Install Linters
+        run: "curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.26.0"
+      - name: Build
+        run: go build --tags use_icu_normalization .
+      - name: Create Datadir
+        run: echo "TEMP_DIR=$(mktemp -d)" >> $GITHUB_ENV
+      - name: Full-Sync
+        run: ./chain --datadir ${{env.TEMP_DIR}} --connect 127.0.0.1 --rpclisten 0.0.0.0:9427
+      - name: Remove Datadir
+        run: rm -rf --datadir ${{env.TEMP_DIR}}
