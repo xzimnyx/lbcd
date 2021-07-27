@@ -13,11 +13,11 @@ require (
 	github.com/cockroachdb/pebble v0.0.0-20210525181856-e45797baeb78
 	github.com/davecgh/go-spew v1.1.1
 	github.com/decred/dcrd/lru v1.0.0
-	github.com/dustin/go-humanize v1.0.0
 	github.com/felixge/fgprof v0.9.1
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/jrick/logrotate v1.0.0
 	github.com/pkg/errors v0.9.1
+	github.com/shirou/gopsutil/v3 v3.21.6
 	github.com/spf13/cobra v1.1.3
 	github.com/stretchr/testify v1.7.0
 	github.com/vmihailenco/msgpack/v5 v5.3.2
