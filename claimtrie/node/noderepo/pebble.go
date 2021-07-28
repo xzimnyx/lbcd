@@ -2,79 +2,16 @@ package noderepo
 
 import (
 	"bytes"
-	"reflect"
+	"github.com/mojura/enkodo"
 	"sort"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/claimtrie/change"
-	"github.com/btcsuite/btcd/claimtrie/node"
-	"github.com/btcsuite/btcd/wire"
-
 	"github.com/cockroachdb/pebble"
 	"github.com/pkg/errors"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Pebble struct {
 	db *pebble.DB
-}
-
-func init() {
-	claimEncoder := func(e *msgpack.Encoder, v reflect.Value) error {
-		claim := v.Interface().(change.ClaimID)
-		return e.EncodeBytes(claim[:])
-	}
-	claimDecoder := func(e *msgpack.Decoder, v reflect.Value) error {
-		data, err := e.DecodeBytes()
-		if err != nil {
-			return err
-		}
-		if len(data) > change.ClaimIDSize {
-			id, err := change.NewIDFromString(string(data))
-			if err != nil {
-				return err
-			}
-			v.Set(reflect.ValueOf(id))
-		} else {
-			id := change.ClaimID{}
-			copy(id[:], data)
-			v.Set(reflect.ValueOf(id))
-		}
-		return nil
-	}
-	msgpack.Register(change.ClaimID{}, claimEncoder, claimDecoder)
-
-	opEncoder := func(e *msgpack.Encoder, v reflect.Value) error {
-		op := v.Interface().(wire.OutPoint)
-		if err := e.EncodeBytes(op.Hash[:]); err != nil {
-			return err
-		}
-		return e.EncodeUint32(op.Index)
-	}
-	opDecoder := func(e *msgpack.Decoder, v reflect.Value) error {
-		data, err := e.DecodeBytes()
-		if err != nil {
-			return err
-		}
-		if len(data) > chainhash.HashSize {
-			// try the older data:
-			op := node.NewOutPointFromString(string(data))
-			v.Set(reflect.ValueOf(*op))
-		} else {
-			index, err := e.DecodeUint32()
-			if err != nil {
-				return err
-			}
-			hash, err := chainhash.NewHash(data)
-			if err != nil {
-				return err
-			}
-			op := wire.OutPoint{Hash: *hash, Index: index}
-			v.Set(reflect.ValueOf(op))
-		}
-		return nil
-	}
-	msgpack.Register(wire.OutPoint{}, opEncoder, opDecoder)
 }
 
 func NewPebble(path string) (*Pebble, error) {
@@ -91,16 +28,18 @@ func (repo *Pebble) AppendChanges(changes []change.Change) error {
 	batch := repo.db.NewBatch()
 	defer batch.Close()
 
-	// TODO: switch to buffer pool and reuse encoder
+	buffer := bytes.NewBuffer(nil)
+	encoder := enkodo.NewWriter(buffer)
+	defer encoder.Close()
+
 	for _, chg := range changes {
-		name := chg.Name
-		chg.Name = nil // don't waste the storage space on this (annotation a better approach?)
-		value, err := msgpack.Marshal(chg)
+		buffer.Reset()
+		err := encoder.Encode(&chg)
 		if err != nil {
 			return errors.Wrap(err, "in marshaller")
 		}
 
-		err = batch.Merge(name, value, pebble.NoSync)
+		err = batch.Merge(chg.Name, buffer.Bytes(), pebble.NoSync)
 		if err != nil {
 			return errors.Wrap(err, "in merge")
 		}
@@ -123,14 +62,14 @@ func (repo *Pebble) LoadChanges(name []byte) ([]change.Change, error) {
 
 func unmarshalChanges(name, data []byte) ([]change.Change, error) {
 	var changes []change.Change
-	dec := msgpack.GetDecoder()
-	defer msgpack.PutDecoder(dec)
 
 	reader := bytes.NewReader(data)
-	dec.Reset(reader)
+	decoder := enkodo.NewReader(reader)
+	defer decoder.Close()
+
 	for reader.Len() > 0 {
 		var chg change.Change
-		err := dec.Decode(&chg)
+		err := decoder.Decode(&chg)
 		if err != nil {
 			return nil, errors.Wrap(err, "in decode")
 		}
