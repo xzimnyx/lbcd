@@ -226,3 +226,26 @@ func TestHasChildren(t *testing.T) {
 	r.NoError(err)
 	r.True(m.hasChildren([]byte("a"), 4, nil, 2))
 }
+
+func TestCollectChildren(t *testing.T) {
+	r := require.New(t)
+
+	c1 := change.Change{Name: []byte("ba"), Type: change.SpendClaim}
+	c2 := change.Change{Name: []byte("ba"), Type: change.UpdateClaim}
+	c3 := change.Change{Name: []byte("ac"), Type: change.SpendClaim}
+	c4 := change.Change{Name: []byte("ac"), Type: change.UpdateClaim}
+	c5 := change.Change{Name: []byte("a"), Type: change.SpendClaim}
+	c6 := change.Change{Name: []byte("a"), Type: change.UpdateClaim}
+	c := []change.Change{c1, c2, c3, c4, c5, c6}
+
+	collectChildNames(c)
+
+	r.Empty(c[0].SpentChildren)
+	r.Empty(c[2].SpentChildren)
+	r.Empty(c[4].SpentChildren)
+
+	r.Len(c[1].SpentChildren, 1)
+	r.Len(c[3].SpentChildren, 1)
+	r.Len(c[5].SpentChildren, 2)
+	r.True(c[5].SpentChildren["ac"])
+}

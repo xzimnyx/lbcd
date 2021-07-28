@@ -1,7 +1,9 @@
 package claimtrie
 
 import (
+	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/config"
@@ -251,4 +253,95 @@ func TestRebuild(t *testing.T) {
 	m2 := ct.MerkleHash()
 	r.NotNil(m2)
 	r.Equal(*m, *m2)
+}
+
+func BenchmarkClaimTrie_AppendBlock(b *testing.B) {
+
+	rand.Seed(42)
+	names := make([][]byte, 0, b.N)
+
+	for i := 0; i < b.N; i++ {
+		names = append(names, randomName())
+	}
+
+	param.SetNetwork(wire.TestNet)
+	param.OriginalClaimExpirationTime = 1000000
+	param.ExtendedClaimExpirationTime = 1000000
+	cfg.DataDir = b.TempDir()
+
+	r := require.New(b)
+	ct, err := New(cfg)
+	r.NoError(err)
+	defer ct.Close()
+	h1 := chainhash.Hash{100, 200}
+
+	start := time.Now()
+	b.ResetTimer()
+
+	c := 0
+	for i := 0; i < b.N; i++ {
+		op := wire.OutPoint{Hash: h1, Index: uint32(i)}
+		id := change.NewClaimID(op)
+		err = ct.AddClaim(names[i], op, id, 500)
+		r.NoError(err)
+		if c++; (c & 0xff) == 0xff {
+			err = ct.AppendBlock()
+			r.NoError(err)
+		}
+	}
+
+	for i := 0; i < b.N; i++ {
+		op := wire.OutPoint{Hash: h1, Index: uint32(i)}
+		id := change.NewClaimID(op)
+		op.Hash[0] = 1
+		err = ct.UpdateClaim(names[i], op, 400, id)
+		r.NoError(err)
+		if c++; (c & 0xff) == 0xff {
+			err = ct.AppendBlock()
+			r.NoError(err)
+		}
+	}
+
+	for i := 0; i < b.N; i++ {
+		op := wire.OutPoint{Hash: h1, Index: uint32(i)}
+		id := change.NewClaimID(op)
+		op.Hash[0] = 2
+		err = ct.UpdateClaim(names[i], op, 300, id)
+		r.NoError(err)
+		if c++; (c & 0xff) == 0xff {
+			err = ct.AppendBlock()
+			r.NoError(err)
+		}
+	}
+
+	for i := 0; i < b.N; i++ {
+		op := wire.OutPoint{Hash: h1, Index: uint32(i)}
+		id := change.NewClaimID(op)
+		op.Hash[0] = 3
+		err = ct.SpendClaim(names[i], op, id)
+		r.NoError(err)
+		if c++; (c & 0xff) == 0xff {
+			err = ct.AppendBlock()
+			r.NoError(err)
+		}
+	}
+	err = ct.AppendBlock()
+	r.NoError(err)
+
+	b.StopTimer()
+	ht := ct.height
+	h1 = *ct.MerkleHash()
+	ct.Close()
+	b.Logf("Running AppendBlock bench with %d names in %f sec. Height: %d, Hash: %s",
+		b.N, time.Since(start).Seconds(), ht, h1.String())
+}
+
+func randomName() []byte {
+	name := make([]byte, rand.Intn(30)+10)
+	rand.Read(name)
+	for i := range name {
+		name[i] %= 56
+		name[i] += 65
+	}
+	return name
 }

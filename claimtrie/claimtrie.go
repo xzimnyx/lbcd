@@ -354,6 +354,7 @@ func (ct *ClaimTrie) Close() {
 			node.LogOnce("On cleanup: " + err.Error())
 		}
 	}
+	ct.cleanups = nil
 }
 
 func (ct *ClaimTrie) forwardNodeChange(chg change.Change) error {

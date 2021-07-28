@@ -145,7 +145,7 @@ func (rt *RamTrie) merkleHashAllClaims(v *collapsedVertex) *chainhash.Hash {
 	if v.claimHash != nil {
 		claimHash = v.claimHash
 	} else if len(childHashes) == 0 {
-		return v.merkleHash
+		return nil
 	}
 
 	childHash := NoChildrenHash

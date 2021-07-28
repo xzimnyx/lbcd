@@ -1,11 +1,11 @@
 package node
 
 import (
-	"bytes"
 	"container/list"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"sort"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -199,22 +199,44 @@ func collectChildNames(changes []change.Change) {
 	// For each non-spend change
 	//    Loop through all the spends before you and add them to your child list if they are your child
 
+	type pair struct {
+		name  string
+		order int
+	}
+
+	spends := make([]pair, 0, len(changes))
+	for i := range changes {
+		t := changes[i].Type
+		if t != change.SpendClaim {
+			continue
+		}
+		spends = append(spends, pair{string(changes[i].Name), i})
+	}
+	sort.Slice(spends, func(i, j int) bool {
+		if spends[i].name == spends[j].name {
+			return spends[i].order < spends[j].order
+		}
+		return spends[i].name < spends[j].name
+	})
+
 	for i := range changes {
 		t := changes[i].Type
 		if t == change.SpendClaim || t == change.SpendSupport {
 			continue
 		}
-		a := changes[i].Name
+		a := string(changes[i].Name)
 		sc := map[string]bool{}
-		for j := 0; j < i; j++ {
-			t = changes[j].Type
-			if t != change.SpendClaim {
-				continue
+		idx := sort.Search(len(spends), func(i int) bool {
+			return spends[i].name >= a
+		})
+		for idx < len(spends) {
+			b := spends[idx].name
+			if len(b) >= len(a) && spends[idx].order < i && a == b[:len(a)] {
+				sc[b] = true
+			} else {
+				break
 			}
-			b := changes[j].Name
-			if len(b) >= len(a) && bytes.Equal(a, b[:len(a)]) {
-				sc[string(b)] = true
-			}
+			idx++
 		}
 		changes[i].SpentChildren = sc
 	}
