@@ -102,6 +102,9 @@ type ConsensusDeployment struct {
 	// ExpireTime is the median block time after which the attempted
 	// deployment expires.
 	ExpireTime uint64
+
+	// ForceActiveAt is added by LBRY to bypass consensus. Features are activated via hard-fork instead.
+	ForceActiveAt int32
 }
 
 // Constants that define the deployment offset in the deployments field of the
@@ -321,14 +324,16 @@ var MainNetParams = Params{
 			ExpireTime: 1230767999, // December 31, 2008 UTC
 		},
 		DeploymentCSV: {
-			BitNumber:  0,
-			StartTime:  1462060800, // May 1st, 2016
-			ExpireTime: 1493596800, // May 1st, 2017
+			BitNumber:     0,
+			StartTime:     1462060800, // May 1st, 2016
+			ExpireTime:    1493596800, // May 1st, 2017
+			ForceActiveAt: 200000,
 		},
 		DeploymentSegwit: {
-			BitNumber:  1,
-			StartTime:  1547942400, // Jan 20, 2019
-			ExpireTime: 1548288000, // Jan 24, 2019
+			BitNumber:     1,
+			StartTime:     1547942400, // Jan 20, 2019
+			ExpireTime:    1548288000, // Jan 24, 2019
+			ForceActiveAt: 680770,
 		},
 	},
 
@@ -368,15 +373,15 @@ var RegressionNetParams = Params{
 	PowLimit:                 regressionPowLimit,
 	PowLimitBits:             0x207fffff,
 	CoinbaseMaturity:         100,
-	BIP0034Height:            100000000, // Not active - Permit ver 1 blocks
-	BIP0065Height:            1351,      // Used by regression tests
-	BIP0066Height:            1251,      // Used by regression tests
+	BIP0034Height:            1000,
+	BIP0065Height:            1351, // Used by regression tests
+	BIP0066Height:            1251, // Used by regression tests
 	SubsidyReductionInterval: 1 << 5,
 	TargetTimespan:           time.Second,
 	TargetTimePerBlock:       time.Second,
 	RetargetAdjustmentFactor: 4, // 25% less, 400% more
 	ReduceMinDifficulty:      false,
-	MinDiffReductionTime:     time.Minute * 20, // TargetTimePerBlock * 2
+	MinDiffReductionTime:     0,
 	GenerateSupported:        true,
 
 	// Checkpoints ordered from oldest to newest.
@@ -395,14 +400,16 @@ var RegressionNetParams = Params{
 			ExpireTime: math.MaxInt64, // Never expires
 		},
 		DeploymentCSV: {
-			BitNumber:  0,
-			StartTime:  0,             // Always available for vote
-			ExpireTime: math.MaxInt64, // Never expires
+			BitNumber:     0,
+			StartTime:     0,             // Always available for vote
+			ExpireTime:    math.MaxInt64, // Never expires
+			ForceActiveAt: 1,
 		},
 		DeploymentSegwit: {
-			BitNumber:  1,
-			StartTime:  0,
-			ExpireTime: math.MaxInt64, // Not in the roadmap
+			BitNumber:     1,
+			StartTime:     0,
+			ExpireTime:    math.MaxInt64,
+			ForceActiveAt: 150,
 		},
 	},
 
@@ -435,31 +442,29 @@ var TestNet3Params = Params{
 	Net:         wire.TestNet3,
 	DefaultPort: "19246",
 	DNSSeeds: []DNSSeed{
-		{"testdnsseed1.lbry.io", true},
-		{"testdnsseed2.lbry.io", true},
+		{"testdnsseed1.lbry.com", true},
+		{"testdnsseed2.lbry.com", true},
 	},
 
 	// Chain parameters
 	GenesisBlock:             &testNet3GenesisBlock,
 	GenesisHash:              &testNet3GenesisHash,
 	PowLimit:                 testNet3PowLimit,
-	PowLimitBits:             0x1d00ffff,
-	BIP0034Height:            21111,  // 0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8
-	BIP0065Height:            581885, // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
-	BIP0066Height:            330776, // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
+	PowLimitBits:             0x1f00ffff,
+	BIP0034Height:            21111, // 0x0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8
+	BIP0065Height:            1200000,
+	BIP0066Height:            1200000,
 	CoinbaseMaturity:         100,
-	SubsidyReductionInterval: 210000,
-	TargetTimespan:           time.Hour * 24 * 14, // 14 days
-	TargetTimePerBlock:       time.Minute * 10,    // 10 minutes
-	RetargetAdjustmentFactor: 4,                   // 25% less, 400% more
-	ReduceMinDifficulty:      true,
-	MinDiffReductionTime:     time.Minute * 20, // TargetTimePerBlock * 2
-	GenerateSupported:        false,
+	SubsidyReductionInterval: 1 << 5,
+	TargetTimespan:           time.Second * 150, // retarget every block
+	TargetTimePerBlock:       time.Second * 150, // 150 seconds
+	RetargetAdjustmentFactor: 4,                 // 25% less, 400% more
+	ReduceMinDifficulty:      false,
+	MinDiffReductionTime:     0,
+	GenerateSupported:        true,
 
 	// Checkpoints ordered from oldest to newest.
-	Checkpoints: []Checkpoint{
-		{0, newHashFromStr("9c89283ba0f3227f6c03b70216b9f665f0118d5e0fa729cedf4fb34d6a34f463")},
-	},
+	Checkpoints: []Checkpoint{},
 
 	// Consensus rule change deployments.
 	//
@@ -479,9 +484,10 @@ var TestNet3Params = Params{
 			ExpireTime: 1493596800, // May 1st, 2017
 		},
 		DeploymentSegwit: {
-			BitNumber:  1,
-			StartTime:  1462060800,
-			ExpireTime: 1493596800,
+			BitNumber:     1,
+			StartTime:     1462060800, // May 1st 2016
+			ExpireTime:    1493596800, // May 1st 2017
+			ForceActiveAt: 1198600,
 		},
 	},
 
@@ -495,7 +501,7 @@ var TestNet3Params = Params{
 	// Address encoding magics
 	PubKeyHashAddrID: 111,
 	ScriptHashAddrID: 196,
-	PrivateKeyID:     0xef, // starts with 9 (uncompressed) or c (compressed)
+	PrivateKeyID:     239,
 
 	// BIP32 hierarchical deterministic extended key magics
 	HDPrivateKeyID: [4]byte{0x04, 0x35, 0x83, 0x94}, // starts with tprv
@@ -529,11 +535,11 @@ var SimNetParams = Params{
 	BIP0066Height:            0, // Always active on simnet
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
-	TargetTimespan:           time.Hour * 24 * 14, // 14 days
-	TargetTimePerBlock:       time.Minute * 10,    // 10 minutes
-	RetargetAdjustmentFactor: 4,                   // 25% less, 400% more
+	TargetTimespan:           time.Second * 150,
+	TargetTimePerBlock:       time.Second * 150,
+	RetargetAdjustmentFactor: 4, // 25% less, 400% more
 	ReduceMinDifficulty:      true,
-	MinDiffReductionTime:     time.Minute * 20, // TargetTimePerBlock * 2
+	MinDiffReductionTime:     0,
 	GenerateSupported:        true,
 
 	// Checkpoints ordered from oldest to newest.
@@ -558,8 +564,8 @@ var SimNetParams = Params{
 		},
 		DeploymentSegwit: {
 			BitNumber:  1,
-			StartTime:  math.MaxInt64, // Not in the roadmap
-			ExpireTime: math.MaxInt64, // Not in the roadmap
+			StartTime:  0,
+			ExpireTime: math.MaxInt64,
 		},
 	},
 

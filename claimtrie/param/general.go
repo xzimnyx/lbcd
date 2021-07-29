@@ -36,10 +36,10 @@ func SetNetwork(net wire.BitcoinNet) {
 	case wire.TestNet3:
 		OriginalClaimExpirationTime = 262974
 		ExtendedClaimExpirationTime = 2102400
-		ExtendedClaimExpirationForkHeight = 1
-		MaxRemovalWorkaroundHeight = 100
-		NormalizedNameForkHeight = 1
-		AllClaimsInMerkleForkHeight = 109
+		ExtendedClaimExpirationForkHeight = 278160
+		MaxRemovalWorkaroundHeight = 1 // if you get a hash mismatch, come back to this
+		NormalizedNameForkHeight = 993380
+		AllClaimsInMerkleForkHeight = 1198559
 	case wire.TestNet, wire.SimNet: // "regtest"
 		OriginalClaimExpirationTime = 500
 		ExtendedClaimExpirationTime = 600

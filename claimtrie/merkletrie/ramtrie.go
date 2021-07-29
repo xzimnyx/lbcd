@@ -124,7 +124,10 @@ func (rt *RamTrie) completeHash(h *chainhash.Hash, childKey KeyType) []byte {
 }
 
 func (rt *RamTrie) MerkleHashAllClaims() *chainhash.Hash {
-	return rt.merkleHashAllClaims(rt.Root)
+	if h := rt.merkleHashAllClaims(rt.Root); h == nil {
+		return EmptyTrieHash
+	}
+	return rt.Root.merkleHash
 }
 
 func (rt *RamTrie) merkleHashAllClaims(v *collapsedVertex) *chainhash.Hash {
