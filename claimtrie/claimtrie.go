@@ -3,14 +3,13 @@ package claimtrie
 import (
 	"bytes"
 	"fmt"
-	"github.com/pkg/errors"
 	"path/filepath"
 	"sort"
 
+	"github.com/pkg/errors"
+
 	"github.com/btcsuite/btcd/claimtrie/block"
 	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
-	"github.com/btcsuite/btcd/claimtrie/chain"
-	"github.com/btcsuite/btcd/claimtrie/chain/chainrepo"
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/config"
 	"github.com/btcsuite/btcd/claimtrie/merkletrie"
@@ -28,12 +27,6 @@ import (
 // ClaimTrie implements a Merkle Trie supporting linear history of commits.
 type ClaimTrie struct {
 
-	// Repository for reported block hashes (debugging purpose).
-	reportedBlockRepo block.Repo
-
-	// Repository for raw changes recieved from chain.
-	chainRepo chain.Repo
-
 	// Repository for calculated block hashes.
 	blockRepo block.Repo
 
@@ -50,10 +43,6 @@ type ClaimTrie struct {
 
 	// Current block height, which is increased by one when AppendBlock() is called.
 	height int32
-
-	// Write buffer for batching changes written to repo.
-	// flushed before block is appended.
-	changes []change.Change
 
 	// Registrered cleanup functions which are invoked in the Close() in reverse order.
 	cleanups []func() error
@@ -121,21 +110,6 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 		height: previousHeight,
 	}
 
-	if cfg.Record {
-		chainRepo, err := chainrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ChainRepoPebble.Path))
-		if err != nil {
-			return nil, errors.Wrap(err, "creating chain repo")
-		}
-		cleanups = append(cleanups, chainRepo.Close)
-		ct.chainRepo = chainRepo
-
-		reportedBlockRepo, err := blockrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ReportedBlockRepoPebble.Path))
-		if err != nil {
-			return nil, errors.Wrap(err, "creating reported block repo")
-		}
-		cleanups = append(cleanups, reportedBlockRepo.Close)
-		ct.reportedBlockRepo = reportedBlockRepo
-	}
 	ct.cleanups = cleanups
 
 	if previousHeight > 0 {
@@ -234,14 +208,6 @@ func (ct *ClaimTrie) AppendBlock() error {
 
 	ct.height++
 
-	if len(ct.changes) > 0 && ct.chainRepo != nil {
-		err := ct.chainRepo.Save(ct.height, ct.changes)
-		if err != nil {
-			return errors.Wrap(err, "chain change repo save")
-		}
-		ct.changes = ct.changes[:0]
-	}
-
 	names, err := ct.nodeManager.IncrementHeightTo(ct.height)
 	if err != nil {
 		return errors.Wrap(err, "node manager increment")
@@ -321,17 +287,6 @@ func removeDuplicates(names [][]byte) [][]byte { // this might be too expensive;
 	return names
 }
 
-// ReportHash persists the Merkle Hash "learned and reported" by the block.
-// This is for debugging purpose.
-// So we can replay the trace of changes and compare calculated and learned hash.
-func (ct *ClaimTrie) ReportHash(height int32, hash chainhash.Hash) error {
-
-	if ct.reportedBlockRepo != nil {
-		return ct.reportedBlockRepo.Set(height, &hash)
-	}
-	return nil
-}
-
 // ResetHeight resets the ClaimTrie to a previous known height..
 func (ct *ClaimTrie) ResetHeight(height int32) error {
 
@@ -401,9 +356,6 @@ func (ct *ClaimTrie) forwardNodeChange(chg change.Change) error {
 		return fmt.Errorf("node manager handle change: %w", err)
 	}
 
-	if ct.chainRepo != nil { // for debugging only
-		ct.changes = append(ct.changes, chg)
-	}
 	return nil
 }
 
@@ -424,15 +376,5 @@ func (ct *ClaimTrie) FlushToDisk() {
 	}
 	if err := ct.blockRepo.Flush(); err != nil {
 		node.Warn("During blockRepo flush: " + err.Error())
-	}
-	if ct.reportedBlockRepo != nil {
-		if err := ct.reportedBlockRepo.Flush(); err != nil {
-			node.Warn("During reportedBlockRepo flush: " + err.Error())
-		}
-	}
-	if ct.chainRepo != nil {
-		if err := ct.chainRepo.Flush(); err != nil {
-			node.Warn("During chainRepo flush: " + err.Error())
-		}
 	}
 }

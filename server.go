@@ -2728,7 +2728,6 @@ func newServer(listenAddrs, agentBlacklist, agentWhitelist []string,
 
 	claimTrieCfg := claimtrieconfig.DefaultConfig
 	claimTrieCfg.DataDir = filepath.Join(cfg.DataDir, "claim_dbs")
-	claimTrieCfg.Record = cfg.ClaimTrieRecord
 
 	var ct *claimtrie.ClaimTrie
 

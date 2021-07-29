@@ -29,22 +29,16 @@ func (b *BlockChain) ParseClaimScripts(block *btcutil.Block, bn *blockNode, view
 		}
 	}
 
-	// Hack: let the claimtrie know the expected Hash.
-	err := b.claimTrie.ReportHash(ht, bn.claimTrie)
-	if err != nil {
-		return errors.Wrapf(err, "in report hash")
-	}
-
-	err = b.claimTrie.AppendBlock()
+	err := b.claimTrie.AppendBlock()
 	if err != nil {
 		return errors.Wrapf(err, "in append block")
 	}
-	hash := b.claimTrie.MerkleHash()
 
 	if shouldFlush {
 		b.claimTrie.FlushToDisk()
 	}
 
+	hash := b.claimTrie.MerkleHash()
 	if bn.claimTrie != *hash {
 		if failOnHashMiss {
 			return errors.Errorf("height: %d, ct.MerkleHash: %s != node.ClaimTrie: %s", ht, *hash, bn.claimTrie)

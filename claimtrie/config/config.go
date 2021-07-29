@@ -7,7 +7,6 @@ import (
 )
 
 var DefaultConfig = Config{
-	Record:  false,
 	RamTrie: true, // as it stands the other trie uses more RAM, more time, and 40GB+ of disk space
 
 	DataDir: filepath.Join(btcutil.AppDataDir("chain", false), "data", "mainnet", "claim_dbs"),
@@ -34,7 +33,6 @@ var DefaultConfig = Config{
 
 // Config is the container of all configurations.
 type Config struct {
-	Record  bool
 	RamTrie bool
 
 	DataDir string
