@@ -110,7 +110,7 @@ func TestNormalizationFork(t *testing.T) {
 	r.NoError(err)
 	r.NotEqual(merkletrie.EmptyTrieHash[:], ct.MerkleHash()[:])
 
-	n, err := ct.nodeManager.Node([]byte("AÑEJO"))
+	n, err := ct.nodeManager.NodeAt(ct.nodeManager.Height(), []byte("AÑEJO"))
 	r.NoError(err)
 	r.NotNil(n.BestClaim)
 	r.Equal(int32(1), n.TakenOverAt)
@@ -123,7 +123,7 @@ func TestNormalizationFork(t *testing.T) {
 	r.NoError(err)
 	r.NotEqual(merkletrie.EmptyTrieHash[:], ct.MerkleHash()[:])
 
-	n, err = ct.nodeManager.Node([]byte("añejo"))
+	n, err = ct.nodeManager.NodeAt(ct.nodeManager.Height(), []byte("añejo"))
 	r.NoError(err)
 	r.Equal(3, len(n.Claims))
 	r.Equal(uint32(1), n.BestClaim.OutPoint.Index)
@@ -212,7 +212,7 @@ func verifyBestIndex(t *testing.T, ct *ClaimTrie, name string, idx uint32, claim
 
 	r := require.New(t)
 
-	n, err := ct.nodeManager.Node([]byte(name))
+	n, err := ct.nodeManager.NodeAt(ct.nodeManager.Height(), []byte(name))
 	r.NoError(err)
 	r.Equal(claims, len(n.Claims))
 	if claims > 0 {

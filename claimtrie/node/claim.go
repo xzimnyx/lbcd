@@ -21,13 +21,16 @@ const (
 
 // Claim defines a structure of stake, which could be a Claim or Support.
 type Claim struct {
-	OutPoint   wire.OutPoint
-	ClaimID    change.ClaimID
-	Amount     int64
-	AcceptedAt int32 // when arrived (aka, originally landed in block)
+	OutPoint wire.OutPoint
+	ClaimID  change.ClaimID
+	Amount   int64
+	// CreatedAt  int32 // the very first block, unused at present
+	AcceptedAt int32 // the latest update height
 	ActiveAt   int32 // AcceptedAt + actual delay
-	Status     Status
 	VisibleAt  int32
+
+	Status   Status `msgpack:",omitempty"`
+	Sequence int32  `msgpack:",omitempty"`
 }
 
 func (c *Claim) setOutPoint(op wire.OutPoint) *Claim {

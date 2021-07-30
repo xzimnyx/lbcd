@@ -90,12 +90,7 @@ var nodeReplayCmd = &cobra.Command{
 		}
 		nm := node.NewNormalizingManager(bm)
 
-		_, err = nm.IncrementHeightTo(int32(height))
-		if err != nil {
-			return fmt.Errorf("increment height: %w", err)
-		}
-
-		n, err := nm.Node(name)
+		n, err := nm.NodeAt(int32(height), name)
 		if err != nil || n == nil {
 			return fmt.Errorf("get node: %w", err)
 		}

@@ -54,7 +54,7 @@ func showNode(n *node.Node) {
 
 	fmt.Printf("%s\n", strings.Repeat("-", 200))
 	fmt.Printf("Last Node Takeover: %d\n\n", n.TakenOverAt)
-	n.SortClaims()
+	n.SortClaimsByBid()
 	for _, c := range n.Claims {
 		showClaim(c, n)
 		for _, s := range n.Supports {

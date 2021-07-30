@@ -72,7 +72,7 @@ func (nm *NormalizingManager) addNormalizationForkChangesIfNecessary(height int3
 
 		// by loading changes for norm here, you can determine if there will be a conflict
 
-		n, err := nm.Manager.Node(clone)
+		n, err := nm.Manager.NodeAt(nm.Manager.Height(), clone)
 		if err != nil || n == nil {
 			return true
 		}

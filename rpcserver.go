@@ -4688,5 +4688,8 @@ func (s *rpcServer) handleBlockchainNotification(notification *blockchain.Notifi
 
 func init() {
 	rpcHandlers = rpcHandlersBeforeInit
+	for key := range claimtrieHandlers {
+		rpcHandlers[key] = claimtrieHandlers[key]
+	}
 	rand.Seed(time.Now().UnixNano())
 }

@@ -21,7 +21,7 @@ type Manager interface {
 	DecrementHeightTo(affectedNames [][]byte, height int32) error
 	Height() int32
 	Close() error
-	Node(name []byte) (*Node, error)
+	NodeAt(height int32, name []byte) (*Node, error)
 	NextUpdateHeightOfNode(name []byte) ([]byte, int32)
 	IterateNames(predicate func(name []byte) bool)
 	Hash(name []byte) *chainhash.Hash
@@ -97,9 +97,24 @@ func NewBaseManager(repo Repo) (*BaseManager, error) {
 	return nm, nil
 }
 
+func (nm *BaseManager) NodeAt(height int32, name []byte) (*Node, error) {
+
+	changes, err := nm.repo.LoadChanges(name)
+	if err != nil {
+		return nil, errors.Wrap(err, "in load changes")
+	}
+
+	n, err := nm.newNodeFromChanges(changes, height)
+	if err != nil {
+		return nil, errors.Wrap(err, "in new node")
+	}
+
+	return n, nil
+}
+
 // Node returns a node at the current height.
 // The returned node may have pending changes.
-func (nm *BaseManager) Node(name []byte) (*Node, error) {
+func (nm *BaseManager) node(name []byte) (*Node, error) {
 
 	nameStr := string(name)
 	n := nm.cache.Get(nameStr)
@@ -107,22 +122,13 @@ func (nm *BaseManager) Node(name []byte) (*Node, error) {
 		return n.AdjustTo(nm.height, -1, name), nil
 	}
 
-	changes, err := nm.repo.LoadChanges(name)
-	if err != nil {
-		return nil, errors.Wrap(err, "in load changes")
+	n, err := nm.NodeAt(nm.height, name)
+
+	if n != nil && err == nil {
+		nm.cache.Put(nameStr, n)
 	}
 
-	n, err = nm.newNodeFromChanges(changes, nm.height)
-	if err != nil {
-		return nil, errors.Wrap(err, "in new node")
-	}
-
-	if n == nil { // they've requested a nonexistent or expired name
-		return nil, nil
-	}
-
-	nm.cache.Put(nameStr, n)
-	return n, nil
+	return n, err
 }
 
 // newNodeFromChanges returns a new Node constructed from the changes.
@@ -341,7 +347,7 @@ func calculateDelay(curr, tookOver int32) int32 {
 
 func (nm BaseManager) NextUpdateHeightOfNode(name []byte) ([]byte, int32) {
 
-	n, err := nm.Node(name)
+	n, err := nm.node(name)
 	if err != nil || n == nil {
 		return name, 0
 	}
@@ -393,12 +399,12 @@ func (nm *BaseManager) IterateNames(predicate func(name []byte) bool) {
 
 func (nm *BaseManager) claimHashes(name []byte) *chainhash.Hash {
 
-	n, err := nm.Node(name)
+	n, err := nm.node(name)
 	if err != nil || n == nil {
 		return nil
 	}
 
-	n.SortClaims()
+	n.SortClaimsByBid()
 	claimHashes := make([]*chainhash.Hash, 0, len(n.Claims))
 	for _, c := range n.Claims {
 		if c.Status == Activated { // TODO: unit test this line
@@ -417,7 +423,7 @@ func (nm *BaseManager) Hash(name []byte) *chainhash.Hash {
 		return nm.claimHashes(name)
 	}
 
-	n, err := nm.Node(name)
+	n, err := nm.node(name)
 	if err != nil {
 		return nil
 	}

@@ -69,25 +69,25 @@ func TestSimpleAddClaim(t *testing.T) {
 	_, err = m.IncrementHeightTo(12)
 	r.NoError(err)
 
-	n1, err := m.Node(name1)
+	n1, err := m.node(name1)
 	r.NoError(err)
 	r.Equal(1, len(n1.Claims))
 	r.NotNil(n1.Claims.find(byOut(*out1)))
 
-	n2, err := m.Node(name2)
+	n2, err := m.node(name2)
 	r.NoError(err)
 	r.Equal(1, len(n2.Claims))
 	r.NotNil(n2.Claims.find(byOut(*out2)))
 
 	err = m.DecrementHeightTo([][]byte{name2}, 11)
 	r.NoError(err)
-	n2, err = m.Node(name2)
+	n2, err = m.node(name2)
 	r.NoError(err)
 	r.Nil(n2)
 
 	err = m.DecrementHeightTo([][]byte{name1}, 1)
 	r.NoError(err)
-	n2, err = m.Node(name1)
+	n2, err = m.node(name1)
 	r.NoError(err)
 	r.Nil(n2)
 }
@@ -138,7 +138,7 @@ func TestSupportAmounts(t *testing.T) {
 	_, err = m.IncrementHeightTo(20)
 	r.NoError(err)
 
-	n1, err := m.Node(name1)
+	n1, err := m.node(name1)
 	r.NoError(err)
 	r.Equal(2, len(n1.Claims))
 	r.Equal(int64(5), n1.BestClaim.Amount+n1.SupportSums[n1.BestClaim.ClaimID.Key()])
@@ -178,7 +178,7 @@ func TestClaimSort(t *testing.T) {
 	n.Claims = append(n.Claims, &Claim{OutPoint: *out3, AcceptedAt: 3, Amount: 2, ClaimID: change.ClaimID{3}})
 	n.Claims = append(n.Claims, &Claim{OutPoint: *out3, AcceptedAt: 4, Amount: 2, ClaimID: change.ClaimID{4}})
 	n.Claims = append(n.Claims, &Claim{OutPoint: *out1, AcceptedAt: 3, Amount: 4, ClaimID: change.ClaimID{1}})
-	n.SortClaims()
+	n.SortClaimsByBid()
 
 	r.Equal(int64(4), n.Claims[0].Amount)
 	r.Equal(int64(3), n.Claims[1].Amount)

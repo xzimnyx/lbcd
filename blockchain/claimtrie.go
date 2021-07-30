@@ -139,3 +139,30 @@ func (h *handler) handleTxOuts(ct *claimtrie.ClaimTrie) error {
 	}
 	return nil
 }
+
+func (b *BlockChain) GetNamesChangedInBlock(height int32) ([]string, error) {
+	b.chainLock.RLock()
+	defer b.chainLock.RUnlock()
+
+	return b.claimTrie.NamesChangedInBlock(height)
+}
+
+func (b *BlockChain) GetClaimsForName(height int32, name string) (string, *node.Node, error) {
+
+	normalizedName := node.NormalizeIfNecessary([]byte(name), height)
+
+	b.chainLock.RLock()
+	defer b.chainLock.RUnlock()
+
+	n, err := b.claimTrie.NodeAt(height, normalizedName)
+	if err != nil {
+		return string(normalizedName), nil, err
+	}
+
+	if n == nil {
+		return string(normalizedName), nil, fmt.Errorf("name does not exist at height %d: %s", height, name)
+	}
+
+	n.SortClaimsByBid()
+	return string(normalizedName), n, nil
+}

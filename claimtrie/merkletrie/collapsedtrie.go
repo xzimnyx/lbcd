@@ -181,18 +181,18 @@ func (pt *collapsedTrie) FindPath(value KeyType) ([]int, []*collapsedVertex) {
 
 // IterateFrom can be used to find a value and run a function on that value.
 // If the handler returns true it continues to iterate through the children of value.
-func (pt *collapsedTrie) IterateFrom(start KeyType, handler func(value *collapsedVertex) bool) {
+func (pt *collapsedTrie) IterateFrom(start KeyType, handler func(name KeyType, value *collapsedVertex) bool) {
 	node := find(start, pt.Root, nil, nil)
 	if node == nil {
 		return
 	}
-	iterateFrom(node, handler)
+	iterateFrom(start, node, handler)
 }
 
-func iterateFrom(node *collapsedVertex, handler func(value *collapsedVertex) bool) {
-	for handler(node) {
+func iterateFrom(name KeyType, node *collapsedVertex, handler func(name KeyType, value *collapsedVertex) bool) {
+	for handler(name, node) {
 		for _, child := range node.children {
-			iterateFrom(child, handler)
+			iterateFrom(append(name, child.key...), child, handler)
 		}
 	}
 }

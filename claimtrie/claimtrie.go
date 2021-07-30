@@ -359,8 +359,17 @@ func (ct *ClaimTrie) forwardNodeChange(chg change.Change) error {
 	return nil
 }
 
-func (ct *ClaimTrie) Node(name []byte) (*node.Node, error) {
-	return ct.nodeManager.Node(name)
+func (ct *ClaimTrie) NodeAt(height int32, name []byte) (*node.Node, error) {
+	return ct.nodeManager.NodeAt(height, name)
+}
+
+func (ct *ClaimTrie) NamesChangedInBlock(height int32) ([]string, error) {
+	hits, err := ct.temporalRepo.NodesAt(height)
+	r := make([]string, len(hits))
+	for i := range hits {
+		r[i] = string(hits[i])
+	}
+	return r, err
 }
 
 func (ct *ClaimTrie) FlushToDisk() {

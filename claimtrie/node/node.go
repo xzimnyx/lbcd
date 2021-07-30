@@ -2,7 +2,6 @@ package node
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"math"
 	"sort"
 
@@ -37,17 +36,19 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 	switch chg.Type {
 	case change.AddClaim:
 		c := &Claim{
-			OutPoint:   chg.OutPoint,
-			Amount:     chg.Amount,
-			ClaimID:    chg.ClaimID,
-			AcceptedAt: chg.Height, // not tracking original height in this version (but we could)
+			OutPoint: chg.OutPoint,
+			Amount:   chg.Amount,
+			ClaimID:  chg.ClaimID,
+			// CreatedAt:  chg.Height,
+			AcceptedAt: chg.Height,
 			ActiveAt:   chg.Height + delay,
 			VisibleAt:  visibleAt,
+			Sequence:   int32(len(n.Claims)),
 		}
-		old := n.Claims.find(byOut(chg.OutPoint)) // TODO: remove this after proving ResetHeight works
-		if old != nil {
-			return errors.Errorf("CONFLICT WITH EXISTING TXO! Name: %s, Height: %d", chg.Name, chg.Height)
-		}
+		// old := n.Claims.find(byOut(chg.OutPoint)) // TODO: remove this after proving ResetHeight works
+		// if old != nil {
+		// return errors.Errorf("CONFLICT WITH EXISTING TXO! Name: %s, Height: %d", chg.Name, chg.Height)
+		// }
 		n.Claims = append(n.Claims, c)
 
 	case change.SpendClaim:
@@ -72,10 +73,10 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 			c.setStatus(Accepted) // it was Deactivated in the spend (but we only activate at the end of the block)
 			// that's because the old code would put all insertions into the "queue" that was processed at block's end
 
-			// It's a bug, but the old code would update these.
-			// That forces this to be newer, which may in an unintentional takeover if there's an older one.
-			c.setAccepted(chg.Height)         // TODO: Fork this out
-			c.setActiveAt(chg.Height + delay) // TODO: Fork this out
+			// This forces us to be newer, which may in an unintentional takeover if there's an older one.
+			// TODO: reconsider these updates in future hard forks.
+			c.setAccepted(chg.Height)
+			c.setActiveAt(chg.Height + delay)
 
 		} else {
 			LogOnce(fmt.Sprintf("Updating claim but missing existing claim with ID %s", chg.ClaimID))
@@ -291,7 +292,7 @@ func (n *Node) activateAllClaims(height int32) int {
 	return count
 }
 
-func (n *Node) SortClaims() {
+func (n *Node) SortClaimsByBid() {
 
 	// purposefully sorting by descent
 	sort.Slice(n.Claims, func(j, i int) bool {
