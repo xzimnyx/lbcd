@@ -2736,7 +2736,17 @@ func newServer(listenAddrs, agentBlacklist, agentWhitelist []string,
 	case "none":
 		// Disable ClaimTrie for development purpose.
 		lbryLog.Infof("ClaimTrie is disabled")
+	case "persistent":
+		claimTrieCfg.RamTrie = false
+		lbryLog.Infof("ClaimTrie uses Persistent implementation")
+	case "ram", "":
+		claimTrieCfg.RamTrie = true
+		lbryLog.Infof("ClaimTrie uses RamTrie implementation")
 	default:
+		lbryLog.Errorf("ClaimTrie uses Unknown implementation")
+	}
+
+	if cfg.ClaimTrieImpl != "none" {
 		ct, err = claimtrie.New(claimTrieCfg)
 		if err != nil {
 			return nil, err
