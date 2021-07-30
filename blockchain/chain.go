@@ -1845,7 +1845,8 @@ func rebuildMissingClaimTrieData(b *BlockChain, done <-chan struct{}) error {
 		return b.claimTrie.ResetHeight(target)
 	}
 
-	start := time.Now().Add(-6 * time.Second)
+	start := time.Now()
+	lastReport := time.Now()
 	// TODO: move this view inside the loop (or recreate it every 5 sec.)
 	// as accumulating all inputs has potential to use a huge amount of RAM
 	// but we need to get the spent inputs working for that to be possible
@@ -1885,11 +1886,12 @@ func rebuildMissingClaimTrieData(b *BlockChain, done <-chan struct{}) error {
 				return err
 			}
 		}
-		if time.Since(start).Seconds() > 5.0 {
-			start = time.Now()
+		if time.Since(lastReport) > time.Second*5 {
+			lastReport = time.Now()
 			log.Infof("Rebuilding claim trie data to %d. At: %d", target, h)
 		}
 	}
-	log.Infof("Completed rebuilding claim trie data to %d", b.claimTrie.Height())
+	log.Infof("Completed rebuilding claim trie data to %d. Took %s ",
+		b.claimTrie.Height(), time.Since(start))
 	return nil
 }

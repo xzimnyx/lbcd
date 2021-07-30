@@ -2752,12 +2752,12 @@ func newServer(listenAddrs, agentBlacklist, agentWhitelist []string,
 			return nil, err
 		}
 		if h := cfg.ClaimTrieHeight; h != 0 {
-			lbryLog.Infof("Reseting height to %d", h)
+			lbryLog.Infof("Reseting claim trie height to %d", h)
 			err := ct.ResetHeight(int32(h))
 			if err != nil {
 				return nil, err
 			}
-			lbryLog.Infof("Height is reset to %d", h)
+			lbryLog.Infof("Claim trie height is reset to %d", h)
 		}
 	}
 
