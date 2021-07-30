@@ -1,11 +1,14 @@
 package change
 
 import (
+	"bytes"
+	"encoding/binary"
+
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/mojura/enkodo"
 )
 
-type ChangeType int32
+type ChangeType uint32
 
 const (
 	AddClaim ChangeType = iota
@@ -54,46 +57,56 @@ func (c Change) SetAmount(amt int64) Change {
 	return c
 }
 
-func (c *Change) MarshalEnkodo(enc *enkodo.Encoder) error {
-	enc.Bytes(c.ClaimID[:])
-	enc.Bytes(c.OutPoint.Hash[:])
-	enc.Uint32(c.OutPoint.Index)
-	enc.Int32(int32(c.Type))
-	enc.Int32(c.Height)
-	enc.Int32(c.ActiveHeight)
-	enc.Int32(c.VisibleHeight)
-	enc.Int64(c.Amount)
+func (c *Change) MarshalTo(enc *bytes.Buffer) error {
+	enc.Write(c.ClaimID[:])
+	enc.Write(c.OutPoint.Hash[:])
+	var temp [8]byte
+	binary.BigEndian.PutUint32(temp[:4], c.OutPoint.Index)
+	enc.Write(temp[:4])
+	binary.BigEndian.PutUint32(temp[:4], uint32(c.Type))
+	enc.Write(temp[:4])
+	binary.BigEndian.PutUint32(temp[:4], uint32(c.Height))
+	enc.Write(temp[:4])
+	binary.BigEndian.PutUint32(temp[:4], uint32(c.ActiveHeight))
+	enc.Write(temp[:4])
+	binary.BigEndian.PutUint32(temp[:4], uint32(c.VisibleHeight))
+	enc.Write(temp[:4])
+	binary.BigEndian.PutUint64(temp[:], uint64(c.Amount))
+	enc.Write(temp[:])
+
 	if c.SpentChildren != nil {
-		enc.Int32(int32(len(c.SpentChildren)))
+		binary.BigEndian.PutUint32(temp[:4], uint32(len(c.SpentChildren)))
+		enc.Write(temp[:4])
 		for key := range c.SpentChildren {
-			enc.String(key)
+			binary.BigEndian.PutUint16(temp[:2], uint16(len(key))) // technically limited to 255; not sure we trust it
+			enc.Write(temp[:2])
+			enc.WriteString(key)
 		}
 	} else {
-		enc.Int32(0)
+		binary.BigEndian.PutUint32(temp[:4], 0)
+		enc.Write(temp[:4])
 	}
 	return nil
 }
 
-func (c *Change) UnmarshalEnkodo(dec *enkodo.Decoder) error {
-	id := c.ClaimID[:]
-	err := dec.Bytes(&id)
-	op := c.OutPoint.Hash[:]
-	err = dec.Bytes(&op)
-	c.OutPoint.Index, err = dec.Uint32()
-	t, err := dec.Int32()
-	c.Type = ChangeType(t)
-	c.Height, err = dec.Int32()
-	c.ActiveHeight, err = dec.Int32()
-	c.VisibleHeight, err = dec.Int32()
-	c.Amount, err = dec.Int64()
-	keys, err := dec.Int32()
+func (c *Change) UnmarshalFrom(dec *bytes.Buffer) error {
+	copy(c.ClaimID[:], dec.Next(ClaimIDSize))
+	copy(c.OutPoint.Hash[:], dec.Next(chainhash.HashSize))
+	c.OutPoint.Index = binary.BigEndian.Uint32(dec.Next(4))
+	c.Type = ChangeType(binary.BigEndian.Uint32(dec.Next(4)))
+	c.Height = int32(binary.BigEndian.Uint32(dec.Next(4)))
+	c.ActiveHeight = int32(binary.BigEndian.Uint32(dec.Next(4)))
+	c.VisibleHeight = int32(binary.BigEndian.Uint32(dec.Next(4)))
+	c.Amount = int64(binary.BigEndian.Uint64(dec.Next(8)))
+	keys := binary.BigEndian.Uint32(dec.Next(4))
 	if keys > 0 {
 		c.SpentChildren = map[string]bool{}
 	}
 	for keys > 0 {
 		keys--
-		key, _ := dec.String()
+		keySize := int(binary.BigEndian.Uint16(dec.Next(2)))
+		key := string(dec.Next(keySize))
 		c.SpentChildren[key] = true
 	}
-	return err
+	return nil
 }

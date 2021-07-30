@@ -2,7 +2,6 @@ package noderepo
 
 import (
 	"bytes"
-	"github.com/mojura/enkodo"
 	"sort"
 
 	"github.com/btcsuite/btcd/claimtrie/change"
@@ -29,12 +28,10 @@ func (repo *Pebble) AppendChanges(changes []change.Change) error {
 	defer batch.Close()
 
 	buffer := bytes.NewBuffer(nil)
-	encoder := enkodo.NewWriter(buffer)
-	defer encoder.Close()
 
 	for _, chg := range changes {
 		buffer.Reset()
-		err := encoder.Encode(&chg)
+		err := chg.MarshalTo(buffer)
 		if err != nil {
 			return errors.Wrap(err, "in marshaller")
 		}
@@ -63,13 +60,10 @@ func (repo *Pebble) LoadChanges(name []byte) ([]change.Change, error) {
 func unmarshalChanges(name, data []byte) ([]change.Change, error) {
 	var changes []change.Change
 
-	reader := bytes.NewReader(data)
-	decoder := enkodo.NewReader(reader)
-	defer decoder.Close()
-
-	for reader.Len() > 0 {
+	buffer := bytes.NewBuffer(data)
+	for buffer.Len() > 0 {
 		var chg change.Change
-		err := decoder.Decode(&chg)
+		err := chg.UnmarshalFrom(buffer)
 		if err != nil {
 			return nil, errors.Wrap(err, "in decode")
 		}
