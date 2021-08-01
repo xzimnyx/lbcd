@@ -4,120 +4,151 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
-	"strconv"
 
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/node"
 	"github.com/btcsuite/btcd/claimtrie/node/noderepo"
+	"github.com/cockroachdb/errors"
 
 	"github.com/spf13/cobra"
 )
 
 func init() {
-	rootCmd.AddCommand(nodeCmd)
-
-	nodeCmd.AddCommand(nodeDumpCmd)
-	nodeCmd.AddCommand(nodeReplayCmd)
-	nodeCmd.AddCommand(nodeChildrenCmd)
+	rootCmd.AddCommand(NewNodeCommands())
 }
 
-var nodeCmd = &cobra.Command{
-	Use:   "node",
-	Short: "Replay the application of changes on a node up to certain height",
+func NewNodeCommands() *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "node",
+		Short: "Replay the application of changes on a node up to certain height",
+	}
+
+	cmd.AddCommand(NewNodeDumpCommand())
+	cmd.AddCommand(NewNodeReplayCommand())
+	cmd.AddCommand(NewNodeChildrenCommand())
+
+	return cmd
 }
 
-var nodeDumpCmd = &cobra.Command{
-	Use:   "dump <node_name> [<height>]",
-	Short: "Replay the application of changes on a node up to certain height",
-	Args:  cobra.RangeArgs(1, 2),
-	RunE: func(cmd *cobra.Command, args []string) error {
+func NewNodeDumpCommand() *cobra.Command {
 
-		repo, err := noderepo.NewPebble(filepath.Join(cfg.DataDir, cfg.NodeRepoPebble.Path))
-		if err != nil {
-			return fmt.Errorf("open node repo: %w", err)
-		}
+	var name string
+	var height int32
 
-		name := args[0]
-		height := math.MaxInt32
+	cmd := &cobra.Command{
+		Use:   "dump",
+		Short: "Replay the application of changes on a node up to certain height",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
 
-		if len(args) == 2 {
-			height, err = strconv.Atoi(args[1])
+			dbPath := filepath.Join(dataDir, netName, "claim_dbs", cfg.NodeRepoPebble.Path)
+			log.Debugf("Open node repo: %q", dbPath)
+			repo, err := noderepo.NewPebble(dbPath)
 			if err != nil {
-				return fmt.Errorf("invalid args")
+				return errors.Wrapf(err, "open node repo")
 			}
-		}
 
-		changes, err := repo.LoadChanges([]byte(name))
-		if err != nil {
-			return fmt.Errorf("load commands: %w", err)
-		}
-
-		for _, chg := range changes {
-			if int(chg.Height) > height {
-				break
-			}
-			showChange(chg)
-		}
-
-		return nil
-	},
-}
-
-var nodeReplayCmd = &cobra.Command{
-	Use:   "replay <node_name> [<height>]",
-	Short: "Replay the application of changes on a node up to certain height",
-	Args:  cobra.RangeArgs(1, 2),
-	RunE: func(cmd *cobra.Command, args []string) error {
-
-		repo, err := noderepo.NewPebble(filepath.Join(cfg.DataDir, cfg.NodeRepoPebble.Path))
-		if err != nil {
-			return fmt.Errorf("open node repo: %w", err)
-		}
-
-		name := []byte(args[0])
-		height := math.MaxInt32
-
-		if len(args) == 2 {
-			height, err = strconv.Atoi(args[1])
+			changes, err := repo.LoadChanges([]byte(name))
 			if err != nil {
-				return fmt.Errorf("invalid args")
+				return errors.Wrapf(err, "load commands")
 			}
-		}
 
-		bm, err := node.NewBaseManager(repo)
-		if err != nil {
-			return fmt.Errorf("create node manager: %w", err)
-		}
-		nm := node.NewNormalizingManager(bm)
+			for _, chg := range changes {
+				if chg.Height > height {
+					break
+				}
+				showChange(chg)
+			}
 
-		n, err := nm.NodeAt(int32(height), name)
-		if err != nil || n == nil {
-			return fmt.Errorf("get node: %w", err)
-		}
+			return nil
+		},
+	}
 
-		showNode(n)
-		return nil
-	},
+	cmd.Flags().StringVar(&name, "name", "", "Name")
+	cmd.MarkFlagRequired("name")
+	cmd.Flags().Int32Var(&height, "height", math.MaxInt32, "Height")
+
+	return cmd
 }
 
-var nodeChildrenCmd = &cobra.Command{
-	Use:   "children <node_name>",
-	Short: "Show all the children names of a given node name",
-	Args:  cobra.RangeArgs(1, 1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+func NewNodeReplayCommand() *cobra.Command {
 
-		repo, err := noderepo.NewPebble(filepath.Join(cfg.DataDir, cfg.NodeRepoPebble.Path))
-		if err != nil {
-			return fmt.Errorf("open node repo: %w", err)
-		}
+	var name string
+	var height int32
 
-		repo.IterateChildren([]byte(args[0]), func(changes []change.Change) bool {
-			// TODO: dump all the changes?
-			fmt.Printf("Name: %s, Height: %d, %d\n", changes[0].Name, changes[0].Height,
-				changes[len(changes)-1].Height)
-			return true
-		})
+	cmd := &cobra.Command{
+		Use:   "replay",
+		Short: "Replay the changes of <name> up to <height>",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
 
-		return nil
-	},
+			dbPath := filepath.Join(dataDir, netName, "claim_dbs", cfg.NodeRepoPebble.Path)
+			log.Debugf("Open node repo: %q", dbPath)
+			repo, err := noderepo.NewPebble(dbPath)
+			if err != nil {
+				return errors.Wrapf(err, "open node repo")
+			}
+
+			bm, err := node.NewBaseManager(repo)
+			if err != nil {
+				return errors.Wrapf(err, "create node manager")
+			}
+
+			nm := node.NewNormalizingManager(bm)
+
+			n, err := nm.NodeAt(height, []byte(name))
+			if err != nil || n == nil {
+				return errors.Wrapf(err, "get node: %s", name)
+			}
+
+			showNode(n)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&name, "name", "", "Name")
+	cmd.MarkFlagRequired("name")
+	cmd.Flags().Int32Var(&height, "height", 0, "Height (inclusive)")
+	cmd.Flags().SortFlags = false
+
+	return cmd
+}
+
+func NewNodeChildrenCommand() *cobra.Command {
+
+	var name string
+
+	cmd := &cobra.Command{
+		Use:   "children",
+		Short: "Show all the children names of a given node name",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			dbPath := filepath.Join(dataDir, netName, "claim_dbs", cfg.NodeRepoPebble.Path)
+			log.Debugf("Open node repo: %q", dbPath)
+			repo, err := noderepo.NewPebble(dbPath)
+			if err != nil {
+				return errors.Wrapf(err, "open node repo")
+			}
+
+			fn := func(changes []change.Change) bool {
+				fmt.Printf("Name: %s, Height: %d, %d\n", changes[0].Name, changes[0].Height,
+					changes[len(changes)-1].Height)
+				return true
+			}
+
+			err = repo.IterateChildren([]byte(name), fn)
+			if err != nil {
+				return errors.Wrapf(err, "iterate children: %s", name)
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&name, "name", "", "Name")
+	cmd.MarkFlagRequired("name")
+
+	return cmd
 }

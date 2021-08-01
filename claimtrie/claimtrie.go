@@ -247,9 +247,11 @@ func (ct *ClaimTrie) AppendBlock() error {
 		updateNames = append(updateNames, newName) // TODO: make sure using the temporalRepo batch is actually faster
 		updateHeights = append(updateHeights, nextUpdate)
 	}
-	err = ct.temporalRepo.SetNodesAt(updateNames, updateHeights)
-	if err != nil {
-		return errors.Wrap(err, "temporal repo set")
+	if len(updateNames) != 0 {
+		err = ct.temporalRepo.SetNodesAt(updateNames, updateHeights)
+		if err != nil {
+			return errors.Wrap(err, "temporal repo set")
+		}
 	}
 
 	hitFork := ct.updateTrieForHashForkIfNecessary()

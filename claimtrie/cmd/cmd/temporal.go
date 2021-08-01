@@ -1,62 +1,56 @@
 package cmd
 
 import (
-	"fmt"
-	"log"
-	"strconv"
+	"path/filepath"
 
 	"github.com/btcsuite/btcd/claimtrie/temporal/temporalrepo"
 
+	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 )
 
 func init() {
-	rootCmd.AddCommand(temporalCmd)
+	rootCmd.AddCommand(NewTemporalCommand())
 }
 
-var temporalCmd = &cobra.Command{
-	Use:   "temporal <from_height> [<to_height>]]",
-	Short: "List which nodes are update in a range of heights",
-	Args:  cobra.RangeArgs(1, 2),
-	RunE:  runListNodes,
-}
+func NewTemporalCommand() *cobra.Command {
 
-func runListNodes(cmd *cobra.Command, args []string) error {
+	var fromHeight int32
+	var toHeight int32
 
-	repo, err := temporalrepo.NewPebble(cfg.TemporalRepoPebble.Path)
-	if err != nil {
-		log.Fatalf("can't open reported block repo: %s", err)
+	cmd := &cobra.Command{
+		Use:   "temporal",
+		Short: "List which nodes are update in a range of heights",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			dbPath := filepath.Join(dataDir, netName, "claim_dbs", cfg.TemporalRepoPebble.Path)
+			log.Debugf("Open temporal repo: %s", dbPath)
+			repo, err := temporalrepo.NewPebble(dbPath)
+			if err != nil {
+				return errors.Wrapf(err, "open temporal repo")
+			}
+
+			for ht := fromHeight; ht < toHeight; ht++ {
+				names, err := repo.NodesAt(ht)
+				if err != nil {
+					return errors.Wrapf(err, "get node names from temporal")
+				}
+
+				if len(names) == 0 {
+					continue
+				}
+
+				showTemporalNames(ht, names)
+			}
+
+			return nil
+		},
 	}
 
-	fromHeight, err := strconv.Atoi(args[0])
-	if err != nil {
-		return fmt.Errorf("invalid args")
-	}
+	cmd.Flags().Int32Var(&fromHeight, "from", 0, "From height (inclusive)")
+	cmd.Flags().Int32Var(&toHeight, "to", 0, "To height (inclusive)")
+	cmd.Flags().SortFlags = false
 
-	toHeight := fromHeight + 1
-	if len(args) == 2 {
-		toHeight, err = strconv.Atoi(args[1])
-		if err != nil {
-			return fmt.Errorf("invalid args")
-		}
-	}
-
-	for height := fromHeight; height < toHeight; height++ {
-		names, err := repo.NodesAt(int32(height))
-		if err != nil {
-			return fmt.Errorf("get node names from temporal")
-		}
-
-		if len(names) == 0 {
-			continue
-		}
-
-		fmt.Printf("%7d: %q", height, names[0])
-		for _, name := range names[1:] {
-			fmt.Printf(", %q ", name)
-		}
-		fmt.Printf("\n")
-	}
-
-	return nil
+	return cmd
 }

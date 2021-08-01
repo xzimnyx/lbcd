@@ -2,191 +2,423 @@ package cmd
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
-	"strconv"
+	"sync"
+	"time"
 
+	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/claimtrie"
-	"github.com/btcsuite/btcd/claimtrie/block"
-	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
 	"github.com/btcsuite/btcd/claimtrie/chain/chainrepo"
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/config"
+	"github.com/btcsuite/btcd/database"
+	_ "github.com/btcsuite/btcd/database/ffldb"
+	"github.com/btcsuite/btcd/txscript"
+	"github.com/btcsuite/btcd/wire"
+	"github.com/btcsuite/btcutil"
+
+	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
 	"github.com/spf13/cobra"
 )
 
 func init() {
-	rootCmd.AddCommand(chainCmd)
-
-	chainCmd.AddCommand(chainDumpCmd)
-	chainCmd.AddCommand(chainReplayCmd)
+	rootCmd.AddCommand(NewChainCommands())
 }
 
-var chainCmd = &cobra.Command{
-	Use:   "chain",
-	Short: "chain related command",
+func NewChainCommands() *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "chain",
+		Short: "chain related command",
+	}
+
+	cmd.AddCommand(NewChainDumpCommand())
+	cmd.AddCommand(NewChainReplayCommand())
+	cmd.AddCommand(NewChainConvertCommand())
+
+	return cmd
 }
 
-var chainDumpCmd = &cobra.Command{
-	Use:   "dump  <fromHeight> [<toHeight>]",
-	Short: "dump changes from <fromHeight> to [<toHeight>]",
-	Args:  cobra.RangeArgs(1, 2),
-	RunE: func(cmd *cobra.Command, args []string) error {
+func NewChainDumpCommand() *cobra.Command {
 
-		fromHeight, err := strconv.Atoi(args[0])
-		if err != nil {
-			return fmt.Errorf("invalid args")
-		}
+	var fromHeight int32
+	var toHeight int32
 
-		toHeight := fromHeight + 1
-		if len(args) == 2 {
-			toHeight, err = strconv.Atoi(args[1])
+	cmd := &cobra.Command{
+		Use:   "dump",
+		Short: "Dump the chain changes between <fromHeight> and <toHeight>",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			dbPath := filepath.Join(dataDir, netName, "claim_dbs", cfg.ChainRepoPebble.Path)
+			log.Debugf("Open chain repo: %q", dbPath)
+			chainRepo, err := chainrepo.NewPebble(dbPath)
 			if err != nil {
-				return fmt.Errorf("invalid args")
-			}
-		}
-
-		chainRepo, err := chainrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ChainRepoPebble.Path))
-		if err != nil {
-			return fmt.Errorf("open node repo: %w", err)
-		}
-
-		for height := fromHeight; height < toHeight; height++ {
-			changes, err := chainRepo.Load(int32(height))
-			if err == pebble.ErrNotFound {
-				continue
-			}
-			if err != nil {
-				return fmt.Errorf("load commands: %w", err)
+				return errors.Wrapf(err, "open chain repo")
 			}
 
-			for _, chg := range changes {
-				if int(chg.Height) > height {
-					break
+			for height := fromHeight; height <= toHeight; height++ {
+				changes, err := chainRepo.Load(height)
+				if errors.Is(err, pebble.ErrNotFound) {
+					continue
 				}
-				showChange(chg)
-			}
-		}
-
-		return nil
-	},
-}
-
-var chainReplayCmd = &cobra.Command{
-	Use:   "replay <height>",
-	Short: "Replay the chain up to <height>",
-	Args:  cobra.RangeArgs(0, 1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-
-		fmt.Printf("not working until we pass record flag to claimtrie\n")
-
-		fromHeight := 2
-		toHeight := int(math.MaxInt32)
-
-		var err error
-		if len(args) == 1 {
-			toHeight, err = strconv.Atoi(args[0])
-			if err != nil {
-				return fmt.Errorf("invalid args")
-			}
-		}
-
-		err = os.RemoveAll(filepath.Join(cfg.DataDir, cfg.NodeRepoPebble.Path))
-		if err != nil {
-			return fmt.Errorf("delete node repo: %w", err)
-		}
-
-		fmt.Printf("Deleted node repo\n")
-
-		chainRepo, err := chainrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ChainRepoPebble.Path))
-		if err != nil {
-			return fmt.Errorf("open change repo: %w", err)
-		}
-
-		reportedBlockRepo, err := blockrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ReportedBlockRepoPebble.Path))
-		if err != nil {
-			return fmt.Errorf("open block repo: %w", err)
-		}
-
-		cfg := config.DefaultConfig
-		ct, err := claimtrie.New(cfg)
-		if err != nil {
-			return fmt.Errorf("create claimtrie: %w", err)
-		}
-		defer ct.Close()
-
-		err = ct.ResetHeight(int32(fromHeight - 1))
-		if err != nil {
-			return fmt.Errorf("reset claimtrie height: %w", err)
-		}
-
-		for height := int32(fromHeight); height < int32(toHeight); height++ {
-
-			changes, err := chainRepo.Load(height)
-			if err == pebble.ErrNotFound {
-				// do nothing.
-			} else if err != nil {
-				return fmt.Errorf("load from change repo: %w", err)
-			}
-
-			for _, chg := range changes {
-
-				switch chg.Type {
-				case change.AddClaim:
-					err = ct.AddClaim(chg.Name, chg.OutPoint, chg.ClaimID, chg.Amount)
-
-				case change.UpdateClaim:
-					err = ct.UpdateClaim(chg.Name, chg.OutPoint, chg.Amount, chg.ClaimID)
-
-				case change.SpendClaim:
-					err = ct.SpendClaim(chg.Name, chg.OutPoint, chg.ClaimID)
-
-				case change.AddSupport:
-					err = ct.AddSupport(chg.Name, chg.OutPoint, chg.Amount, chg.ClaimID)
-
-				case change.SpendSupport:
-					err = ct.SpendSupport(chg.Name, chg.OutPoint, chg.ClaimID)
-
-				default:
-					err = fmt.Errorf("invalid change: %v", chg)
-				}
-
 				if err != nil {
-					return fmt.Errorf("execute change %v: %w", chg, err)
+					return errors.Wrapf(err, "load charnges for height: %d")
+				}
+				for _, chg := range changes {
+					showChange(chg)
 				}
 			}
-			err = appendBlock(ct, reportedBlockRepo)
-			if err != nil {
-				return err
-			}
-			if ct.Height()%1000 == 0 {
-				fmt.Printf("block: %d\n", ct.Height())
-			}
-		}
 
-		return nil
-	},
+			return nil
+		},
+	}
+
+	cmd.Flags().Int32Var(&fromHeight, "from", 0, "From height (inclusive)")
+	cmd.Flags().Int32Var(&toHeight, "to", 0, "To height (inclusive)")
+	cmd.Flags().SortFlags = false
+
+	return cmd
 }
 
-func appendBlock(ct *claimtrie.ClaimTrie, blockRepo block.Repo) error {
+func NewChainReplayCommand() *cobra.Command {
+
+	var fromHeight int32
+	var toHeight int32
+
+	cmd := &cobra.Command{
+		Use:   "replay",
+		Short: "Replay the chain changes between <fromHeight> and <toHeight>",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			for _, dbName := range []string{
+				cfg.BlockRepoPebble.Path,
+				cfg.NodeRepoPebble.Path,
+				cfg.MerkleTrieRepoPebble.Path,
+				cfg.TemporalRepoPebble.Path,
+			} {
+				dbPath := filepath.Join(dataDir, netName, "claim_dbs", dbName)
+				log.Debugf("Delete repo: %q", dbPath)
+				err := os.RemoveAll(dbPath)
+				if err != nil {
+					return errors.Wrapf(err, "delete repo: %q", dbPath)
+				}
+			}
+
+			dbPath := filepath.Join(dataDir, netName, "claim_dbs", cfg.ChainRepoPebble.Path)
+			log.Debugf("Open chain repo: %q", dbPath)
+			chainRepo, err := chainrepo.NewPebble(dbPath)
+			if err != nil {
+				return errors.Wrapf(err, "open chain repo")
+			}
+
+			cfg := config.DefaultConfig
+			cfg.RamTrie = true
+			cfg.DataDir = filepath.Join(dataDir, netName)
+
+			ct, err := claimtrie.New(cfg)
+			if err != nil {
+				return errors.Wrapf(err, "create claimtrie")
+			}
+			defer ct.Close()
+
+			db, err := loadBlocksDB()
+			if err != nil {
+				return errors.Wrapf(err, "load blocks database")
+			}
+
+			chain, err := loadChain(db)
+			if err != nil {
+				return errors.Wrapf(err, "load chain")
+			}
+
+			for ht := fromHeight; ht < toHeight; ht++ {
+
+				changes, err := chainRepo.Load(ht + 1)
+				if errors.Is(err, pebble.ErrNotFound) {
+					// do nothing.
+				} else if err != nil {
+					return errors.Wrapf(err, "load changes for block %d", ht)
+				}
+
+				for _, chg := range changes {
+
+					switch chg.Type {
+					case change.AddClaim:
+						err = ct.AddClaim(chg.Name, chg.OutPoint, chg.ClaimID, chg.Amount)
+					case change.UpdateClaim:
+						err = ct.UpdateClaim(chg.Name, chg.OutPoint, chg.Amount, chg.ClaimID)
+					case change.SpendClaim:
+						err = ct.SpendClaim(chg.Name, chg.OutPoint, chg.ClaimID)
+					case change.AddSupport:
+						err = ct.AddSupport(chg.Name, chg.OutPoint, chg.Amount, chg.ClaimID)
+					case change.SpendSupport:
+						err = ct.SpendSupport(chg.Name, chg.OutPoint, chg.ClaimID)
+					default:
+						err = errors.Errorf("invalid change type: %v", chg)
+					}
+
+					if err != nil {
+						return errors.Wrapf(err, "execute change %v", chg)
+					}
+				}
+				err = appendBlock(ct, chain)
+				if err != nil {
+					return errors.Wrapf(err, "appendBlock")
+				}
+
+				if ct.Height()%1000 == 0 {
+					fmt.Printf("block: %d\n", ct.Height())
+				}
+			}
+
+			return nil
+		},
+	}
+
+	// FIXME
+	cmd.Flags().Int32Var(&fromHeight, "from", 0, "From height")
+	cmd.Flags().Int32Var(&toHeight, "to", 0, "To height")
+	cmd.Flags().SortFlags = false
+
+	return cmd
+}
+
+func appendBlock(ct *claimtrie.ClaimTrie, chain *blockchain.BlockChain) error {
 
 	err := ct.AppendBlock()
 	if err != nil {
-		return fmt.Errorf("append block: %w", err)
+		return errors.Wrapf(err, "append block: %w")
 	}
 
-	height := ct.Height()
-
-	hash, err := blockRepo.Get(height)
+	block, err := chain.BlockByHeight(ct.Height())
 	if err != nil {
-		return fmt.Errorf("load from block repo: %w", err)
+		return errors.Wrapf(err, "load from block repo: %w")
 	}
+	hash := block.MsgBlock().Header.ClaimTrie
 
-	if *ct.MerkleHash() != *hash {
-		return fmt.Errorf("hash mismatched at height %5d: exp: %s, got: %s", height, hash, ct.MerkleHash())
+	if *ct.MerkleHash() != hash {
+		return errors.Errorf("hash mismatched at height %5d: exp: %s, got: %s", ct.Height(), hash, ct.MerkleHash())
 	}
 
 	return nil
+}
+
+func NewChainConvertCommand() *cobra.Command {
+
+	var height int32
+
+	cmd := &cobra.Command{
+		Use:   "convert",
+		Short: "convert changes from to <height>",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			db, err := loadBlocksDB()
+			if err != nil {
+				return errors.Wrapf(err, "load block db")
+			}
+			defer db.Close()
+
+			chain, err := loadChain(db)
+			if err != nil {
+				return errors.Wrapf(err, "load block db")
+			}
+
+			converter := chainConverter{
+				db:          db,
+				chain:       chain,
+				blockChan:   make(chan *btcutil.Block, 1000),
+				changesChan: make(chan []change.Change, 1000),
+				wg:          &sync.WaitGroup{},
+			}
+
+			startTime := time.Now()
+			err = converter.start()
+			if err != nil {
+				return errors.Wrapf(err, "start Converter")
+			}
+
+			converter.wait()
+			log.Infof("Convert chain: took %s", time.Since(startTime))
+
+			return nil
+		},
+	}
+
+	cmd.Flags().Int32Var(&height, "height", 0, "Height")
+
+	return cmd
+}
+
+type chainConverter struct {
+	db    database.DB
+	chain *blockchain.BlockChain
+
+	blockChan   chan *btcutil.Block
+	changesChan chan []change.Change
+
+	wg *sync.WaitGroup
+
+	statBlocksFetched   int
+	statBlocksProcessed int
+	statChangesSaved    int
+}
+
+func (cc *chainConverter) wait() {
+	cc.wg.Wait()
+}
+
+func (cb *chainConverter) start() error {
+
+	go cb.reportStats()
+
+	cb.wg.Add(3)
+	go cb.getBlock()
+	go cb.processBlock()
+	go cb.saveChanges()
+
+	return nil
+}
+
+func (cb *chainConverter) getBlock() {
+	defer cb.wg.Done()
+	defer close(cb.blockChan)
+
+	toHeight := int32(200000)
+	fmt.Printf("blocks: %d\n", cb.chain.BestSnapshot().Height)
+
+	if toHeight > cb.chain.BestSnapshot().Height {
+		toHeight = cb.chain.BestSnapshot().Height
+
+	}
+
+	for ht := int32(0); ht < toHeight; ht++ {
+		block, err := cb.chain.BlockByHeight(ht)
+		if err != nil {
+			log.Errorf("load changes from repo: %w", err)
+			return
+		}
+		cb.statBlocksFetched++
+		cb.blockChan <- block
+	}
+}
+
+func (cb *chainConverter) processBlock() {
+	defer cb.wg.Done()
+	defer close(cb.changesChan)
+
+	view := blockchain.NewUtxoViewpoint()
+	for block := range cb.blockChan {
+		var changes []change.Change
+		for _, tx := range block.Transactions() {
+			view.AddTxOuts(tx, block.Height())
+
+			if blockchain.IsCoinBase(tx) {
+				continue
+			}
+
+			for _, txIn := range tx.MsgTx().TxIn {
+				op := txIn.PreviousOutPoint
+				e := view.LookupEntry(op)
+				if e == nil {
+					log.Criticalf("Missing input in view for %s", op.String())
+				}
+				cs, err := txscript.DecodeClaimScript(e.PkScript())
+				if err == txscript.ErrNotClaimScript {
+					continue
+				}
+				if err != nil {
+					log.Criticalf("Can't parse claim script: %s", err)
+				}
+
+				chg := change.Change{
+					Height:   block.Height(),
+					Name:     cs.Name(),
+					OutPoint: txIn.PreviousOutPoint,
+				}
+
+				switch cs.Opcode() {
+				case txscript.OP_CLAIMNAME:
+					chg.Type = change.SpendClaim
+					chg.ClaimID = change.NewClaimID(chg.OutPoint)
+				case txscript.OP_UPDATECLAIM:
+					chg.Type = change.SpendClaim
+					copy(chg.ClaimID[:], cs.ClaimID())
+				case txscript.OP_SUPPORTCLAIM:
+					chg.Type = change.SpendSupport
+					copy(chg.ClaimID[:], cs.ClaimID())
+				}
+
+				changes = append(changes, chg)
+			}
+
+			op := *wire.NewOutPoint(tx.Hash(), 0)
+			for i, txOut := range tx.MsgTx().TxOut {
+				cs, err := txscript.DecodeClaimScript(txOut.PkScript)
+				if err == txscript.ErrNotClaimScript {
+					continue
+				}
+
+				op.Index = uint32(i)
+				chg := change.Change{
+					Height:   block.Height(),
+					Name:     cs.Name(),
+					OutPoint: op,
+					Amount:   txOut.Value,
+				}
+
+				switch cs.Opcode() {
+				case txscript.OP_CLAIMNAME:
+					chg.Type = change.AddClaim
+					chg.ClaimID = change.NewClaimID(op)
+				case txscript.OP_SUPPORTCLAIM:
+					chg.Type = change.AddSupport
+					copy(chg.ClaimID[:], cs.ClaimID())
+				case txscript.OP_UPDATECLAIM:
+					chg.Type = change.UpdateClaim
+					copy(chg.ClaimID[:], cs.ClaimID())
+				}
+				changes = append(changes, chg)
+			}
+		}
+		cb.statBlocksProcessed++
+
+		if len(changes) != 0 {
+			cb.changesChan <- changes
+		}
+	}
+}
+
+func (cb *chainConverter) saveChanges() {
+	defer cb.wg.Done()
+
+	dbPath := filepath.Join(dataDir, netName, "claim_dbs", cfg.ChainRepoPebble.Path)
+	chainRepo, err := chainrepo.NewPebble(dbPath)
+	if err != nil {
+		log.Errorf("open chain repo: %s", err)
+		return
+	}
+	defer chainRepo.Close()
+
+	for changes := range cb.changesChan {
+		err = chainRepo.Save(changes[0].Height, changes)
+		if err != nil {
+			log.Errorf("save to chain repo: %s", err)
+			return
+		}
+		cb.statChangesSaved++
+	}
+}
+
+func (cb *chainConverter) reportStats() {
+	tick := time.NewTicker(5 * time.Second)
+	for range tick.C {
+		log.Infof("block : %7d / %7d,  changes saved: %d",
+			cb.statBlocksFetched, cb.statBlocksProcessed, cb.statChangesSaved)
+
+	}
 }

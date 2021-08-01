@@ -2,157 +2,97 @@ package cmd
 
 import (
 	"fmt"
-	"log"
-	"path/filepath"
-	"strconv"
 
-	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
-	"github.com/btcsuite/btcd/claimtrie/merkletrie"
-	"github.com/btcsuite/btcd/claimtrie/merkletrie/merkletrierepo"
-	"github.com/btcsuite/btcd/claimtrie/temporal/temporalrepo"
-
+	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 )
 
 func init() {
-	rootCmd.AddCommand(blockCmd)
-
-	blockCmd.AddCommand(blockLastCmd)
-	blockCmd.AddCommand(blockListCmd)
-	blockCmd.AddCommand(blockNameCmd)
+	rootCmd.AddCommand(NewBlocCommands())
 }
 
-var blockCmd = &cobra.Command{
-	Use:   "block",
-	Short: "Block related commands",
+func NewBlocCommands() *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "block",
+		Short: "Block related commands",
+	}
+
+	cmd.AddCommand(NewBlockBestCommand())
+	cmd.AddCommand(NewBlockListCommand())
+
+	return cmd
 }
 
-var blockLastCmd = &cobra.Command{
-	Use:   "last",
-	Short: "Show the Merkle Hash of the last block",
-	RunE: func(cmd *cobra.Command, args []string) error {
+func NewBlockBestCommand() *cobra.Command {
 
-		repo, err := blockrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ReportedBlockRepoPebble.Path))
-		if err != nil {
-			log.Fatalf("can't open reported block repo: %s", err)
-		}
+	cmd := &cobra.Command{
+		Use:   "best",
+		Short: "Show the height and hash of the best block",
+		RunE: func(cmd *cobra.Command, args []string) error {
 
-		last, err := repo.Load()
-		if err != nil {
-			return fmt.Errorf("load previous height")
-		}
+			db, err := loadBlocksDB()
+			if err != nil {
+				return errors.Wrapf(err, "load blocks database")
+			}
+			defer db.Close()
 
-		hash, err := repo.Get(last)
-		if err != nil {
-			return fmt.Errorf("load changes from repo: %w", err)
-		}
+			chain, err := loadChain(db)
+			if err != nil {
+				return errors.Wrapf(err, "load chain")
+			}
 
-		fmt.Printf("blk %-7d: %s\n", last, hash.String())
+			state := chain.BestSnapshot()
+			fmt.Printf("Block %7d: %s\n", state.Height, state.Hash.String())
 
-		return nil
-	},
+			return nil
+		},
+	}
+
+	return cmd
 }
 
-var blockListCmd = &cobra.Command{
-	Use:   "list <from_height> [<to_height>]",
-	Short: "List the Merkle Hash of block in a range of heights",
-	Args:  cobra.RangeArgs(1, 2),
-	RunE: func(cmd *cobra.Command, args []string) error {
+func NewBlockListCommand() *cobra.Command {
 
-		repo, err := blockrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.ReportedBlockRepoPebble.Path))
-		if err != nil {
-			log.Fatalf("can't open reported block repo: %s", err)
-		}
+	var fromHeight int32
+	var toHeight int32
 
-		fromHeight, err := strconv.Atoi(args[0])
-		if err != nil {
-			return fmt.Errorf("invalid args")
-		}
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List merkle hash of blocks between <from_height> <to_height>",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
 
-		toHeight := fromHeight + 1
-		if len(args) == 2 {
-			toHeight, err = strconv.Atoi(args[1])
+			db, err := loadBlocksDB()
 			if err != nil {
-				return fmt.Errorf("invalid args")
+				return errors.Wrapf(err, "load blocks database")
 			}
-		}
+			defer db.Close()
 
-		last, err := repo.Load()
-		if err != nil {
-			return fmt.Errorf("load previous height")
-		}
-
-		if toHeight >= int(last) {
-			toHeight = int(last)
-		}
-
-		for i := fromHeight; i < toHeight; i++ {
-			hash, err := repo.Get(int32(i))
+			chain, err := loadChain(db)
 			if err != nil {
-				return fmt.Errorf("load changes from repo: %w", err)
+				return errors.Wrapf(err, "load chain")
 			}
-			fmt.Printf("blk %-7d: %s\n", i, hash.String())
-		}
 
-		return nil
-	},
-}
-
-var blockNameCmd = &cobra.Command{
-	Use:   "vertex <height> <name>",
-	Short: "List the claim and child hashes at vertex name of block at height",
-	Args:  cobra.RangeArgs(2, 2),
-	RunE: func(cmd *cobra.Command, args []string) error {
-
-		repo, err := blockrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.BlockRepoPebble.Path))
-		if err != nil {
-			return fmt.Errorf("can't open reported block repo: %w", err)
-		}
-		defer repo.Close()
-
-		height, err := strconv.Atoi(args[0])
-		if err != nil {
-			return fmt.Errorf("invalid args")
-		}
-
-		last, err := repo.Load()
-		if err != nil {
-			return fmt.Errorf("load previous height: %w", err)
-		}
-
-		if last < int32(height) {
-			return fmt.Errorf("requested height is unavailable")
-		}
-
-		hash, err := repo.Get(int32(height))
-		if err != nil {
-			return fmt.Errorf("load previous height: %w", err)
-		}
-
-		trieRepo, err := merkletrierepo.NewPebble(filepath.Join(cfg.DataDir, cfg.MerkleTrieRepoPebble.Path))
-		if err != nil {
-			return fmt.Errorf("can't open merkle trie repo: %w", err)
-		}
-
-		trie := merkletrie.NewPersistentTrie(nil, trieRepo)
-		defer trie.Close()
-		trie.SetRoot(hash, nil)
-		if len(args) > 1 {
-			trie.Dump(args[1])
-		} else {
-			tmpRepo, err := temporalrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.TemporalRepoPebble.Path))
-			if err != nil {
-				return fmt.Errorf("can't open temporal repo: %w", err)
+			if toHeight > chain.BestSnapshot().Height {
+				toHeight = chain.BestSnapshot().Height
 			}
-			nodes, err := tmpRepo.NodesAt(int32(height))
-			if err != nil {
-				return fmt.Errorf("can't read temporal repo at %d: %w", height, err)
+
+			for ht := fromHeight; ht <= toHeight; ht++ {
+				hash, err := chain.BlockHashByHeight(ht)
+				if err != nil {
+					return errors.Wrapf(err, "load hash for %d", ht)
+				}
+				fmt.Printf("Block %7d: %s\n", ht, hash.String())
 			}
-			for _, name := range nodes {
-				fmt.Printf("Name: %s, ", string(name))
-				trie.Dump(string(name))
-			}
-		}
-		return nil
-	},
+
+			return nil
+		},
+	}
+
+	cmd.Flags().Int32Var(&fromHeight, "from", 0, "From height (inclusive)")
+	cmd.Flags().Int32Var(&toHeight, "to", 0, "To height (inclusive)")
+	cmd.Flags().SortFlags = false
+
+	return cmd
 }

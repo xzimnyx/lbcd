@@ -14,8 +14,8 @@ var status = map[node.Status]string{
 	node.Deactivated: "Deactivated",
 }
 
-func changeName(c change.ChangeType) string {
-	switch c { // can't this be done via reflection?
+func changeType(c change.ChangeType) string {
+	switch c {
 	case change.AddClaim:
 		return "AddClaim"
 	case change.SpendClaim:
@@ -31,8 +31,8 @@ func changeName(c change.ChangeType) string {
 }
 
 func showChange(chg change.Change) {
-	fmt.Printf(">>> Height: %6d: %s for %04s, %d, %s\n",
-		chg.Height, changeName(chg.Type), chg.ClaimID.String(), chg.Amount, chg.OutPoint.String())
+	fmt.Printf(">>> Height: %6d: %s for %04s, %15d, %s - %s\n",
+		chg.Height, changeType(chg.Type), chg.ClaimID, chg.Amount, chg.OutPoint, chg.Name)
 }
 
 func showClaim(c *node.Claim, n *node.Node) {
@@ -42,12 +42,12 @@ func showClaim(c *node.Claim, n *node.Node) {
 	}
 
 	fmt.Printf("%s  C  ID: %s, TXO: %s\n   %5d/%-5d, Status: %9s, Amount: %15d, Support Amount: %15d\n",
-		mark, c.ClaimID.String(), c.OutPoint.String(), c.AcceptedAt, c.ActiveAt, status[c.Status], c.Amount, n.SupportSums[c.ClaimID.Key()])
+		mark, c.ClaimID, c.OutPoint, c.AcceptedAt, c.ActiveAt, status[c.Status], c.Amount, n.SupportSums[c.ClaimID.Key()])
 }
 
 func showSupport(c *node.Claim) {
 	fmt.Printf("    S id: %s, op: %s, %5d/%-5d, %9s, amt: %15d\n",
-		c.ClaimID.String(), c.OutPoint.String(), c.AcceptedAt, c.ActiveAt, status[c.Status], c.Amount)
+		c.ClaimID, c.OutPoint, c.AcceptedAt, c.ActiveAt, status[c.Status], c.Amount)
 }
 
 func showNode(n *node.Node) {
@@ -65,4 +65,12 @@ func showNode(n *node.Node) {
 		}
 	}
 	fmt.Printf("\n\n")
+}
+
+func showTemporalNames(height int32, names [][]byte) {
+	fmt.Printf("%7d: %q", height, names[0])
+	for _, name := range names[1:] {
+		fmt.Printf(", %q ", name)
+	}
+	fmt.Printf("\n")
 }
