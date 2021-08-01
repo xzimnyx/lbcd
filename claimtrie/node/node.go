@@ -141,7 +141,7 @@ func (n *Node) updateTakeoverHeight(height int32, name []byte, refindBest bool) 
 		}
 	}
 
-	if !takeoverHappening && height < param.MaxRemovalWorkaroundHeight {
+	if !takeoverHappening && height < param.ActiveParams.MaxRemovalWorkaroundHeight {
 		// This is a super ugly hack to work around bug in old code.
 		// The bug: un/support a name then update it. This will cause its takeover height to be reset to current.
 		// This is because the old code would add to the cache without setting block originals when dealing in supports.

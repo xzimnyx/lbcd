@@ -2,6 +2,7 @@ package node
 
 import (
 	"bytes"
+
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/param"
 )
@@ -37,7 +38,7 @@ func (nm *NormalizingManager) DecrementHeightTo(affectedNames [][]byte, height i
 
 func (nm *NormalizingManager) NextUpdateHeightOfNode(name []byte) ([]byte, int32) {
 	name, nextUpdate := nm.Manager.NextUpdateHeightOfNode(name)
-	if nextUpdate > param.NormalizedNameForkHeight {
+	if nextUpdate > param.ActiveParams.NormalizedNameForkHeight {
 		name = Normalize(name)
 	}
 	return name, nextUpdate
@@ -47,12 +48,12 @@ func (nm *NormalizingManager) addNormalizationForkChangesIfNecessary(height int3
 
 	if nm.Manager.Height()+1 != height {
 		// initialization phase
-		if height >= param.NormalizedNameForkHeight {
-			nm.normalizedAt = param.NormalizedNameForkHeight // eh, we don't really know that it happened there
+		if height >= param.ActiveParams.NormalizedNameForkHeight {
+			nm.normalizedAt = param.ActiveParams.NormalizedNameForkHeight // eh, we don't really know that it happened there
 		}
 	}
 
-	if nm.normalizedAt >= 0 || height != param.NormalizedNameForkHeight {
+	if nm.normalizedAt >= 0 || height != param.ActiveParams.NormalizedNameForkHeight {
 		return
 	}
 	nm.normalizedAt = height

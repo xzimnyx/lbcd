@@ -74,7 +74,7 @@ func TestNormalizationFork(t *testing.T) {
 	r := require.New(t)
 
 	setup(t)
-	param.NormalizedNameForkHeight = 2
+	param.ActiveParams.NormalizedNameForkHeight = 2
 	ct, err := New(cfg)
 	r.NoError(err)
 	r.NotNil(ct)
@@ -135,7 +135,7 @@ func TestActivationsOnNormalizationFork(t *testing.T) {
 	r := require.New(t)
 
 	setup(t)
-	param.NormalizedNameForkHeight = 4
+	param.ActiveParams.NormalizedNameForkHeight = 4
 	ct, err := New(cfg)
 	r.NoError(err)
 	r.NotNil(ct)
@@ -178,7 +178,7 @@ func TestNormalizationSortOrder(t *testing.T) {
 	// this was an unfortunate bug; the normalization fork should not have activated anything
 	// alas, it's now part of our history; we hereby test it to keep it that way
 	setup(t)
-	param.NormalizedNameForkHeight = 2
+	param.ActiveParams.NormalizedNameForkHeight = 2
 	ct, err := New(cfg)
 	r.NoError(err)
 	r.NotNil(ct)

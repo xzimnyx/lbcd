@@ -60,11 +60,11 @@ func (c *Claim) setStatus(status Status) *Claim {
 
 func (c *Claim) ExpireAt() int32 {
 
-	if c.AcceptedAt+param.OriginalClaimExpirationTime > param.ExtendedClaimExpirationForkHeight {
-		return c.AcceptedAt + param.ExtendedClaimExpirationTime
+	if c.AcceptedAt+param.ActiveParams.OriginalClaimExpirationTime > param.ActiveParams.ExtendedClaimExpirationForkHeight {
+		return c.AcceptedAt + param.ActiveParams.ExtendedClaimExpirationTime
 	}
 
-	return c.AcceptedAt + param.OriginalClaimExpirationTime
+	return c.AcceptedAt + param.ActiveParams.OriginalClaimExpirationTime
 }
 
 func OutPointLess(a, b wire.OutPoint) bool {

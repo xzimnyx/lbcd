@@ -6,8 +6,9 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
-	"github.com/pkg/errors"
 	"strconv"
+
+	"github.com/pkg/errors"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/claimtrie/change"
@@ -91,7 +92,7 @@ func NewBaseManager(repo Repo) (*BaseManager, error) {
 
 	nm := &BaseManager{
 		repo:  repo,
-		cache: newNodeCache(param.MaxNodeManagerCacheSize),
+		cache: newNodeCache(param.ActiveParams.MaxNodeManagerCacheSize),
 	}
 
 	return nm, nil
@@ -225,7 +226,7 @@ func (nm *BaseManager) IncrementHeightTo(height int32) ([][]byte, error) {
 		panic("invalid height")
 	}
 
-	if height >= param.MaxRemovalWorkaroundHeight {
+	if height >= param.ActiveParams.MaxRemovalWorkaroundHeight {
 		// not technically needed until block 884430, but to be true to the arbitrary rollback length...
 		collectChildNames(nm.changes)
 	}
@@ -312,7 +313,7 @@ func (nm *BaseManager) aWorkaroundIsNeeded(n *Node, chg change.Change) bool {
 		return false
 	}
 
-	if chg.Height >= param.MaxRemovalWorkaroundHeight {
+	if chg.Height >= param.ActiveParams.MaxRemovalWorkaroundHeight {
 		// TODO: hard fork this out; it's a bug from previous versions:
 
 		// old 17.3 C++ code we're trying to mimic (where empty means no active claims):
@@ -337,9 +338,9 @@ func (nm *BaseManager) aWorkaroundIsNeeded(n *Node, chg change.Change) bool {
 
 func calculateDelay(curr, tookOver int32) int32 {
 
-	delay := (curr - tookOver) / param.ActiveDelayFactor
-	if delay > param.MaxActiveDelay {
-		return param.MaxActiveDelay
+	delay := (curr - tookOver) / param.ActiveParams.ActiveDelayFactor
+	if delay > param.ActiveParams.MaxActiveDelay {
+		return param.ActiveParams.MaxActiveDelay
 	}
 
 	return delay
@@ -419,7 +420,7 @@ func (nm *BaseManager) claimHashes(name []byte) *chainhash.Hash {
 
 func (nm *BaseManager) Hash(name []byte) *chainhash.Hash {
 
-	if nm.height >= param.AllClaimsInMerkleForkHeight {
+	if nm.height >= param.ActiveParams.AllClaimsInMerkleForkHeight {
 		return nm.claimHashes(name)
 	}
 

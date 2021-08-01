@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -2727,7 +2726,7 @@ func newServer(listenAddrs, agentBlacklist, agentWhitelist []string,
 	var err error
 
 	claimTrieCfg := claimtrieconfig.DefaultConfig
-	claimTrieCfg.DataDir = filepath.Join(cfg.DataDir, "claim_dbs")
+	claimTrieCfg.DataDir = cfg.DataDir
 
 	var ct *claimtrie.ClaimTrie
 

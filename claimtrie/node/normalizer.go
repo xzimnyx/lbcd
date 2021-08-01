@@ -15,7 +15,7 @@ import (
 var Normalize = normalizeGo
 
 func NormalizeIfNecessary(name []byte, height int32) []byte {
-	if height < param.NormalizedNameForkHeight {
+	if height < param.ActiveParams.NormalizedNameForkHeight {
 		return name
 	}
 	return Normalize(name)

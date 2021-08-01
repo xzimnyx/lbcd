@@ -2,6 +2,7 @@ package chainrepo
 
 import (
 	"encoding/binary"
+
 	"github.com/pkg/errors"
 
 	"github.com/btcsuite/btcd/claimtrie/change"
@@ -16,7 +17,7 @@ type Pebble struct {
 
 func NewPebble(path string) (*Pebble, error) {
 
-	db, err := pebble.Open(path, nil)
+	db, err := pebble.Open(path, &pebble.Options{BytesPerSync: 64 << 20})
 	repo := &Pebble{db: db}
 
 	return repo, errors.Wrapf(err, "unable to open %s", path)

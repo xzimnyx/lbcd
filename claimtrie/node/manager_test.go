@@ -148,7 +148,7 @@ func TestNodeSort(t *testing.T) {
 
 	r := require.New(t)
 
-	param.ExtendedClaimExpirationTime = 1000
+	param.ActiveParams.ExtendedClaimExpirationTime = 1000
 
 	r.True(OutPointLess(*out1, *out2))
 	r.True(OutPointLess(*out1, *out3))
@@ -171,7 +171,7 @@ func TestClaimSort(t *testing.T) {
 
 	r := require.New(t)
 
-	param.ExtendedClaimExpirationTime = 1000
+	param.ActiveParams.ExtendedClaimExpirationTime = 1000
 
 	n := New()
 	n.Claims = append(n.Claims, &Claim{OutPoint: *out2, AcceptedAt: 3, Amount: 3, ClaimID: change.ClaimID{2}})

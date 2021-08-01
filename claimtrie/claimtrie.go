@@ -52,13 +52,18 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 
 	var cleanups []func() error
 
-	blockRepo, err := blockrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.BlockRepoPebble.Path))
+	// The passed in cfg.DataDir has been prepended with netname.
+	dataDir := filepath.Join(cfg.DataDir, "claim_dbs")
+
+	dbPath := filepath.Join(dataDir, cfg.BlockRepoPebble.Path)
+	blockRepo, err := blockrepo.NewPebble(dbPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating block repo")
 	}
 	cleanups = append(cleanups, blockRepo.Close)
 
-	temporalRepo, err := temporalrepo.NewPebble(filepath.Join(cfg.DataDir, cfg.TemporalRepoPebble.Path))
+	dbPath = filepath.Join(dataDir, cfg.TemporalRepoPebble.Path)
+	temporalRepo, err := temporalrepo.NewPebble(dbPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating temporal repo")
 	}
@@ -66,7 +71,8 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 
 	// Initialize repository for changes to nodes.
 	// The cleanup is delegated to the Node Manager.
-	nodeRepo, err := noderepo.NewPebble(filepath.Join(cfg.DataDir, cfg.NodeRepoPebble.Path))
+	dbPath = filepath.Join(dataDir, cfg.NodeRepoPebble.Path)
+	nodeRepo, err := noderepo.NewPebble(dbPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating node repo")
 	}
@@ -84,7 +90,8 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 	} else {
 
 		// Initialize repository for MerkleTrie. The cleanup is delegated to MerkleTrie.
-		trieRepo, err := merkletrierepo.NewPebble(filepath.Join(cfg.DataDir, cfg.MerkleTrieRepoPebble.Path))
+		dbPath = filepath.Join(dataDir, cfg.MerkleTrieRepoPebble.Path)
+		trieRepo, err := merkletrierepo.NewPebble(dbPath)
 		if err != nil {
 			return nil, errors.Wrap(err, "creating trie repo")
 		}
@@ -258,7 +265,7 @@ func (ct *ClaimTrie) AppendBlock() error {
 }
 
 func (ct *ClaimTrie) updateTrieForHashForkIfNecessary() bool {
-	if ct.height != param.AllClaimsInMerkleForkHeight {
+	if ct.height != param.ActiveParams.AllClaimsInMerkleForkHeight {
 		return false
 	}
 
@@ -303,7 +310,7 @@ func (ct *ClaimTrie) ResetHeight(height int32) error {
 		return err
 	}
 
-	passedHashFork := ct.height >= param.AllClaimsInMerkleForkHeight && height < param.AllClaimsInMerkleForkHeight
+	passedHashFork := ct.height >= param.ActiveParams.AllClaimsInMerkleForkHeight && height < param.ActiveParams.AllClaimsInMerkleForkHeight
 	ct.height = height
 	hash, err := ct.blockRepo.Get(height)
 	if err != nil {
@@ -323,7 +330,7 @@ func (ct *ClaimTrie) ResetHeight(height int32) error {
 
 // MerkleHash returns the Merkle Hash of the claimTrie.
 func (ct *ClaimTrie) MerkleHash() *chainhash.Hash {
-	if ct.height >= param.AllClaimsInMerkleForkHeight {
+	if ct.height >= param.ActiveParams.AllClaimsInMerkleForkHeight {
 		return ct.merkleTrie.MerkleHashAllClaims()
 	}
 	return ct.merkleTrie.MerkleHash()
