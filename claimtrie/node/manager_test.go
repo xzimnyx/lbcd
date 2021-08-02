@@ -35,7 +35,7 @@ func TestStringRoundTrip(t *testing.T) {
 	}
 	for _, d := range data {
 		s := string(d)
-		r.Equal(s, fmt.Sprintf("%s", d))
+		r.Equal(s, fmt.Sprintf("%s", d)) // nolint
 		d2 := []byte(s)
 		r.Equal(len(d), len(s))
 		r.Equal(d, d2)
