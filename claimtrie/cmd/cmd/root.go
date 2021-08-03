@@ -39,7 +39,7 @@ func NewRootCommand() *cobra.Command {
 	}
 
 	cmd.PersistentFlags().StringVar(&netName, "netname", "mainnet", "Net name")
-	cmd.PersistentFlags().StringVar(&dataDir, "datadir", cfg.DataDir, "Data dir")
+	cmd.PersistentFlags().StringVarP(&dataDir, "datadir", "b", cfg.DataDir, "Data dir")
 
 	return cmd
 }

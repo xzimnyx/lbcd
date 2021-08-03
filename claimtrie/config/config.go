@@ -26,12 +26,6 @@ var DefaultConfig = Config{
 	MerkleTrieRepoPebble: pebbleConfig{
 		Path: "merkletrie_pebble_db",
 	},
-	ChainRepoPebble: pebbleConfig{
-		Path: "chain_pebble_db",
-	},
-	ReportedBlockRepoPebble: pebbleConfig{
-		Path: "reported_blocks_pebble_db",
-	},
 }
 
 // Config is the container of all configurations.
@@ -46,9 +40,6 @@ type Config struct {
 	NodeRepoPebble       pebbleConfig
 	TemporalRepoPebble   pebbleConfig
 	MerkleTrieRepoPebble pebbleConfig
-
-	ChainRepoPebble         pebbleConfig
-	ReportedBlockRepoPebble pebbleConfig
 }
 
 type pebbleConfig struct {

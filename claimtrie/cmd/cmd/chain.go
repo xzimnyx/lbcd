@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/claimtrie"
+	"github.com/btcsuite/btcd/claimtrie/chain"
 	"github.com/btcsuite/btcd/claimtrie/chain/chainrepo"
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/config"
@@ -43,6 +43,7 @@ func NewChainCommands() *cobra.Command {
 
 func NewChainDumpCommand() *cobra.Command {
 
+	var chainRepoPath string
 	var fromHeight int32
 	var toHeight int32
 
@@ -52,7 +53,7 @@ func NewChainDumpCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			dbPath := filepath.Join(dataDir, netName, "claim_dbs", cfg.ChainRepoPebble.Path)
+			dbPath := chainRepoPath
 			log.Debugf("Open chain repo: %q", dbPath)
 			chainRepo, err := chainrepo.NewPebble(dbPath)
 			if err != nil {
@@ -76,6 +77,7 @@ func NewChainDumpCommand() *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&chainRepoPath, "chaindb", "chain_db", "Claim operation database")
 	cmd.Flags().Int32Var(&fromHeight, "from", 0, "From height (inclusive)")
 	cmd.Flags().Int32Var(&toHeight, "to", 0, "To height (inclusive)")
 	cmd.Flags().SortFlags = false
@@ -85,6 +87,7 @@ func NewChainDumpCommand() *cobra.Command {
 
 func NewChainReplayCommand() *cobra.Command {
 
+	var chainRepoPath string
 	var fromHeight int32
 	var toHeight int32
 
@@ -108,9 +111,8 @@ func NewChainReplayCommand() *cobra.Command {
 				}
 			}
 
-			dbPath := filepath.Join(dataDir, netName, "claim_dbs", cfg.ChainRepoPebble.Path)
-			log.Debugf("Open chain repo: %q", dbPath)
-			chainRepo, err := chainrepo.NewPebble(dbPath)
+			log.Debugf("Open chain repo: %q", chainRepoPath)
+			chainRepo, err := chainrepo.NewPebble(chainRepoPath)
 			if err != nil {
 				return errors.Wrapf(err, "open chain repo")
 			}
@@ -135,6 +137,7 @@ func NewChainReplayCommand() *cobra.Command {
 				return errors.Wrapf(err, "load chain")
 			}
 
+			startTime := time.Now()
 			for ht := fromHeight; ht < toHeight; ht++ {
 
 				changes, err := chainRepo.Load(ht + 1)
@@ -170,8 +173,9 @@ func NewChainReplayCommand() *cobra.Command {
 					return errors.Wrapf(err, "appendBlock")
 				}
 
-				if ct.Height()%1000 == 0 {
-					fmt.Printf("block: %d\n", ct.Height())
+				if time.Since(startTime) > 5*time.Second {
+					log.Infof("Block: %d", ct.Height())
+					startTime = time.Now()
 				}
 			}
 
@@ -179,7 +183,7 @@ func NewChainReplayCommand() *cobra.Command {
 		},
 	}
 
-	// FIXME
+	cmd.Flags().StringVar(&chainRepoPath, "chaindb", "chain_db", "Claim operation database")
 	cmd.Flags().Int32Var(&fromHeight, "from", 0, "From height")
 	cmd.Flags().Int32Var(&toHeight, "to", 0, "To height")
 	cmd.Flags().SortFlags = false
@@ -209,11 +213,12 @@ func appendBlock(ct *claimtrie.ClaimTrie, chain *blockchain.BlockChain) error {
 
 func NewChainConvertCommand() *cobra.Command {
 
-	var height int32
+	var chainRepoPath string
+	var toHeight int32
 
 	cmd := &cobra.Command{
 		Use:   "convert",
-		Short: "convert changes from to <height>",
+		Short: "convert changes from 0 to <toHeight>",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
@@ -228,9 +233,21 @@ func NewChainConvertCommand() *cobra.Command {
 				return errors.Wrapf(err, "load block db")
 			}
 
+			if toHeight > chain.BestSnapshot().Height {
+				toHeight = chain.BestSnapshot().Height
+			}
+
+			chainRepo, err := chainrepo.NewPebble(chainRepoPath)
+			if err != nil {
+				return errors.Wrapf(err, "open chain repo: %v")
+			}
+			defer chainRepo.Close()
+
 			converter := chainConverter{
 				db:          db,
 				chain:       chain,
+				chainRepo:   chainRepo,
+				toHeight:    toHeight,
 				blockChan:   make(chan *btcutil.Block, 1000),
 				changesChan: make(chan []change.Change, 1000),
 				wg:          &sync.WaitGroup{},
@@ -250,8 +267,9 @@ func NewChainConvertCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Int32Var(&height, "height", 0, "Height")
-
+	cmd.Flags().StringVar(&chainRepoPath, "chaindb", "chain_db", "Claim operation database")
+	cmd.Flags().Int32Var(&toHeight, "to", 0, "toHeight")
+	cmd.Flags().SortFlags = false
 	return cmd
 }
 
@@ -262,8 +280,10 @@ type stat struct {
 }
 
 type chainConverter struct {
-	db    database.DB
-	chain *blockchain.BlockChain
+	db        database.DB
+	chain     *blockchain.BlockChain
+	chainRepo chain.Repo
+	toHeight  int32
 
 	blockChan   chan *btcutil.Block
 	changesChan chan []change.Change
@@ -293,18 +313,13 @@ func (cb *chainConverter) getBlock() {
 	defer cb.wg.Done()
 	defer close(cb.blockChan)
 
-	toHeight := int32(200000)
-	fmt.Printf("blocks: %d\n", cb.chain.BestSnapshot().Height)
-
-	if toHeight > cb.chain.BestSnapshot().Height {
-		toHeight = cb.chain.BestSnapshot().Height
-
-	}
-
-	for ht := int32(0); ht < toHeight; ht++ {
+	for ht := int32(0); ht < cb.toHeight; ht++ {
 		block, err := cb.chain.BlockByHeight(ht)
 		if err != nil {
-			log.Errorf("load changes from repo: %w", err)
+			if errors.Cause(err).Error() == "too many open files" {
+				err = errors.WithHintf(err, "try ulimit -n 2048")
+			}
+			log.Errorf("load changes at %d: %s", ht, err)
 			return
 		}
 		cb.stat.blocksFetched++
@@ -401,16 +416,8 @@ func (cb *chainConverter) processBlock() {
 func (cb *chainConverter) saveChanges() {
 	defer cb.wg.Done()
 
-	dbPath := filepath.Join(dataDir, netName, "claim_dbs", cfg.ChainRepoPebble.Path)
-	chainRepo, err := chainrepo.NewPebble(dbPath)
-	if err != nil {
-		log.Errorf("open chain repo: %s", err)
-		return
-	}
-	defer chainRepo.Close()
-
 	for changes := range cb.changesChan {
-		err = chainRepo.Save(changes[0].Height, changes)
+		err := cb.chainRepo.Save(changes[0].Height, changes)
 		if err != nil {
 			log.Errorf("save to chain repo: %s", err)
 			return

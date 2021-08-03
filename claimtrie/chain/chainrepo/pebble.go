@@ -20,7 +20,7 @@ func NewPebble(path string) (*Pebble, error) {
 	db, err := pebble.Open(path, &pebble.Options{BytesPerSync: 64 << 20})
 	repo := &Pebble{db: db}
 
-	return repo, errors.Wrapf(err, "unable to open %s", path)
+	return repo, errors.Wrapf(err, "open %s", path)
 }
 
 func (repo *Pebble) Save(height int32, changes []change.Change) error {
