@@ -234,6 +234,7 @@ func NewChainConvertCommand() *cobra.Command {
 				blockChan:   make(chan *btcutil.Block, 1000),
 				changesChan: make(chan []change.Change, 1000),
 				wg:          &sync.WaitGroup{},
+				stat:        &stat{},
 			}
 
 			startTime := time.Now()
@@ -254,6 +255,12 @@ func NewChainConvertCommand() *cobra.Command {
 	return cmd
 }
 
+type stat struct {
+	blocksFetched   int
+	blocksProcessed int
+	changesSaved    int
+}
+
 type chainConverter struct {
 	db    database.DB
 	chain *blockchain.BlockChain
@@ -263,9 +270,7 @@ type chainConverter struct {
 
 	wg *sync.WaitGroup
 
-	statBlocksFetched   int
-	statBlocksProcessed int
-	statChangesSaved    int
+	stat *stat
 }
 
 func (cc *chainConverter) wait() {
@@ -302,7 +307,7 @@ func (cb *chainConverter) getBlock() {
 			log.Errorf("load changes from repo: %w", err)
 			return
 		}
-		cb.statBlocksFetched++
+		cb.stat.blocksFetched++
 		cb.blockChan <- block
 	}
 }
@@ -385,7 +390,7 @@ func (cb *chainConverter) processBlock() {
 				changes = append(changes, chg)
 			}
 		}
-		cb.statBlocksProcessed++
+		cb.stat.blocksProcessed++
 
 		if len(changes) != 0 {
 			cb.changesChan <- changes
@@ -410,15 +415,16 @@ func (cb *chainConverter) saveChanges() {
 			log.Errorf("save to chain repo: %s", err)
 			return
 		}
-		cb.statChangesSaved++
+		cb.stat.changesSaved++
 	}
 }
 
 func (cb *chainConverter) reportStats() {
+	stat := cb.stat
 	tick := time.NewTicker(5 * time.Second)
 	for range tick.C {
 		log.Infof("block : %7d / %7d,  changes saved: %d",
-			cb.statBlocksFetched, cb.statBlocksProcessed, cb.statChangesSaved)
+			stat.blocksFetched, stat.blocksProcessed, stat.changesSaved)
 
 	}
 }
