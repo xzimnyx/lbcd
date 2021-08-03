@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/blockchain"
+	"github.com/btcsuite/btcd/blockchain/indexers"
 	"github.com/btcsuite/btcd/claimtrie"
 	"github.com/btcsuite/btcd/claimtrie/chain"
 	"github.com/btcsuite/btcd/claimtrie/chain/chainrepo"
@@ -243,6 +244,8 @@ func NewChainConvertCommand() *cobra.Command {
 				toHeight = chain.BestSnapshot().Height
 			}
 
+			txIndex := indexers.NewTxIndex(db)
+
 			chainRepo, err := chainrepo.NewPebble(chainRepoPath)
 			if err != nil {
 				return errors.Wrapf(err, "open chain repo: %v")
@@ -252,6 +255,7 @@ func NewChainConvertCommand() *cobra.Command {
 			converter := chainConverter{
 				db:          db,
 				chain:       chain,
+				txIndex:     txIndex,
 				chainRepo:   chainRepo,
 				toHeight:    toHeight,
 				blockChan:   make(chan *btcutil.Block, 1000),
@@ -288,6 +292,7 @@ type stat struct {
 type chainConverter struct {
 	db        database.DB
 	chain     *blockchain.BlockChain
+	txIndex   *indexers.TxIndex
 	chainRepo chain.Repo
 	toHeight  int32
 
@@ -347,8 +352,32 @@ func (cb *chainConverter) processBlock() {
 			}
 
 			for _, txIn := range tx.MsgTx().TxIn {
+
 				prevOutpoint := txIn.PreviousOutPoint
-				pkScript := utxoPubScripts[prevOutpoint]
+				blockRegion, err := cb.txIndex.TxBlockRegion(&prevOutpoint.Hash)
+				if err != nil {
+					log.Criticalf("Failed to retrieve transaction location: %s", err)
+				}
+				if blockRegion == nil {
+					log.Criticalf("Can't locate block region")
+				}
+
+				var txBytes []byte
+				err = cb.db.View(func(dbTx database.Tx) error {
+					var err error
+					txBytes, err = dbTx.FetchBlockRegion(blockRegion)
+					return err
+				})
+				if err != nil {
+					log.Criticalf("Can't fetch txBytes: %s", err)
+				}
+				prevTx, err := btcutil.NewTxFromBytes(txBytes)
+				if err != nil {
+					log.Criticalf("Can't create prevTx: %s", err)
+				}
+				prevTxOut := prevTx.MsgTx().TxOut[prevOutpoint.Index]
+
+				pkScript := prevTxOut.PkScript
 				cs, err := txscript.DecodeClaimScript(pkScript)
 				if err == txscript.ErrNotClaimScript {
 					continue
