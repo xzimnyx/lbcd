@@ -331,23 +331,19 @@ func (cb *chainConverter) processBlock() {
 	defer cb.wg.Done()
 	defer close(cb.changesChan)
 
-	view := blockchain.NewUtxoViewpoint()
+	utxoPubScripts := map[wire.OutPoint][]byte{}
 	for block := range cb.blockChan {
 		var changes []change.Change
 		for _, tx := range block.Transactions() {
-			view.AddTxOuts(tx, block.Height())
 
 			if blockchain.IsCoinBase(tx) {
 				continue
 			}
 
 			for _, txIn := range tx.MsgTx().TxIn {
-				op := txIn.PreviousOutPoint
-				e := view.LookupEntry(op)
-				if e == nil {
-					log.Criticalf("Missing input in view for %s", op.String())
-				}
-				cs, err := txscript.DecodeClaimScript(e.PkScript())
+				prevOutpoint := txIn.PreviousOutPoint
+				pkScript := utxoPubScripts[prevOutpoint]
+				cs, err := txscript.DecodeClaimScript(pkScript)
 				if err == txscript.ErrNotClaimScript {
 					continue
 				}
@@ -360,6 +356,7 @@ func (cb *chainConverter) processBlock() {
 					Name:     cs.Name(),
 					OutPoint: txIn.PreviousOutPoint,
 				}
+				delete(utxoPubScripts, prevOutpoint)
 
 				switch cs.Opcode() {
 				case txscript.OP_CLAIMNAME:
@@ -390,6 +387,7 @@ func (cb *chainConverter) processBlock() {
 					OutPoint: op,
 					Amount:   txOut.Value,
 				}
+				utxoPubScripts[op] = txOut.PkScript
 
 				switch cs.Opcode() {
 				case txscript.OP_CLAIMNAME:
