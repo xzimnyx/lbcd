@@ -187,7 +187,6 @@ func collectChildNames(changes []change.Change) {
 	// we need to determine which children (names that start with the same name) go with which change
 	// if we have the names in order then we can avoid iterating through all names in the change list
 	// and we can possibly reuse the previous list.
-	// eh. optimize it some other day
 
 	// what would happen in the old code:
 	// spending a claim (which happens before every update) could remove a node from the cached trie
@@ -213,9 +212,6 @@ func collectChildNames(changes []change.Change) {
 		spends = append(spends, pair{string(changes[i].Name), i})
 	}
 	sort.Slice(spends, func(i, j int) bool {
-		if spends[i].name == spends[j].name {
-			return spends[i].order < spends[j].order
-		}
 		return spends[i].name < spends[j].name
 	})
 
@@ -226,21 +222,45 @@ func collectChildNames(changes []change.Change) {
 		}
 		a := string(changes[i].Name)
 		sc := map[string]bool{}
-		idx := sort.Search(len(spends), func(i int) bool {
-			return spends[i].name >= a
+		idx := sort.Search(len(spends), func(k int) bool {
+			return spends[k].name > a
 		})
 		for idx < len(spends) {
 			b := spends[idx].name
-			if len(b) >= len(a) && spends[idx].order < i && a == b[:len(a)] {
+			if len(b) <= len(a) || a != b[:len(a)] {
+				break // since they're ordered alphabetically, we should be able to break out once we're past matches
+			}
+			if spends[idx].order < i {
 				sc[b] = true
-			} else {
-				break
 			}
 			idx++
 		}
 		changes[i].SpentChildren = sc
 	}
 }
+
+// to understand the above function, it may be helpful to refer to the slower implementation:
+//func collectChildNamesSlow(changes []change.Change) {
+//	for i := range changes {
+//		t := changes[i].Type
+//		if t == change.SpendClaim || t == change.SpendSupport {
+//			continue
+//		}
+//		a := changes[i].Name
+//		sc := map[string]bool{}
+//		for j := 0; j < i; j++ {
+//			t = changes[j].Type
+//			if t != change.SpendClaim {
+//				continue
+//			}
+//			b := changes[j].Name
+//			if len(b) >= len(a) && bytes.Equal(a, b[:len(a)]) {
+//				sc[string(b)] = true
+//			}
+//		}
+//		changes[i].SpentChildren = sc
+//	}
+//}
 
 func (nm *BaseManager) IncrementHeightTo(height int32) ([][]byte, error) {
 

@@ -236,16 +236,21 @@ func TestCollectChildren(t *testing.T) {
 	c4 := change.Change{Name: []byte("ac"), Type: change.UpdateClaim}
 	c5 := change.Change{Name: []byte("a"), Type: change.SpendClaim}
 	c6 := change.Change{Name: []byte("a"), Type: change.UpdateClaim}
-	c := []change.Change{c1, c2, c3, c4, c5, c6}
+	c7 := change.Change{Name: []byte("ab"), Type: change.SpendClaim}
+	c8 := change.Change{Name: []byte("ab"), Type: change.UpdateClaim}
+	c := []change.Change{c1, c2, c3, c4, c5, c6, c7, c8}
 
 	collectChildNames(c)
 
 	r.Empty(c[0].SpentChildren)
 	r.Empty(c[2].SpentChildren)
 	r.Empty(c[4].SpentChildren)
+	r.Empty(c[6].SpentChildren)
 
-	r.Len(c[1].SpentChildren, 1)
-	r.Len(c[3].SpentChildren, 1)
-	r.Len(c[5].SpentChildren, 2)
+	r.Len(c[1].SpentChildren, 0)
+	r.Len(c[3].SpentChildren, 0)
+	r.Len(c[5].SpentChildren, 1)
 	r.True(c[5].SpentChildren["ac"])
+
+	r.Len(c[7].SpentChildren, 0)
 }
