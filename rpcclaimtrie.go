@@ -323,7 +323,8 @@ func lookupValue(s *rpcServer, outpoint wire.OutPoint, includeValues *bool) (str
 	}
 
 	txo := msgTx.TxOut[outpoint.Index]
-	cs, err := txscript.DecodeClaimScript(txo.PkScript)
+	cs, closer, err := txscript.DecodeClaimScript(txo.PkScript)
+	defer closer()
 	if err != nil {
 		context := "Failed to decode the claim script"
 		return "", "", internalRPCError(err.Error(), context)

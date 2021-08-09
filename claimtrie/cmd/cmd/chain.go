@@ -343,8 +343,9 @@ func (cb *chainConverter) processBlock() {
 			for _, txIn := range tx.MsgTx().TxIn {
 				prevOutpoint := txIn.PreviousOutPoint
 				pkScript := utxoPubScripts[prevOutpoint]
-				cs, err := txscript.DecodeClaimScript(pkScript)
+				cs, closer, err := txscript.DecodeClaimScript(pkScript)
 				if err == txscript.ErrNotClaimScript {
+					closer()
 					continue
 				}
 				if err != nil {
@@ -371,12 +372,14 @@ func (cb *chainConverter) processBlock() {
 				}
 
 				changes = append(changes, chg)
+				closer()
 			}
 
 			op := *wire.NewOutPoint(tx.Hash(), 0)
 			for i, txOut := range tx.MsgTx().TxOut {
-				cs, err := txscript.DecodeClaimScript(txOut.PkScript)
+				cs, closer, err := txscript.DecodeClaimScript(txOut.PkScript)
 				if err == txscript.ErrNotClaimScript {
+					closer()
 					continue
 				}
 
@@ -401,6 +404,7 @@ func (cb *chainConverter) processBlock() {
 					copy(chg.ClaimID[:], cs.ClaimID())
 				}
 				changes = append(changes, chg)
+				closer()
 			}
 		}
 		cb.stat.blocksProcessed++

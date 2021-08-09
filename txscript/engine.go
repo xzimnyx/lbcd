@@ -136,6 +136,20 @@ type Engine struct {
 	witnessVersion  int
 	witnessProgram  []byte
 	inputAmount     int64
+	cleanups        []func()
+}
+
+func (vm *Engine) Close() {
+	for i := range vm.cleanups {
+		vm.cleanups[i]()
+	}
+	vm.cleanups = nil
+	vm.scripts = nil
+	vm.savedFirstStack = nil
+	vm.witnessProgram = nil
+	vm.condStack = nil
+	vm.sigCache = nil
+	vm.hashCache = nil
 }
 
 // hasFlag returns whether the script engine instance has the passed flag set.
@@ -269,8 +283,9 @@ func (vm *Engine) verifyWitnessProgram(witness [][]byte) error {
 			if err != nil {
 				return err
 			}
-			pops, err := parseScript(pkScript)
+			pops, closer, err := parseScript(pkScript)
 			if err != nil {
+				closer()
 				return err
 			}
 
@@ -278,6 +293,7 @@ func (vm *Engine) verifyWitnessProgram(witness [][]byte) error {
 			// append the pkScript generated above as the next
 			// script to execute.
 			vm.scripts = append(vm.scripts, pops)
+			vm.cleanups = append(vm.cleanups, closer)
 			vm.SetStack(witness)
 
 		case payToWitnessScriptHashDataSize: // P2WSH
@@ -310,8 +326,9 @@ func (vm *Engine) verifyWitnessProgram(witness [][]byte) error {
 			// With all the validity checks passed, parse the
 			// script into individual op-codes so w can execute it
 			// as the next script.
-			pops, err := parseScript(witnessScript)
+			pops, closer, err := parseScript(witnessScript)
 			if err != nil {
+				closer()
 				return err
 			}
 
@@ -319,6 +336,7 @@ func (vm *Engine) verifyWitnessProgram(witness [][]byte) error {
 			// the stack, and set the witnessScript to be the next
 			// script executed.
 			vm.scripts = append(vm.scripts, pops)
+			vm.cleanups = append(vm.cleanups, closer)
 			vm.SetStack(witness[:len(witness)-1])
 
 		default:
@@ -492,11 +510,13 @@ func (vm *Engine) Step() (done bool, err error) {
 			}
 
 			script := vm.savedFirstStack[len(vm.savedFirstStack)-1]
-			pops, err := parseScript(script)
+			pops, closer, err := parseScript(script)
 			if err != nil {
+				closer()
 				return false, err
 			}
 			vm.scripts = append(vm.scripts, pops)
+			vm.cleanups = append(vm.cleanups, closer)
 
 			// Set stack to be the stack from first script minus the
 			// script itself
@@ -910,10 +930,13 @@ func NewEngine(scriptPubKey []byte, tx *wire.MsgTx, txIdx int, flags ScriptFlags
 			return nil, scriptError(ErrScriptTooBig, str)
 		}
 		var err error
-		vm.scripts[i], err = parseScript(scr)
+		var closer func()
+		vm.scripts[i], closer, err = parseScript(scr)
 		if err != nil {
+			closer()
 			return nil, err
 		}
+		vm.cleanups = append(vm.cleanups, closer)
 	}
 
 	// Advance the program counter to the public key script if the signature

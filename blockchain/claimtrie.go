@@ -65,11 +65,13 @@ func (h *handler) handleTxIns(ct *claimtrie.ClaimTrie) error {
 		if e == nil {
 			return errors.Errorf("missing input in view for %s", op.String())
 		}
-		cs, err := txscript.DecodeClaimScript(e.pkScript)
+		cs, closer, err := txscript.DecodeClaimScript(e.pkScript)
 		if err == txscript.ErrNotClaimScript {
+			closer()
 			continue
 		}
 		if err != nil {
+			closer()
 			return err
 		}
 
@@ -89,6 +91,7 @@ func (h *handler) handleTxIns(ct *claimtrie.ClaimTrie) error {
 			copy(id[:], cs.ClaimID())
 			err = ct.SpendSupport(name, op, id)
 		}
+		closer()
 		if err != nil {
 			return errors.Wrapf(err, "handleTxIns")
 		}
@@ -99,11 +102,13 @@ func (h *handler) handleTxIns(ct *claimtrie.ClaimTrie) error {
 func (h *handler) handleTxOuts(ct *claimtrie.ClaimTrie) error {
 	for i, txOut := range h.tx.MsgTx().TxOut {
 		op := *wire.NewOutPoint(h.tx.Hash(), uint32(i))
-		cs, err := txscript.DecodeClaimScript(txOut.PkScript)
+		cs, closer, err := txscript.DecodeClaimScript(txOut.PkScript)
 		if err == txscript.ErrNotClaimScript {
+			closer()
 			continue
 		}
 		if err != nil {
+			closer()
 			return err
 		}
 
@@ -127,12 +132,14 @@ func (h *handler) handleTxOuts(ct *claimtrie.ClaimTrie) error {
 			if !bytes.Equal(h.spent[id.Key()], normName) {
 				node.LogOnce(fmt.Sprintf("Invalid update operation: name or ID mismatch at %d for: %s, %s",
 					ct.Height(), normName, id.String()))
+				closer()
 				continue
 			}
 
 			delete(h.spent, id.Key())
 			err = ct.UpdateClaim(name, op, amt, id)
 		}
+		closer()
 		if err != nil {
 			return errors.Wrapf(err, "handleTxOuts")
 		}

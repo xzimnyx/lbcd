@@ -55,27 +55,27 @@ func UpdateClaimScript(name string, claimID []byte, value string) ([]byte, error
 }
 
 // DecodeClaimScript ...
-func DecodeClaimScript(script []byte) (*ClaimScript, error) {
+func DecodeClaimScript(script []byte) (*ClaimScript, func(), error) {
 	if len(script) == 0 {
-		return nil, ErrNotClaimScript
+		return nil, func() {}, ErrNotClaimScript
 	}
 	op := script[0]
 	if op != OP_CLAIMNAME && op != OP_SUPPORTCLAIM && op != OP_UPDATECLAIM {
-		return nil, ErrNotClaimScript
+		return nil, func() {}, ErrNotClaimScript
 	}
-	pops, err := parseScript(script)
+	pops, closer, err := parseScript(script)
 	if err != nil {
-		return nil, err
+		return nil, closer, err
 	}
 	if isClaimName(pops) || isSupportClaim(pops) || isUpdateClaim(pops) {
 		cs := &ClaimScript{op: op, pops: pops}
 		if cs.Size() > MaxClaimScriptSize {
 			log.Infof("claim script of %d bytes is larger than %d", cs.Size(), MaxClaimScriptSize)
-			return nil, ErrInvalidClaimScript
+			return nil, closer, ErrInvalidClaimScript
 		}
-		return cs, nil
+		return cs, closer, nil
 	}
-	return nil, ErrInvalidClaimScript
+	return nil, closer, ErrInvalidClaimScript
 }
 
 // ClaimScript ...
@@ -132,7 +132,8 @@ func (cs *ClaimScript) Size() int {
 
 // StripClaimScriptPrefix ...
 func StripClaimScriptPrefix(script []byte) []byte {
-	cs, err := DecodeClaimScript(script)
+	cs, closer, err := DecodeClaimScript(script)
+	defer closer()
 	if err != nil {
 		return script
 	}
@@ -141,7 +142,8 @@ func StripClaimScriptPrefix(script []byte) []byte {
 
 // claimNameSize returns size of the name in a claim script or 0 if script is not a claimtrie transaction.
 func claimNameSize(script []byte) int {
-	cs, err := DecodeClaimScript(script)
+	cs, closer, err := DecodeClaimScript(script)
+	defer closer()
 	if err != nil {
 		return 0
 	}
@@ -200,7 +202,8 @@ func isUpdateClaim(pops []parsedOpcode) bool {
 const illegalChars = "=&#:*$@%?/;\\\b\n\t\r\x00"
 
 func AllClaimsAreSane(script []byte, enforceSoftFork bool) error {
-	cs, err := DecodeClaimScript(script)
+	cs, closer, err := DecodeClaimScript(script)
+	defer closer()
 	if err != ErrNotClaimScript {
 		if err != nil {
 			return fmt.Errorf("invalid claim script: %s", err.Error())

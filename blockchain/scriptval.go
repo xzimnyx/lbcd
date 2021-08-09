@@ -86,6 +86,7 @@ out:
 					txIn.PreviousOutPoint, err, witness,
 					sigScript, pkScript)
 				err := ruleError(ErrScriptMalformed, str)
+				vm.Close()
 				v.sendResult(err)
 				break out
 			}
@@ -100,11 +101,13 @@ out:
 					txIn.PreviousOutPoint, err, witness,
 					sigScript, pkScript)
 				err := ruleError(ErrScriptValidation, str)
+				vm.Close()
 				v.sendResult(err)
 				break out
 			}
 
 			// Validation succeeded.
+			vm.Close()
 			v.sendResult(nil)
 
 		case <-v.quitChan:
