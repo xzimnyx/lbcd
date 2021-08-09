@@ -163,6 +163,9 @@ func (b *BlockChain) GetClaimsForName(height int32, name string) (string, *node.
 
 	n, err := b.claimTrie.NodeAt(height, normalizedName)
 	if err != nil {
+		if n != nil {
+			n.Close()
+		}
 		return string(normalizedName), nil, err
 	}
 

@@ -64,6 +64,7 @@ func (nc *nodeCache) Put(key string, element *Node) {
 	} else if len(nc.elements) >= nc.maxElements {
 		existing = nc.data.Back()
 		delete(nc.elements, existing.Value.(nodeCacheLeaf).key)
+		existing.Value.(nodeCacheLeaf).node.Close()
 		existing.Value = nodeCacheLeaf{element, key}
 		nc.data.MoveToFront(existing)
 		nc.elements[key] = existing
@@ -107,6 +108,9 @@ func (nm *BaseManager) NodeAt(height int32, name []byte) (*Node, error) {
 
 	n, err := nm.newNodeFromChanges(changes, height)
 	if err != nil {
+		if n != nil {
+			n.Close()
+		}
 		return nil, errors.Wrap(err, "in new node")
 	}
 
@@ -161,11 +165,13 @@ func (nm *BaseManager) newNodeFromChanges(changes []change.Change, height int32)
 		delay := nm.getDelayForName(n, chg)
 		err := n.ApplyChange(chg, delay)
 		if err != nil {
+			n.Close()
 			return nil, errors.Wrap(err, "in apply change")
 		}
 	}
 
 	if count <= 0 {
+		n.Close()
 		return nil, nil
 	}
 	lastChange := changes[count-1]
@@ -425,10 +431,13 @@ func (nm *BaseManager) hasChildren(name []byte, height int32, spentChildren map[
 			return true // children that are spent in the same block cannot count as active children
 		}
 		n, _ := nm.newNodeFromChanges(changes, height)
-		if n != nil && n.HasActiveBestClaim() {
-			c[changes[0].Name[len(name)]] = true
-			if len(c) >= required {
-				return false
+		if n != nil {
+			defer n.Close()
+			if n.HasActiveBestClaim() {
+				c[changes[0].Name[len(name)]] = true
+				if len(c) >= required {
+					return false
+				}
 			}
 		}
 		return true

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"sync"
 
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/param"
@@ -26,6 +27,27 @@ func (n *Node) HasActiveBestClaim() bool {
 	return n.BestClaim != nil && n.BestClaim.Status == Activated
 }
 
+var claimPool = sync.Pool{
+	New: func() interface{} {
+		return &Claim{}
+	},
+}
+
+func (n *Node) Close() {
+	n.BestClaim = nil
+	n.SupportSums = nil
+
+	for i := range n.Claims {
+		claimPool.Put(n.Claims[i])
+	}
+	n.Claims = nil
+
+	for i := range n.Supports {
+		claimPool.Put(n.Supports[i])
+	}
+	n.Supports = nil
+}
+
 func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 
 	visibleAt := chg.VisibleHeight
@@ -35,17 +57,19 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 
 	switch chg.Type {
 	case change.AddClaim:
-		c := &Claim{
-			OutPoint: chg.OutPoint,
-			Amount:   chg.Amount,
-			ClaimID:  chg.ClaimID,
-			// CreatedAt:  chg.Height,
-			AcceptedAt: chg.Height,
-			ActiveAt:   chg.Height + delay,
-			VisibleAt:  visibleAt,
-			Sequence:   int32(len(n.Claims)),
-		}
-		// old := n.Claims.find(byOut(chg.OutPoint)) // TODO: remove this after proving ResetHeight works
+		c := claimPool.Get().(*Claim)
+		// set all 8 fields on c as they aren't initialized to 0:
+		c.Status = Accepted
+		c.OutPoint = chg.OutPoint
+		c.Amount = chg.Amount
+		c.ClaimID = chg.ClaimID
+		// CreatedAt:  chg.Height,
+		c.AcceptedAt = chg.Height
+		c.ActiveAt = chg.Height + delay
+		c.VisibleAt = visibleAt
+		c.Sequence = int32(len(n.Claims))
+		// removed this after proving ResetHeight works:
+		// old := n.Claims.find(byOut(chg.OutPoint))
 		// if old != nil {
 		// return errors.Errorf("CONFLICT WITH EXISTING TXO! Name: %s, Height: %d", chg.Name, chg.Height)
 		// }
@@ -63,7 +87,6 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 		// 'two' at 481100, 36a719a156a1df178531f3c712b8b37f8e7cc3b36eea532df961229d936272a1:0
 
 	case change.UpdateClaim:
-		// Find and remove the claim, which has just been spent.
 		c := n.Claims.find(byID(chg.ClaimID))
 		if c != nil && c.Status == Deactivated {
 
@@ -82,14 +105,18 @@ func (n *Node) ApplyChange(chg change.Change, delay int32) error {
 			LogOnce(fmt.Sprintf("Updating claim but missing existing claim with ID %s", chg.ClaimID))
 		}
 	case change.AddSupport:
-		n.Supports = append(n.Supports, &Claim{
-			OutPoint:   chg.OutPoint,
-			Amount:     chg.Amount,
-			ClaimID:    chg.ClaimID,
-			AcceptedAt: chg.Height,
-			ActiveAt:   chg.Height + delay,
-			VisibleAt:  visibleAt,
-		})
+		s := claimPool.Get().(*Claim)
+		// set all 8 fields on s:
+		s.Status = Accepted
+		s.OutPoint = chg.OutPoint
+		s.Amount = chg.Amount
+		s.ClaimID = chg.ClaimID
+		s.AcceptedAt = chg.Height
+		s.ActiveAt = chg.Height + delay
+		s.VisibleAt = visibleAt
+		s.Sequence = int32(len(n.Supports))
+
+		n.Supports = append(n.Supports, s)
 
 	case change.SpendSupport:
 		s := n.Supports.find(byOut(chg.OutPoint))
