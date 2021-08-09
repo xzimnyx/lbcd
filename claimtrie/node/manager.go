@@ -77,6 +77,7 @@ func (nc *nodeCache) Delete(key string) {
 	existing := nc.elements[key]
 	if existing != nil {
 		delete(nc.elements, key)
+		existing.Value.(nodeCacheLeaf).node.Close()
 		nc.data.Remove(existing)
 	}
 }
