@@ -3,7 +3,7 @@ on: [push, pull_request]
 jobs:
   build:
     name: Go CI
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       matrix:
         go: [1.16]
