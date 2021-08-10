@@ -1,4 +1,4 @@
-name: Full Sync
+name: Full Sync From 814k
 
 on:
   workflow_dispatch:
@@ -22,15 +22,15 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: ${{ matrix.go }}
-      - name: Check out source
+      - name: Checkout source
         uses: actions/checkout@v2
-      - name: Install Linters
-        run: "curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.26.0"
-      - name: Build
+      - name: Build chain
         run: go build --tags use_icu_normalization .
-      - name: Create Datadir
-        run: echo "TEMP_DIR=$(mktemp -d)" >> $GITHUB_ENV
-      - name: Full-Sync
-        run: ./chain --datadir ${{env.TEMP_DIR}} --connect 127.0.0.1 --norpc
-      - name: Remove Datadir
-        run: rm -rf --datadir ${{env.TEMP_DIR}}
+      - name: Create datadir
+        run: echo "TEMP_DATA_DIR=$(mktemp -d)" >> $GITHUB_ENV
+      - name: Copy initial data
+        run: cp -r /home/lbry/chain_814k/* ${{env.TEMP_DATA_DIR}}
+      - name: Run chain
+        run: ./chain --datadir=${{env.TEMP_DATA_DIR}}/data --logdir=${{env.TEMP_DATA_DIR}}/logs --connect=127.0.0.1 --norpc
+      - name: Remove datadir
+        run: rm -rf ${{env.TEMP_DATA_DIR}}

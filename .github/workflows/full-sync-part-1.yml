@@ -1,0 +1,34 @@
+name: Full Sync From 0
+
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: 'Note'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    name: Go CI
+    runs-on: self-hosted
+    strategy:
+      matrix:
+        go: [1.16]
+    steps:
+      - run: |
+          echo "Note ${{ github.event.inputs.note }}!"
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Checkout source
+        uses: actions/checkout@v2
+      - name: Build chain
+        run: go build --tags use_icu_normalization .
+      - name: Create datadir
+        run: echo "TEMP_DATA_DIR=$(mktemp -d)" >> $GITHUB_ENV
+      - name: Run chain
+        run: ./chain --datadir=${{env.TEMP_DATA_DIR}}/data --logdir=${{env.TEMP_DATA_DIR}}/logs --connect=127.0.0.1 --norpc
+      - name: Remove datadir
+        run: rm -rf ${{env.TEMP_DATA_DIR}}

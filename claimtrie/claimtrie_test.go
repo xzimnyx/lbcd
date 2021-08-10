@@ -265,8 +265,8 @@ func BenchmarkClaimTrie_AppendBlock(b *testing.B) {
 	}
 
 	param.SetNetwork(wire.TestNet)
-	param.OriginalClaimExpirationTime = 1000000
-	param.ExtendedClaimExpirationTime = 1000000
+	param.ActiveParams.OriginalClaimExpirationTime = 1000000
+	param.ActiveParams.ExtendedClaimExpirationTime = 1000000
 	cfg.DataDir = b.TempDir()
 
 	r := require.New(b)

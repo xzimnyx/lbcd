@@ -1,0 +1,52 @@
+name: Create release
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: 'Note'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        go: [1.16]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go }}
+    - name: Checkout source
+      uses: actions/checkout@v2
+    - name: Build executables
+      env:
+        GO111MODULE: "on"
+      run: go build -trimpath -o artifacts/ --tags use_icu_normalization .
+    - name: Install coreutils for macOS
+      if: matrix.os == 'macos-latest'
+      run: brew install coreutils icu4c
+    - name: SHA256 sum
+      run: sha256sum -b artifacts/* > artifacts/chain.sha256
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: chain-${{ matrix.os }}
+        path: artifacts/*
+
+
+# for releases see https://trstringer.com/github-actions-create-release-upload-artifacts/
+
+# AWS S3 support:
+#    - name: Upload to Amazon S3
+#      uses: ItsKarma/aws-cli@v1.70.0
+#      with:
+#        args: s3 sync .release s3://my-bucket-name
+#      env:
+#        # Make sure to add the secrets in the repo settings page
+#        # AWS_REGION is set to us-east-1 by default
+#        AWS_ACCESS_KEY_ID: $
+#        AWS_SECRET_ACCESS_KEY: $
+#        AWS_REGION: us-east-1
