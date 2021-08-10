@@ -21,13 +21,13 @@ jobs:
         go-version: ${{ matrix.go }}
     - name: Checkout source
       uses: actions/checkout@v2
+    - name: Install coreutils, ICU for macOS
+      if: matrix.os == 'macos-latest'
+      run: brew install coreutils icu4c
     - name: Build executables
       env:
         GO111MODULE: "on"
       run: go build -trimpath -o artifacts/ --tags use_icu_normalization .
-    - name: Install coreutils for macOS
-      if: matrix.os == 'macos-latest'
-      run: brew install coreutils icu4c
     - name: SHA256 sum
       run: sha256sum -b artifacts/* > artifacts/chain.sha256
     - name: Upload artifacts
