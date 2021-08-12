@@ -187,7 +187,7 @@ func (nm *BaseManager) IncrementHeightTo(height int32) ([][]byte, error) {
 		panic("invalid height")
 	}
 
-	if height >= param.ActiveParams.MaxRemovalWorkaroundHeight {
+	if height >= param.ActiveParams.MaxRemovalWorkaroundHeight && height < param.ActiveParams.GrandForkHeight {
 		// not technically needed until block 884430, but to be true to the arbitrary rollback length...
 		collectChildNames(nm.changes)
 	}

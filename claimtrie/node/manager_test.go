@@ -270,7 +270,7 @@ func TestEndOfExpiration(t *testing.T) {
 	r.NoError(err)
 	n, err := m.NodeAt(m.height, name1)
 	r.NoError(err)
-	r.Equal(m.height + param.ActiveParams.ExtendedClaimExpirationTime, n.NextUpdate(m.height))
+	r.Equal(m.height+param.ActiveParams.ExtendedClaimExpirationTime, n.NextUpdate(m.height))
 
 	_, err = m.IncrementHeightTo(gf)
 	r.NoError(err)
