@@ -114,7 +114,10 @@ func (n *Node) AdjustTo(height, maxHeight int32, name []byte) *Node {
 	changed := n.handleExpiredAndActivated(height) > 0
 	n.updateTakeoverHeight(height, name, changed)
 	if maxHeight > height {
-		for h := n.NextUpdate(); h <= maxHeight; h = n.NextUpdate() {
+		for h := n.NextUpdate(height); h <= maxHeight; h = n.NextUpdate(height) {
+			if h <= 0 {
+				break
+			}
 			changed = n.handleExpiredAndActivated(h) > 0
 			n.updateTakeoverHeight(h, name, changed)
 			height = h
@@ -167,7 +170,7 @@ func (n *Node) handleExpiredAndActivated(height int32) int {
 					sums[c.ClaimID.Key()] += c.Amount
 				}
 			}
-			if c.ExpireAt() <= height || c.Status == Deactivated {
+			if c.Status == Deactivated || (height < param.ActiveParams.GrandForkHeight && c.ExpireAt() <= height) {
 				if i < len(items)-1 {
 					items[i] = items[len(items)-1]
 					i--
@@ -188,12 +191,12 @@ func (n *Node) handleExpiredAndActivated(height int32) int {
 
 // NextUpdate returns the nearest height in the future that the node should
 // be refreshed due to changes of claims or supports.
-func (n Node) NextUpdate() int32 {
+func (n Node) NextUpdate(height int32) int32 {
 
 	next := int32(math.MaxInt32)
 
 	for _, c := range n.Claims {
-		if c.ExpireAt() < next {
+		if height < param.ActiveParams.GrandForkHeight && c.ExpireAt() < next {
 			next = c.ExpireAt()
 		}
 		// if we're not active, we need to go to activeAt unless we're still invisible there
@@ -209,7 +212,7 @@ func (n Node) NextUpdate() int32 {
 	}
 
 	for _, s := range n.Supports {
-		if s.ExpireAt() < next {
+		if height < param.ActiveParams.GrandForkHeight && s.ExpireAt() < next {
 			next = s.ExpireAt()
 		}
 		if s.Status == Accepted {
@@ -221,6 +224,10 @@ func (n Node) NextUpdate() int32 {
 				next = min
 			}
 		}
+	}
+
+	if next == int32(math.MaxInt32) || next <= height {
+		return 0
 	}
 
 	return next
