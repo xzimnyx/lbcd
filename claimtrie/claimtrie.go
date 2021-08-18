@@ -422,7 +422,7 @@ func (ct *ClaimTrie) makeNameHashNext(names [][]byte, all bool) chan NameHashNex
 	outputs := make(chan NameHashNext, 512)
 
 	var wg sync.WaitGroup
-	computeHash := func() {
+	hashComputationWorker := func() {
 		for name := range inputs {
 			hash, next := ct.nodeManager.Hash(name)
 			outputs <- NameHashNext{name, hash, next}
@@ -437,7 +437,7 @@ func (ct *ClaimTrie) makeNameHashNext(names [][]byte, all bool) chan NameHashNex
 	for threads >= 0 {
 		threads--
 		wg.Add(1)
-		go computeHash()
+		go hashComputationWorker()
 	}
 	go func() {
 		if all {

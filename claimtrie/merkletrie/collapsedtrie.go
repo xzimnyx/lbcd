@@ -6,7 +6,7 @@ import (
 
 type KeyType []byte
 
-type collapsedVertex struct { // implements sort.Interface
+type collapsedVertex struct {
 	children   []*collapsedVertex
 	key        KeyType
 	merkleHash *chainhash.Hash

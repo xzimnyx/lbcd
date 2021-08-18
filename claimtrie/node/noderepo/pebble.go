@@ -103,15 +103,8 @@ func (repo *Pebble) IterateChildren(name []byte, f func(changes []change.Change)
 	start := make([]byte, len(name)+1) // zeros that last byte; need a constant len for stack alloc?
 	copy(start, name)
 
-	end := make([]byte, 256) // max name length is 255
-	copy(end, name)
-	for i := len(name); i < 256; i++ {
-		end[i] = 255
-	}
-
 	prefixIterOptions := &pebble.IterOptions{
 		LowerBound: start,
-		UpperBound: end,
 	}
 
 	iter := repo.db.NewIter(prefixIterOptions)
@@ -119,6 +112,9 @@ func (repo *Pebble) IterateChildren(name []byte, f func(changes []change.Change)
 
 	for iter.First(); iter.Valid(); iter.Next() {
 		// NOTE! iter.Key() is ephemeral!
+		if len(iter.Key()) <= len(name) || !bytes.Equal(name, iter.Key()[:len(name)]) {
+			break
+		}
 		changes, err := unmarshalChanges(iter.Key(), iter.Value())
 		if err != nil {
 			return errors.Wrapf(err, "from unmarshaller at %s", iter.Key())

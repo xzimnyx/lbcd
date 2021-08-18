@@ -22,13 +22,13 @@ type Change struct {
 	Type   ChangeType
 	Height int32
 
-	Name     []byte `msg:"-"`
+	Name     []byte
 	ClaimID  ClaimID
 	OutPoint wire.OutPoint
 	Amount   int64
 
-	ActiveHeight  int32 // for normalization fork
-	VisibleHeight int32
+	ActiveHeight  int32
+	VisibleHeight int32 // for normalization fork
 
 	SpentChildren map[string]bool
 }
