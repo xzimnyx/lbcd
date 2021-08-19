@@ -65,9 +65,11 @@ html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 
 # app setup hook
+
+
 def setup(app):
     app.add_config_value('recommonmark_config', {
-        #'url_resolver': lambda url: github_doc_root + url,
+        # 'url_resolver': lambda url: github_doc_root + url,
         'auto_toc_tree_section': 'Contents',
         'enable_math': False,
         'enable_inline_math': False,
