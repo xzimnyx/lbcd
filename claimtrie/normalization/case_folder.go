@@ -35,8 +35,10 @@ func init() {
 func CaseFold(name []byte) []byte {
 	var b bytes.Buffer
 	b.Grow(len(name))
-	for _, r := range string(name) {
-		if r == utf8.RuneError {
+	for i := 0; i < len(name); {
+		r, w := utf8.DecodeRune(name[i:])
+		if r == utf8.RuneError && w < 2 {
+			// HACK: their RuneError is actually a valid character if coming from a width of 2 or more
 			return name
 		}
 		replacements := foldMap[r]
@@ -47,6 +49,7 @@ func CaseFold(name []byte) []byte {
 		} else {
 			b.WriteRune(r)
 		}
+		i += w
 	}
 	return b.Bytes()
 }
