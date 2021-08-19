@@ -24,11 +24,6 @@ func (b *BlockChain) SetClaimtrieHeader(block *btcutil.Block, view *UtxoViewpoin
 		return errors.Wrapf(err, "in parse claim scripts")
 	}
 
-	err = b.claimTrie.AppendBlock()
-	if err != nil {
-		return errors.Wrapf(err, "in append block")
-	}
-
 	block.MsgBlock().Header.ClaimTrie = *b.claimTrie.MerkleHash()
 	err = b.claimTrie.ResetHeight(b.claimTrie.Height() - 1)
 
