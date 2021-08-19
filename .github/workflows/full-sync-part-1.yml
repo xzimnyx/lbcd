@@ -25,7 +25,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v2
       - name: Build lbcd
-        run: go build --tags use_icu_normalization .
+        run: go build .
       - name: Create datadir
         run: echo "TEMP_DATA_DIR=$(mktemp -d)" >> $GITHUB_ENV
       - name: Run lbcd
