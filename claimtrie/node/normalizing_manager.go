@@ -4,6 +4,7 @@ import (
 	"bytes"
 
 	"github.com/btcsuite/btcd/claimtrie/change"
+	"github.com/btcsuite/btcd/claimtrie/normalization"
 	"github.com/btcsuite/btcd/claimtrie/param"
 )
 
@@ -20,7 +21,7 @@ func NewNormalizingManager(baseManager Manager) Manager {
 }
 
 func (nm *NormalizingManager) AppendChange(chg change.Change) {
-	chg.Name = NormalizeIfNecessary(chg.Name, chg.Height)
+	chg.Name = normalization.NormalizeIfNecessary(chg.Name, chg.Height)
 	nm.Manager.AppendChange(chg)
 }
 
@@ -54,7 +55,7 @@ func (nm *NormalizingManager) addNormalizationForkChangesIfNecessary(height int3
 	// the original code had an unfortunate bug where many unnecessary takeovers
 	// were triggered at the normalization fork
 	predicate := func(name []byte) bool {
-		norm := Normalize(name)
+		norm := normalization.Normalize(name)
 		eq := bytes.Equal(name, norm)
 		if eq {
 			return true

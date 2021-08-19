@@ -1,4 +1,4 @@
-package node
+package normalization
 
 import (
 	"math/rand"

@@ -9,6 +9,7 @@ import (
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/claimtrie/node"
+	"github.com/btcsuite/btcd/claimtrie/normalization"
 	"github.com/btcsuite/btcd/database"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
@@ -336,7 +337,7 @@ func lookupValue(s *rpcServer, outpoint wire.OutPoint, includeValues *bool) (str
 func handleGetNormalized(_ *rpcServer, cmd interface{}, _ <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.GetNormalizedCmd)
 	r := btcjson.GetNormalizedResult{
-		NormalizedName: string(node.Normalize([]byte(c.Name))),
+		NormalizedName: string(normalization.Normalize([]byte(c.Name))),
 	}
 	return r, nil
 }

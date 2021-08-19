@@ -1,6 +1,6 @@
 // +build use_icu_normalization
 
-package node
+package normalization
 
 // #cgo CFLAGS: -O2
 // #cgo LDFLAGS: -licuio -licui18n -licuuc -licudata

@@ -1,6 +1,6 @@
 // +build use_icu_normalization
 
-package node
+package normalization
 
 import (
 	"github.com/stretchr/testify/assert"

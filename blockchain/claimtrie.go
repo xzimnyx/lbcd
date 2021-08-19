@@ -13,6 +13,7 @@ import (
 	"github.com/btcsuite/btcd/claimtrie"
 	"github.com/btcsuite/btcd/claimtrie/change"
 	"github.com/btcsuite/btcd/claimtrie/node"
+	"github.com/btcsuite/btcd/claimtrie/normalization"
 )
 
 func (b *BlockChain) SetClaimtrieHeader(block *btcutil.Block, view *UtxoViewpoint) error {
@@ -94,11 +95,11 @@ func (h *handler) handleTxIns(ct *claimtrie.ClaimTrie) error {
 		switch cs.Opcode() {
 		case txscript.OP_CLAIMNAME: // OP code from previous transaction
 			id = change.NewClaimID(op) // claimID of the previous item now being spent
-			h.spent[id.Key()] = node.NormalizeIfNecessary(name, ct.Height())
+			h.spent[id.Key()] = normalization.NormalizeIfNecessary(name, ct.Height())
 			err = ct.SpendClaim(name, op, id)
 		case txscript.OP_UPDATECLAIM:
 			copy(id[:], cs.ClaimID())
-			h.spent[id.Key()] = node.NormalizeIfNecessary(name, ct.Height())
+			h.spent[id.Key()] = normalization.NormalizeIfNecessary(name, ct.Height())
 			err = ct.SpendClaim(name, op, id)
 		case txscript.OP_SUPPORTCLAIM:
 			copy(id[:], cs.ClaimID())
@@ -138,7 +139,7 @@ func (h *handler) handleTxOuts(ct *claimtrie.ClaimTrie) error {
 			// that was a safety feature, but it should have rejected the transaction instead
 			// TODO: reject transactions with invalid update commands
 			copy(id[:], cs.ClaimID())
-			normName := node.NormalizeIfNecessary(name, ct.Height())
+			normName := normalization.NormalizeIfNecessary(name, ct.Height())
 			if !bytes.Equal(h.spent[id.Key()], normName) {
 				node.LogOnce(fmt.Sprintf("Invalid update operation: name or ID mismatch at %d for: %s, %s",
 					ct.Height(), normName, id.String()))
@@ -164,7 +165,7 @@ func (b *BlockChain) GetNamesChangedInBlock(height int32) ([]string, error) {
 
 func (b *BlockChain) GetClaimsForName(height int32, name string) (string, *node.Node, error) {
 
-	normalizedName := node.NormalizeIfNecessary([]byte(name), height)
+	normalizedName := normalization.NormalizeIfNecessary([]byte(name), height)
 
 	b.chainLock.RLock()
 	defer b.chainLock.RUnlock()

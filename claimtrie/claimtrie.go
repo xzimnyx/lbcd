@@ -18,6 +18,7 @@ import (
 	"github.com/btcsuite/btcd/claimtrie/merkletrie/merkletrierepo"
 	"github.com/btcsuite/btcd/claimtrie/node"
 	"github.com/btcsuite/btcd/claimtrie/node/noderepo"
+	"github.com/btcsuite/btcd/claimtrie/normalization"
 	"github.com/btcsuite/btcd/claimtrie/param"
 	"github.com/btcsuite/btcd/claimtrie/temporal"
 	"github.com/btcsuite/btcd/claimtrie/temporal/temporalrepo"
@@ -250,7 +251,7 @@ func (ct *ClaimTrie) AppendBlock() error {
 			continue
 		}
 
-		newName := node.NormalizeIfNecessary(nhn.Name, nhn.Next)
+		newName := normalization.NormalizeIfNecessary(nhn.Name, nhn.Next)
 		updateNames = append(updateNames, newName)
 		updateHeights = append(updateHeights, nhn.Next)
 	}
