@@ -30,13 +30,14 @@ jobs:
       env:
         GOOS: ${{ matrix.os }}
         GOARCH: ${{ matrix.ar }}
-      run: go build -trimpath -o artifacts/ .
+        CGO_ENABLED: 0
+      run: go build -trimpath -ldflags="-s -w -buildid=" -v -o artifacts/ .
     - name: SHA256 sum
       run: sha256sum -b artifacts/* > artifacts/lbcd.sha256
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: lbcd-${{ matrix.os }}
+        name: lbcd-${{ matrix.os }}-${{ matrix.ar }}
         path: artifacts/*
 
 
