@@ -15,6 +15,26 @@ import (
 	"github.com/btcsuite/btcd/claimtrie/node"
 )
 
+func (b *BlockChain) SetClaimtrieHeader(block *btcutil.Block, view *UtxoViewpoint) error {
+	b.chainLock.Lock()
+	defer b.chainLock.Unlock()
+
+	err := b.ParseClaimScripts(block, nil, view, false, false)
+	if err != nil {
+		return errors.Wrapf(err, "in parse claim scripts")
+	}
+
+	err = b.claimTrie.AppendBlock()
+	if err != nil {
+		return errors.Wrapf(err, "in append block")
+	}
+
+	block.MsgBlock().Header.ClaimTrie = *b.claimTrie.MerkleHash()
+	err = b.claimTrie.ResetHeight(b.claimTrie.Height() - 1)
+
+	return errors.Wrapf(err, "in reset height")
+}
+
 func (b *BlockChain) ParseClaimScripts(block *btcutil.Block, bn *blockNode, view *UtxoViewpoint,
 	failOnHashMiss bool, shouldFlush bool) error {
 	ht := block.Height()
@@ -39,7 +59,7 @@ func (b *BlockChain) ParseClaimScripts(block *btcutil.Block, bn *blockNode, view
 	}
 
 	hash := b.claimTrie.MerkleHash()
-	if bn.claimTrie != *hash {
+	if bn != nil && bn.claimTrie != *hash {
 		if failOnHashMiss {
 			return errors.Errorf("height: %d, ct.MerkleHash: %s != node.ClaimTrie: %s", ht, *hash, bn.claimTrie)
 		}
