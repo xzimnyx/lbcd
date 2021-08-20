@@ -208,6 +208,13 @@ func removeRegressionDB(dbPath string) error {
 		}
 	}
 
+	dbPath = filepath.Join(cfg.DataDir, activeNetParams.Name, "claim_dbs")
+	btcdLog.Infof("Removing regression test claim databases from '%s'", dbPath)
+	err = os.RemoveAll(dbPath)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
