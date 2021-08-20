@@ -64,6 +64,10 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 		return nil, errors.Wrap(err, "creating block repo")
 	}
 	cleanups = append(cleanups, blockRepo.Close)
+	err = blockRepo.Set(0, merkletrie.EmptyTrieHash)
+	if err != nil {
+		return nil, errors.Wrap(err, "setting block repo genesis")
+	}
 
 	dbPath = filepath.Join(dataDir, cfg.TemporalRepoPebble.Path)
 	temporalRepo, err := temporalrepo.NewPebble(dbPath)
