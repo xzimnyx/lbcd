@@ -3053,7 +3053,7 @@ func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wir
 			}
 		}
 	} else {
-		if !cfg.NoUpnp {
+		if !cfg.NoUpnp && !cfg.RegressionTest && !cfg.SimNet {
 			var err error
 			nat, err = Discover()
 			if err != nil {
