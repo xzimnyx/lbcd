@@ -304,7 +304,7 @@ func removeDuplicates(names [][]byte) [][]byte { // this might be too expensive;
 	return names
 }
 
-// ResetHeight resets the ClaimTrie to a previous known height..
+// ResetHeight resets the ClaimTrie to a previous known height.
 func (ct *ClaimTrie) ResetHeight(height int32) error {
 
 	names := make([][]byte, 0)
@@ -321,6 +321,9 @@ func (ct *ClaimTrie) ResetHeight(height int32) error {
 	}
 
 	passedHashFork := ct.height >= param.ActiveParams.AllClaimsInMerkleForkHeight && height < param.ActiveParams.AllClaimsInMerkleForkHeight
+	if !passedHashFork {
+		passedHashFork = ct.height >= param.ActiveParams.GrandForkHeight && height < param.ActiveParams.GrandForkHeight
+	}
 	hash, err := ct.blockRepo.Get(height)
 	if err != nil {
 		return err
@@ -468,4 +471,22 @@ func (ct *ClaimTrie) makeNameHashNext(names [][]byte, all bool) chan NameHashNex
 		close(outputs)
 	}()
 	return outputs
+}
+
+func (ct *ClaimTrie) MerklePath(name []byte, n *node.Node, bid int) []merkletrie.HashSidePair {
+	pairs := ct.merkleTrie.MerklePath(name)
+	// TODO: organize this code better
+	// this is the 2nd half of the above merkle tree computation
+	// it's done like this so we don't have to create the Node object multiple times
+	claimHashes := node.ComputeClaimHashes(name, n)
+	partials := node.ComputeMerklePath(claimHashes, bid)
+	for i := len(partials) - 1; i >= 0; i-- {
+		pairs = append(pairs, merkletrie.HashSidePair{Right: ((bid >> i) & 1) > 0, Hash: partials[i]})
+	}
+
+	// reverse the list order:
+	for i, j := 0, len(pairs)-1; i < j; i, j = i+1, j-1 {
+		pairs[i], pairs[j] = pairs[j], pairs[i]
+	}
+	return pairs
 }
