@@ -20,7 +20,7 @@ func (b *BlockChain) SetClaimtrieHeader(block *btcutil.Block, view *UtxoViewpoin
 	b.chainLock.Lock()
 	defer b.chainLock.Unlock()
 
-	err := b.ParseClaimScripts(block, nil, view, false, false)
+	err := b.ParseClaimScripts(block, nil, view, false)
 	if err != nil {
 		return errors.Wrapf(err, "in parse claim scripts")
 	}
@@ -31,8 +31,7 @@ func (b *BlockChain) SetClaimtrieHeader(block *btcutil.Block, view *UtxoViewpoin
 	return errors.Wrapf(err, "in reset height")
 }
 
-func (b *BlockChain) ParseClaimScripts(block *btcutil.Block, bn *blockNode, view *UtxoViewpoint,
-	failOnHashMiss bool, shouldFlush bool) error {
+func (b *BlockChain) ParseClaimScripts(block *btcutil.Block, bn *blockNode, view *UtxoViewpoint, shouldFlush bool) error {
 	ht := block.Height()
 
 	for _, tx := range block.Transactions() {
@@ -56,10 +55,10 @@ func (b *BlockChain) ParseClaimScripts(block *btcutil.Block, bn *blockNode, view
 
 	hash := b.claimTrie.MerkleHash()
 	if bn != nil && bn.claimTrie != *hash {
-		if failOnHashMiss {
-			return errors.Errorf("height: %d, ct.MerkleHash: %s != node.ClaimTrie: %s", ht, *hash, bn.claimTrie)
-		}
-		node.LogOnce(fmt.Sprintf("\n\nHeight: %d, ct.MerkleHash: %s != node.ClaimTrie: %s, Error: %s", ht, *hash, bn.claimTrie, err))
+		// undo our AppendBlock call as we've decided that our interpretation of the block data is incorrect,
+		// or that the person who made the block assembled the pieces incorrectly.
+		_ = b.claimTrie.ResetHeight(b.claimTrie.Height() - 1)
+		return errors.Errorf("height: %d, computed hash: %s != header's ClaimTrie: %s", ht, *hash, bn.claimTrie)
 	}
 	return nil
 }

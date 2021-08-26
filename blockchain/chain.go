@@ -586,7 +586,7 @@ func (b *BlockChain) connectBlock(node *blockNode, block *btcutil.Block,
 
 	// Handle LBRY Claim Scripts
 	if b.claimTrie != nil {
-		if err := b.ParseClaimScripts(block, node, view, false, current); err != nil {
+		if err := b.ParseClaimScripts(block, node, view, current); err != nil {
 			return ruleError(ErrBadClaimTrie, err.Error())
 		}
 	}
@@ -1881,7 +1881,7 @@ func rebuildMissingClaimTrieData(b *BlockChain, done <-chan struct{}) error {
 		}
 
 		if h >= b.claimTrie.Height() {
-			err = b.ParseClaimScripts(block, n, view, true, false)
+			err = b.ParseClaimScripts(block, n, view, false)
 			if err != nil {
 				return err
 			}
