@@ -66,7 +66,7 @@ func TestNilNameHandling(t *testing.T) {
 }
 
 func TestCollapsedTriePerformance(t *testing.T) {
-	inserts := 10000 // increase this to 1M for more interesting results
+	inserts := 100000 // increase this to 1M for more interesting results
 	data := make([][]byte, inserts)
 	rand.Seed(42)
 	for i := 0; i < inserts; i++ {

@@ -338,9 +338,14 @@ func BenchmarkClaimTrie_AppendBlock(b *testing.B) {
 	b.StopTimer()
 	ht := ct.height
 	h1 = *ct.MerkleHash()
-	ct.Close()
 	b.Logf("Running AppendBlock bench with %d names in %f sec. Height: %d, Hash: %s",
 		b.N, time.Since(start).Seconds(), ht, h1.String())
+
+	// a very important test of the functionality:
+	for ct.height > 0 {
+		err = ct.ResetHeight(ct.height - 1)
+		r.NoError(err)
+	}
 }
 
 func randomName() []byte {

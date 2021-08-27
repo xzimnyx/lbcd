@@ -318,11 +318,12 @@ func (ct *ClaimTrie) ResetHeight(height int32) error {
 	}
 
 	passedHashFork := ct.height >= param.ActiveParams.AllClaimsInMerkleForkHeight && height < param.ActiveParams.AllClaimsInMerkleForkHeight
-	ct.height = height
 	hash, err := ct.blockRepo.Get(height)
 	if err != nil {
 		return err
 	}
+
+	ct.height = height // keep this before the rebuild
 
 	if passedHashFork {
 		names = nil // force them to reconsider all names

@@ -42,13 +42,7 @@ func (rt *RamTrie) SetRoot(h *chainhash.Hash) error {
 		return nil
 	}
 
-	// should technically clear the old trie first:
-	if rt.Nodes > 1 {
-		rt.Root = &collapsedVertex{key: make(KeyType, 0)}
-		rt.Nodes = 1
-		runtime.GC()
-	}
-
+	// should technically clear the old trie first, but this is abused for partial rebuilds so don't
 	return ErrFullRebuildRequired
 }
 

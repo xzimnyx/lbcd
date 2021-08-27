@@ -773,8 +773,10 @@ func (b *BlockChain) disconnectBlock(node *blockNode, block *btcutil.Block, view
 		return err
 	}
 
-	if err = b.claimTrie.ResetHeight(node.parent.height); err != nil {
-		return err
+	if b.claimTrie != nil {
+		if err = b.claimTrie.ResetHeight(node.parent.height); err != nil {
+			return err
+		}
 	}
 
 	// Prune fully spent entries and mark all entries in the view unmodified

@@ -86,7 +86,7 @@ func (repo *Pebble) DropChanges(name []byte, finalHeight int32) error {
 		return errors.Wrapf(err, "in load changes for %s", name)
 	}
 	i := 0
-	for ; i < len(changes); i++ {
+	for ; i < len(changes); i++ { // assuming changes are ordered by height
 		if changes[i].Height > finalHeight {
 			break
 		}
