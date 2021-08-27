@@ -31,7 +31,9 @@ jobs:
         GOOS: ${{ matrix.os }}
         GOARCH: ${{ matrix.ar }}
         CGO_ENABLED: 0
-      run: go build -trimpath -ldflags="-s -w -buildid=" -v -o artifacts/ .
+      run: |
+        go build -trimpath -ldflags="-s -w -buildid=" -v -o artifacts/ .
+        go build -trimpath -ldflags="-s -w -buildid=" -v -o artifacts/ ./cmd/lbcctl/
     - name: SHA256 sum
       run: sha256sum -b artifacts/* > artifacts/lbcd.sha256
     - name: Upload artifacts
