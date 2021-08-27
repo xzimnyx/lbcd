@@ -440,7 +440,7 @@ func (ct *ClaimTrie) makeNameHashNext(names [][]byte, all bool) chan NameHashNex
 	if threads < 1 {
 		threads = 1
 	}
-	for threads >= 0 {
+	for threads > 0 {
 		threads--
 		wg.Add(1)
 		go hashComputationWorker()
