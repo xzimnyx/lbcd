@@ -1,9 +1,7 @@
 database
 ========
 
-[![Build Status](https://github.com/btcsuite/btcd/workflows/Build%20and%20Test/badge.svg)](https://github.com/btcsuite/btcd/actions)
 [![ISC License](http://img.shields.io/badge/license-ISC-blue.svg)](http://copyfree.org)
-[![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://pkg.go.dev/github.com/btcsuite/btcd/database)
 
 Package database provides a block and metadata storage database.
 
@@ -33,25 +31,3 @@ storage, and strict checksums in key areas to ensure data integrity.
 - Iteration support including cursors with seek capability
 - Supports registration of backend databases
 - Comprehensive test coverage
-
-## Installation and Updating
-
-```bash
-$ go get -u github.com/btcsuite/btcd/database
-```
-
-## Examples
-
-* [Basic Usage Example](https://pkg.go.dev/github.com/btcsuite/btcd/database#example-package--BasicUsage)  
-  Demonstrates creating a new database and using a managed read-write
-  transaction to store and retrieve metadata.
-
-* [Block Storage and Retrieval Example](https://pkg.go.dev/github.com/btcsuite/btcd/database#example-package--BlockStorageAndRetrieval)  
-  Demonstrates creating a new database, using a managed read-write transaction
-  to store a block, and then using a managed read-only transaction to fetch the
-  block.
-
-## License
-
-Package database is licensed under the [copyfree](http://copyfree.org) ISC
-License.

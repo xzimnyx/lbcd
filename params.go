@@ -37,7 +37,7 @@ var mainNetParams = params{
 // details.
 var regressionNetParams = params{
 	Params:  &chaincfg.RegressionNetParams,
-	rpcPort: "19245",
+	rpcPort: "29245",
 }
 
 // testNet3Params contains parameters specific to the test network (version 3)
