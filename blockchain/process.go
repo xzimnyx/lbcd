@@ -10,7 +10,7 @@ import (
 
 	"github.com/lbryio/lbcd/chaincfg/chainhash"
 	"github.com/lbryio/lbcd/database"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 // BehaviorFlags is a bitmask defining tweaks to the normal behavior when

@@ -12,7 +12,7 @@ import (
 
 	"github.com/lbryio/lbcd/rpcclient"
 	"github.com/lbryio/lbcd/wire"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 func main() {

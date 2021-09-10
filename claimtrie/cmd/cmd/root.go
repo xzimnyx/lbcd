@@ -3,10 +3,10 @@ package cmd
 import (
 	"os"
 
+	"github.com/btcsuite/btclog"
 	"github.com/lbryio/lbcd/claimtrie/config"
 	"github.com/lbryio/lbcd/claimtrie/param"
 	"github.com/lbryio/lbcd/wire"
-	"github.com/btcsuite/btclog"
 
 	"github.com/spf13/cobra"
 )

@@ -19,7 +19,7 @@ import (
 	"github.com/lbryio/lbcd/mempool"
 	peerpkg "github.com/lbryio/lbcd/peer"
 	"github.com/lbryio/lbcd/wire"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 const (

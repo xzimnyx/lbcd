@@ -2,10 +2,11 @@ package merkletrie
 
 import (
 	"bytes"
-	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func b(value string) []byte      { return []byte(value) }

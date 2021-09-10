@@ -8,7 +8,7 @@ import (
 
 	"github.com/lbryio/lbcd/txscript"
 	"github.com/lbryio/lbcd/wire"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 
 	"github.com/lbryio/lbcd/claimtrie"
 	"github.com/lbryio/lbcd/claimtrie/change"

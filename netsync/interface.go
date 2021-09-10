@@ -11,7 +11,7 @@ import (
 	"github.com/lbryio/lbcd/mempool"
 	"github.com/lbryio/lbcd/peer"
 	"github.com/lbryio/lbcd/wire"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 // PeerNotifier exposes methods to notify peers of status changes to

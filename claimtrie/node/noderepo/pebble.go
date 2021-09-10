@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/lbryio/lbcd/claimtrie/change"
 	"github.com/cockroachdb/pebble"
+	"github.com/lbryio/lbcd/claimtrie/change"
 	"github.com/pkg/errors"
 )
 

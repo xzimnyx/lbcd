@@ -27,6 +27,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/btcsuite/websocket"
 	"github.com/lbryio/lbcd/blockchain"
 	"github.com/lbryio/lbcd/blockchain/indexers"
 	"github.com/lbryio/lbcd/btcec"
@@ -40,8 +41,7 @@ import (
 	"github.com/lbryio/lbcd/peer"
 	"github.com/lbryio/lbcd/txscript"
 	"github.com/lbryio/lbcd/wire"
-	"github.com/btcsuite/btcutil"
-	"github.com/btcsuite/websocket"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 // API version constants

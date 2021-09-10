@@ -2,8 +2,9 @@ package node
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"sort"
+
+	"github.com/pkg/errors"
 
 	"github.com/lbryio/lbcd/chaincfg/chainhash"
 	"github.com/lbryio/lbcd/claimtrie/change"

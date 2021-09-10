@@ -3,10 +3,11 @@ package merkletrie
 import (
 	"bytes"
 	"fmt"
-	"github.com/pkg/errors"
 	"runtime"
 	"sort"
 	"sync"
+
+	"github.com/pkg/errors"
 
 	"github.com/lbryio/lbcd/chaincfg/chainhash"
 	"github.com/lbryio/lbcd/claimtrie/node"

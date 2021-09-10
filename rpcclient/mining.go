@@ -11,7 +11,7 @@ import (
 
 	"github.com/lbryio/lbcd/btcjson"
 	"github.com/lbryio/lbcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 // FutureGenerateResult is a future promise to deliver the result of a

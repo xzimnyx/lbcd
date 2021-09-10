@@ -1092,7 +1092,7 @@ import (
 	"path/filepath"
 
 	"github.com/lbryio/lbcd/rpcclient"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 func main() {
@@ -1156,7 +1156,7 @@ import (
 
 	"github.com/lbryio/lbcd/chaincfg/chainhash"
 	"github.com/lbryio/lbcd/rpcclient"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 func main() {
@@ -1248,7 +1248,7 @@ import (
 
 	"github.com/lbryio/lbcd/chaincfg/chainhash"
 	"github.com/lbryio/lbcd/rpcclient"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 func main() {

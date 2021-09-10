@@ -6,6 +6,7 @@ package rpcclient
 
 import (
 	"fmt"
+
 	"github.com/lbryio/lbcd/btcjson"
 )
 

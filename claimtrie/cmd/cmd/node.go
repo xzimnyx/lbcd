@@ -6,10 +6,10 @@ import (
 	"math"
 	"path/filepath"
 
+	"github.com/cockroachdb/errors"
 	"github.com/lbryio/lbcd/claimtrie/change"
 	"github.com/lbryio/lbcd/claimtrie/node"
 	"github.com/lbryio/lbcd/claimtrie/node/noderepo"
-	"github.com/cockroachdb/errors"
 
 	"github.com/spf13/cobra"
 )

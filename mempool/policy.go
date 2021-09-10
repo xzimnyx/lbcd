@@ -11,7 +11,7 @@ import (
 	"github.com/lbryio/lbcd/blockchain"
 	"github.com/lbryio/lbcd/txscript"
 	"github.com/lbryio/lbcd/wire"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 const (

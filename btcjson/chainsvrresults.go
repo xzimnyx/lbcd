@@ -12,7 +12,7 @@ import (
 	"github.com/lbryio/lbcd/chaincfg/chainhash"
 
 	"github.com/lbryio/lbcd/wire"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 // GetBlockHeaderVerboseResult models the data from the getblockheader command when

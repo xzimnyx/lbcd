@@ -18,13 +18,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/btcsuite/go-socks/socks"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/decred/dcrd/lru"
 	"github.com/lbryio/lbcd/blockchain"
 	"github.com/lbryio/lbcd/chaincfg"
 	"github.com/lbryio/lbcd/chaincfg/chainhash"
 	"github.com/lbryio/lbcd/wire"
-	"github.com/btcsuite/go-socks/socks"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/decred/dcrd/lru"
 )
 
 const (

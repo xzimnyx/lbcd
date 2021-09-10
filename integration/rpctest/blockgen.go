@@ -17,7 +17,7 @@ import (
 	"github.com/lbryio/lbcd/mining"
 	"github.com/lbryio/lbcd/txscript"
 	"github.com/lbryio/lbcd/wire"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 // solveBlock attempts to find a nonce which makes the passed block header hash

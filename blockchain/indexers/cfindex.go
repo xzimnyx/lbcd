@@ -12,9 +12,9 @@ import (
 	"github.com/lbryio/lbcd/chaincfg/chainhash"
 	"github.com/lbryio/lbcd/database"
 	"github.com/lbryio/lbcd/wire"
-	"github.com/btcsuite/btcutil"
-	"github.com/btcsuite/btcutil/gcs"
-	"github.com/btcsuite/btcutil/gcs/builder"
+	btcutil "github.com/lbryio/lbcutil"
+	"github.com/lbryio/lbcutil/gcs"
+	"github.com/lbryio/lbcutil/gcs/builder"
 )
 
 const (

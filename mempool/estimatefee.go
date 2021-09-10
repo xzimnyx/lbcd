@@ -18,7 +18,7 @@ import (
 
 	"github.com/lbryio/lbcd/chaincfg/chainhash"
 	"github.com/lbryio/lbcd/mining"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 // TODO incorporate Alex Morcos' modifications to Gavin's initial model

@@ -1,8 +1,9 @@
 package node
 
 import (
-	"github.com/btcsuite/btclog"
 	"sync"
+
+	"github.com/btcsuite/btclog"
 )
 
 // log is a logger that is initialized with no output filters.  This

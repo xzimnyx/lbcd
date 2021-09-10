@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/btcsuite/go-socks/socks"
+	flags "github.com/jessevdk/go-flags"
 	"github.com/lbryio/lbcd/blockchain"
 	"github.com/lbryio/lbcd/chaincfg"
 	"github.com/lbryio/lbcd/chaincfg/chainhash"
@@ -29,9 +31,7 @@ import (
 	_ "github.com/lbryio/lbcd/database/ffldb"
 	"github.com/lbryio/lbcd/mempool"
 	"github.com/lbryio/lbcd/peer"
-	"github.com/btcsuite/btcutil"
-	"github.com/btcsuite/go-socks/socks"
-	flags "github.com/jessevdk/go-flags"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 const (

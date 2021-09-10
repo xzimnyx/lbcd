@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/lbryio/lbcd/btcjson"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 // TestWalletSvrCmds tests all of the wallet server commands marshal and

@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/btcsuite/websocket"
 	"github.com/lbryio/lbcd/blockchain"
 	"github.com/lbryio/lbcd/btcjson"
 	"github.com/lbryio/lbcd/chaincfg"
@@ -27,8 +28,7 @@ import (
 	"github.com/lbryio/lbcd/database"
 	"github.com/lbryio/lbcd/txscript"
 	"github.com/lbryio/lbcd/wire"
-	"github.com/btcsuite/btcutil"
-	"github.com/btcsuite/websocket"
+	btcutil "github.com/lbryio/lbcutil"
 	"golang.org/x/crypto/ripemd160"
 )
 

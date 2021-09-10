@@ -13,7 +13,7 @@ import (
 
 	"github.com/lbryio/lbcd/blockchain"
 	"github.com/lbryio/lbcd/database"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 var (

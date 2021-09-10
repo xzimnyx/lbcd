@@ -2,6 +2,7 @@ package blockrepo
 
 import (
 	"encoding/binary"
+
 	"github.com/pkg/errors"
 
 	"github.com/lbryio/lbcd/chaincfg/chainhash"

@@ -13,7 +13,7 @@ import (
 	"github.com/lbryio/lbcd/netsync"
 	"github.com/lbryio/lbcd/peer"
 	"github.com/lbryio/lbcd/wire"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 // rpcPeer provides a peer for use with the RPC server and implements the

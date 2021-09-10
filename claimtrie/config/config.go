@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/lbryio/lbcd/claimtrie/param"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 var DefaultConfig = Config{

@@ -11,7 +11,7 @@ import (
 	"github.com/lbryio/lbcd/database"
 	"github.com/lbryio/lbcd/txscript"
 	"github.com/lbryio/lbcd/wire"
-	"github.com/btcsuite/btcutil"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 // txoFlags is a bitmask defining additional information and state for a

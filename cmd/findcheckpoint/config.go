@@ -9,12 +9,12 @@ import (
 	"os"
 	"path/filepath"
 
+	flags "github.com/jessevdk/go-flags"
 	"github.com/lbryio/lbcd/chaincfg"
 	"github.com/lbryio/lbcd/database"
 	_ "github.com/lbryio/lbcd/database/ffldb"
 	"github.com/lbryio/lbcd/wire"
-	"github.com/btcsuite/btcutil"
-	flags "github.com/jessevdk/go-flags"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 const (

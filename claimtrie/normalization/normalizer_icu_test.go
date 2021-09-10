@@ -4,9 +4,10 @@ package normalization
 
 import (
 	"encoding/hex"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"unicode/utf8"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNormalizationICU(t *testing.T) {

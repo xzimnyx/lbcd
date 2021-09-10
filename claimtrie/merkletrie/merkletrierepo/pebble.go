@@ -1,9 +1,10 @@
 package merkletrierepo
 
 import (
+	"io"
+
 	"github.com/cockroachdb/pebble"
 	"github.com/pkg/errors"
-	"io"
 )
 
 type Pebble struct {
