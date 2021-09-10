@@ -63,8 +63,7 @@ func TestFixedHashes(t *testing.T) {
 	err = ct.AddClaim(b("tes"), tx4.TxIn[0].PreviousOutPoint, change.NewClaimID(tx4.TxIn[0].PreviousOutPoint), 50)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	expected, err := chainhash.NewHashFromStr("938fb93364bf8184e0b649c799ae27274e8db5221f1723c99fb2acd3386cfb00")
 	r.NoError(err)
@@ -111,8 +110,7 @@ func TestNormalizationFork(t *testing.T) {
 	err = ct.AddSupport([]byte("test"), o7, 11, change.NewClaimID(o6))
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 	r.NotEqual(merkletrie.EmptyTrieHash[:], ct.MerkleHash()[:])
 
 	n, err := ct.nodeManager.NodeAt(ct.nodeManager.Height(), []byte("AÑEJO"))
@@ -124,8 +122,7 @@ func TestNormalizationFork(t *testing.T) {
 	err = ct.AddClaim([]byte("aÑEJO"), o8, change.NewClaimID(o8), 8)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 	r.NotEqual(merkletrie.EmptyTrieHash[:], ct.MerkleHash()[:])
 
 	n, err = ct.nodeManager.NodeAt(ct.nodeManager.Height(), []byte("añejo"))
@@ -155,25 +152,16 @@ func TestActivationsOnNormalizationFork(t *testing.T) {
 	o7 := wire.OutPoint{Hash: hash, Index: 7}
 	err = ct.AddClaim([]byte("A"), o7, change.NewClaimID(o7), 1)
 	r.NoError(err)
-	err = ct.AppendBlock()
-	r.NoError(err)
-	err = ct.AppendBlock()
-	r.NoError(err)
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 3)
 	verifyBestIndex(t, ct, "A", 7, 1)
 
 	o8 := wire.OutPoint{Hash: hash, Index: 8}
 	err = ct.AddClaim([]byte("A"), o8, change.NewClaimID(o8), 2)
 	r.NoError(err)
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 	verifyBestIndex(t, ct, "a", 8, 2)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 2)
 	verifyBestIndex(t, ct, "a", 8, 2)
 
 	err = ct.ResetHeight(3)
@@ -207,13 +195,11 @@ func TestNormalizationSortOrder(t *testing.T) {
 	err = ct.AddClaim([]byte("a"), o3, change.NewClaimID(o3), 3)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 	verifyBestIndex(t, ct, "A", 2, 2)
 	verifyBestIndex(t, ct, "a", 3, 1)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 	verifyBestIndex(t, ct, "a", 3, 3)
 }
 
@@ -247,8 +233,7 @@ func TestRebuild(t *testing.T) {
 	err = ct.AddClaim([]byte("test2"), o2, change.NewClaimID(o2), 2)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	m := ct.MerkleHash()
 	r.NotNil(m)
@@ -262,14 +247,25 @@ func TestRebuild(t *testing.T) {
 	r.Equal(*m, *m2)
 }
 
-func BenchmarkClaimTrie_AppendBlock(b *testing.B) {
+func BenchmarkClaimTrie_AppendBlock256(b *testing.B) {
 
+	addUpdateRemoveRandoms(b, 256)
+}
+
+func BenchmarkClaimTrie_AppendBlock4(b *testing.B) {
+
+	addUpdateRemoveRandoms(b, 4)
+}
+
+func addUpdateRemoveRandoms(b *testing.B, inBlock int) {
 	rand.Seed(42)
 	names := make([][]byte, 0, b.N)
 
 	for i := 0; i < b.N; i++ {
 		names = append(names, randomName())
 	}
+
+	var hashes []*chainhash.Hash
 
 	param.SetNetwork(wire.TestNet)
 	param.ActiveParams.OriginalClaimExpirationTime = 1000000
@@ -291,9 +287,9 @@ func BenchmarkClaimTrie_AppendBlock(b *testing.B) {
 		id := change.NewClaimID(op)
 		err = ct.AddClaim(names[i], op, id, 500)
 		r.NoError(err)
-		if c++; (c & 0xff) == 0xff {
-			err = ct.AppendBlock()
-			r.NoError(err)
+		if c++; c%inBlock == inBlock-1 {
+			incrementBlock(r, ct, 1)
+			hashes = append(hashes, ct.MerkleHash())
 		}
 	}
 
@@ -303,9 +299,9 @@ func BenchmarkClaimTrie_AppendBlock(b *testing.B) {
 		op.Hash[0] = 1
 		err = ct.UpdateClaim(names[i], op, 400, id)
 		r.NoError(err)
-		if c++; (c & 0xff) == 0xff {
-			err = ct.AppendBlock()
-			r.NoError(err)
+		if c++; c%inBlock == inBlock-1 {
+			incrementBlock(r, ct, 1)
+			hashes = append(hashes, ct.MerkleHash())
 		}
 	}
 
@@ -315,9 +311,9 @@ func BenchmarkClaimTrie_AppendBlock(b *testing.B) {
 		op.Hash[0] = 2
 		err = ct.UpdateClaim(names[i], op, 300, id)
 		r.NoError(err)
-		if c++; (c & 0xff) == 0xff {
-			err = ct.AppendBlock()
-			r.NoError(err)
+		if c++; c%inBlock == inBlock-1 {
+			incrementBlock(r, ct, 1)
+			hashes = append(hashes, ct.MerkleHash())
 		}
 	}
 
@@ -327,13 +323,13 @@ func BenchmarkClaimTrie_AppendBlock(b *testing.B) {
 		op.Hash[0] = 3
 		err = ct.SpendClaim(names[i], op, id)
 		r.NoError(err)
-		if c++; (c & 0xff) == 0xff {
-			err = ct.AppendBlock()
-			r.NoError(err)
+		if c++; c%inBlock == inBlock-1 {
+			incrementBlock(r, ct, 1)
+			hashes = append(hashes, ct.MerkleHash())
 		}
 	}
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
+	hashes = append(hashes, ct.MerkleHash())
 
 	b.StopTimer()
 	ht := ct.height
@@ -343,6 +339,7 @@ func BenchmarkClaimTrie_AppendBlock(b *testing.B) {
 
 	// a very important test of the functionality:
 	for ct.height > 0 {
+		r.True(hashes[ct.height-1].IsEqual(ct.MerkleHash()))
 		err = ct.ResetHeight(ct.height - 1)
 		r.NoError(err)
 	}
@@ -356,6 +353,96 @@ func randomName() []byte {
 		name[i] += 65
 	}
 	return name
+}
+
+func incrementBlock(r *require.Assertions, ct *ClaimTrie, c int32) {
+	h := ct.height + c
+	if c < 0 {
+		err := ct.ResetHeight(ct.height + c)
+		r.NoError(err)
+	} else {
+		for ; c > 0; c-- {
+			err := ct.AppendBlock()
+			r.NoError(err)
+		}
+	}
+	r.Equal(h, ct.height)
+}
+
+func TestNormalizationRollback(t *testing.T) {
+	param.SetNetwork(wire.TestNet)
+	param.ActiveParams.OriginalClaimExpirationTime = 1000000
+	param.ActiveParams.ExtendedClaimExpirationTime = 1000000
+	cfg.DataDir = t.TempDir()
+
+	r := require.New(t)
+	ct, err := New(cfg)
+	r.NoError(err)
+	defer ct.Close()
+
+	r.Equal(int32(250), param.ActiveParams.NormalizedNameForkHeight)
+	incrementBlock(r, ct, 247)
+
+	h1 := chainhash.Hash{100, 200}
+	op := wire.OutPoint{Hash: h1, Index: 1}
+	id := change.NewClaimID(op)
+	err = ct.AddClaim([]byte("TEST"), op, id, 1000)
+	r.NoError(err)
+
+	incrementBlock(r, ct, 5)
+	incrementBlock(r, ct, -4)
+	err = ct.SpendClaim([]byte("TEST"), op, id)
+	r.NoError(err)
+	incrementBlock(r, ct, 1)
+	h := ct.MerkleHash()
+	r.True(h.IsEqual(merkletrie.EmptyTrieHash))
+	incrementBlock(r, ct, 3)
+	h2 := ct.MerkleHash()
+	r.True(h.IsEqual(h2))
+}
+
+func TestNormalizationRollbackFuzz(t *testing.T) {
+	rand.Seed(42)
+	var hashes []*chainhash.Hash
+
+	param.SetNetwork(wire.TestNet)
+	param.ActiveParams.OriginalClaimExpirationTime = 1000000
+	param.ActiveParams.ExtendedClaimExpirationTime = 1000000
+	cfg.DataDir = t.TempDir()
+
+	r := require.New(t)
+	ct, err := New(cfg)
+	r.NoError(err)
+	defer ct.Close()
+	h1 := chainhash.Hash{100, 200}
+
+	r.Equal(int32(250), param.ActiveParams.NormalizedNameForkHeight)
+	incrementBlock(r, ct, 240)
+
+	for j := 0; j < 10; j++ {
+		c := 0
+		for i := 0; i < 200; i++ {
+			op := wire.OutPoint{Hash: h1, Index: uint32(i)}
+			id := change.NewClaimID(op)
+			err = ct.AddClaim(randomName(), op, id, 500)
+			r.NoError(err)
+			if c++; c%10 == 9 {
+				incrementBlock(r, ct, 1)
+				hashes = append(hashes, ct.MerkleHash())
+			}
+		}
+		if j > 7 {
+			ct.runFullTrieRebuild(nil)
+			h := ct.MerkleHash()
+			r.True(h.IsEqual(hashes[len(hashes)-1]))
+		}
+		for ct.height > 240 {
+			r.True(hashes[ct.height-1-240].IsEqual(ct.MerkleHash()))
+			err = ct.ResetHeight(ct.height - 1)
+			r.NoError(err)
+		}
+		hashes = hashes[:0]
+	}
 }
 
 func TestClaimReplace(t *testing.T) {
@@ -375,8 +462,7 @@ func TestClaimReplace(t *testing.T) {
 	err = ct.AddClaim([]byte("basso"), o2, change.NewClaimID(o2), 10)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 	n, err := ct.NodeAt(ct.height, []byte("bass"))
 	r.Equal(o1.String(), n.BestClaim.OutPoint.String())
 
@@ -387,8 +473,7 @@ func TestClaimReplace(t *testing.T) {
 	err = ct.AddClaim([]byte("bassfisher"), o4, change.NewClaimID(o4), 12)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 	n, err = ct.NodeAt(ct.height, []byte("bass"))
 	r.NoError(err)
 	r.True(n == nil || !n.HasActiveBestClaim())
@@ -404,16 +489,14 @@ func TestGeneralClaim(t *testing.T) {
 	r.NotNil(ct)
 	defer ct.Close()
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	hash := chainhash.HashH([]byte{1, 2, 3})
 	o1 := wire.OutPoint{Hash: hash, Index: 1}
 	err = ct.AddClaim([]byte("test"), o1, change.NewClaimID(o1), 8)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 	err = ct.ResetHeight(ct.height - 1)
 	r.NoError(err)
 	n, err := ct.NodeAt(ct.height, []byte("test"))
@@ -425,25 +508,20 @@ func TestGeneralClaim(t *testing.T) {
 	err = ct.AddClaim([]byte("test"), o2, change.NewClaimID(o2), 8)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
-	err = ct.ResetHeight(ct.height - 1)
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
+	incrementBlock(r, ct, -1)
 	n, err = ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
 	r.True(n == nil || !n.HasActiveBestClaim())
 
 	err = ct.AddClaim([]byte("test"), o1, change.NewClaimID(o1), 8)
 	r.NoError(err)
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 	err = ct.AddClaim([]byte("test"), o2, change.NewClaimID(o2), 8)
 	r.NoError(err)
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
-	err = ct.ResetHeight(ct.height - 2)
-	r.NoError(err)
+	incrementBlock(r, ct, -2)
 	n, err = ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
 	r.True(n == nil || !n.HasActiveBestClaim())
@@ -459,41 +537,32 @@ func TestClaimTakeover(t *testing.T) {
 	r.NotNil(ct)
 	defer ct.Close()
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	hash := chainhash.HashH([]byte{1, 2, 3})
 	o1 := wire.OutPoint{Hash: hash, Index: 1}
 	err = ct.AddClaim([]byte("test"), o1, change.NewClaimID(o1), 8)
 	r.NoError(err)
 
-	for i := 0; i < 10; i++ {
-		err = ct.AppendBlock()
-		r.NoError(err)
-	}
+	incrementBlock(r, ct, 10)
 
 	o2 := wire.OutPoint{Hash: hash, Index: 2}
 	err = ct.AddClaim([]byte("test"), o2, change.NewClaimID(o2), 18)
 	r.NoError(err)
 
-	for i := 0; i < 10; i++ {
-		err = ct.AppendBlock()
-		r.NoError(err)
-	}
+	incrementBlock(r, ct, 10)
 
 	n, err := ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
 	r.Equal(o1.String(), n.BestClaim.OutPoint.String())
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	n, err = ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
 	r.Equal(o2.String(), n.BestClaim.OutPoint.String())
 
-	err = ct.ResetHeight(ct.height - 1)
-	r.NoError(err)
+	incrementBlock(r, ct, -1)
 	n, err = ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
 	r.Equal(o1.String(), n.BestClaim.OutPoint.String())
@@ -509,8 +578,7 @@ func TestSpendClaim(t *testing.T) {
 	r.NotNil(ct)
 	defer ct.Close()
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	hash := chainhash.HashH([]byte{1, 2, 3})
 	o1 := wire.OutPoint{Hash: hash, Index: 1}
@@ -520,37 +588,30 @@ func TestSpendClaim(t *testing.T) {
 	err = ct.AddClaim([]byte("test"), o2, change.NewClaimID(o2), 8)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	err = ct.SpendClaim([]byte("test"), o1, change.NewClaimID(o1))
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	n, err := ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
 	r.Equal(o2.String(), n.BestClaim.OutPoint.String())
 
-	err = ct.ResetHeight(ct.height - 1)
-	r.NoError(err)
+	incrementBlock(r, ct, -1)
 
 	o3 := wire.OutPoint{Hash: hash, Index: 3}
 	err = ct.AddClaim([]byte("test"), o3, change.NewClaimID(o3), 22)
 	r.NoError(err)
 
-	for i := 0; i < 10; i++ {
-		err = ct.AppendBlock()
-		r.NoError(err)
-	}
+	incrementBlock(r, ct, 10)
 
 	o4 := wire.OutPoint{Hash: hash, Index: 4}
 	err = ct.AddClaim([]byte("test"), o4, change.NewClaimID(o4), 28)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	n, err = ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
@@ -559,8 +620,7 @@ func TestSpendClaim(t *testing.T) {
 	err = ct.SpendClaim([]byte("test"), o3, n.BestClaim.ClaimID)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	n, err = ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
@@ -575,8 +635,7 @@ func TestSpendClaim(t *testing.T) {
 	err = ct.SpendClaim([]byte("test"), o4, change.NewClaimID(o4))
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	n, err = ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
@@ -596,8 +655,7 @@ func TestSupportDelay(t *testing.T) {
 	r.NotNil(ct)
 	defer ct.Close()
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	hash := chainhash.HashH([]byte{1, 2, 3})
 	o1 := wire.OutPoint{Hash: hash, Index: 1}
@@ -614,40 +672,31 @@ func TestSupportDelay(t *testing.T) {
 	err = ct.AddSupport([]byte("test"), o4, 18, change.NewClaimID(o2))
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	n, err := ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
 	r.Equal(o2.String(), n.BestClaim.OutPoint.String())
 
-	for i := 0; i < 10; i++ {
-		err = ct.AppendBlock()
-		r.NoError(err)
-	}
+	incrementBlock(r, ct, 10)
 
 	o5 := wire.OutPoint{Hash: hash, Index: 5}
 	err = ct.AddSupport([]byte("test"), o5, 18, change.NewClaimID(o1))
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	n, err = ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
 	r.Equal(o2.String(), n.BestClaim.OutPoint.String())
 
-	for i := 0; i < 11; i++ {
-		err = ct.AppendBlock()
-		r.NoError(err)
-	}
+	incrementBlock(r, ct, 11)
 
 	n, err = ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
 	r.Equal(o1.String(), n.BestClaim.OutPoint.String())
 
-	err = ct.ResetHeight(ct.height - 1)
-	r.NoError(err)
+	incrementBlock(r, ct, -1)
 
 	n, err = ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
@@ -664,16 +713,14 @@ func TestSupportSpending(t *testing.T) {
 	r.NotNil(ct)
 	defer ct.Close()
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	hash := chainhash.HashH([]byte{1, 2, 3})
 	o1 := wire.OutPoint{Hash: hash, Index: 1}
 	err = ct.AddClaim([]byte("test"), o1, change.NewClaimID(o1), 18)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	o3 := wire.OutPoint{Hash: hash, Index: 3}
 	err = ct.AddSupport([]byte("test"), o3, 18, change.NewClaimID(o1))
@@ -682,8 +729,7 @@ func TestSupportSpending(t *testing.T) {
 	err = ct.SpendClaim([]byte("test"), o1, change.NewClaimID(o1))
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	n, err := ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
@@ -700,8 +746,7 @@ func TestSupportOnUpdate(t *testing.T) {
 	r.NotNil(ct)
 	defer ct.Close()
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	hash := chainhash.HashH([]byte{1, 2, 3})
 	o1 := wire.OutPoint{Hash: hash, Index: 1}
@@ -715,15 +760,13 @@ func TestSupportOnUpdate(t *testing.T) {
 	err = ct.UpdateClaim([]byte("test"), o2, 28, change.NewClaimID(o1))
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	n, err := ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
 	r.Equal(int64(28), n.BestClaim.Amount)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	err = ct.SpendClaim([]byte("test"), o2, change.NewClaimID(o1))
 	r.NoError(err)
@@ -740,8 +783,7 @@ func TestSupportOnUpdate(t *testing.T) {
 	err = ct.AddClaim([]byte("test"), o5, change.NewClaimID(o5), 39)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	n, err = ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
@@ -750,8 +792,7 @@ func TestSupportOnUpdate(t *testing.T) {
 	err = ct.SpendSupport([]byte("test"), o4, n.BestClaim.ClaimID)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	// NOTE: LBRYcrd did not test that supports can trigger a takeover correctly (and it doesn't work here):
 	// n, err = ct.NodeAt(ct.height, []byte("test"))
@@ -769,8 +810,7 @@ func TestSupportPreservation(t *testing.T) {
 	r.NotNil(ct)
 	defer ct.Close()
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	hash := chainhash.HashH([]byte{1, 2, 3})
 	o1 := wire.OutPoint{Hash: hash, Index: 1}
@@ -782,8 +822,7 @@ func TestSupportPreservation(t *testing.T) {
 	err = ct.AddSupport([]byte("test"), o2, 10, change.NewClaimID(o1))
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	err = ct.AddClaim([]byte("test"), o1, change.NewClaimID(o1), 18)
 	r.NoError(err)
@@ -791,10 +830,7 @@ func TestSupportPreservation(t *testing.T) {
 	err = ct.AddClaim([]byte("test"), o3, change.NewClaimID(o3), 7)
 	r.NoError(err)
 
-	for i := 0; i < 10; i++ {
-		err = ct.AppendBlock()
-		r.NoError(err)
-	}
+	incrementBlock(r, ct, 10)
 
 	n, err := ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
@@ -805,17 +841,13 @@ func TestSupportPreservation(t *testing.T) {
 	err = ct.AddSupport([]byte("test"), o5, 100, change.NewClaimID(o3))
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	n, err = ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
 	r.Equal(int64(38), n.BestClaim.Amount+n.SupportSums[n.BestClaim.ClaimID.Key()])
 
-	for i := 0; i < 10; i++ {
-		err = ct.AppendBlock()
-		r.NoError(err)
-	}
+	incrementBlock(r, ct, 10)
 
 	n, err = ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
@@ -832,8 +864,7 @@ func TestInvalidClaimID(t *testing.T) {
 	r.NotNil(ct)
 	defer ct.Close()
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	hash := chainhash.HashH([]byte{1, 2, 3})
 	o1 := wire.OutPoint{Hash: hash, Index: 1}
@@ -843,8 +874,7 @@ func TestInvalidClaimID(t *testing.T) {
 	err = ct.AddClaim([]byte("test"), o1, change.NewClaimID(o1), 10)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	err = ct.SpendClaim([]byte("test"), o3, change.NewClaimID(o1))
 	r.NoError(err)
@@ -852,10 +882,7 @@ func TestInvalidClaimID(t *testing.T) {
 	err = ct.UpdateClaim([]byte("test"), o2, 18, change.NewClaimID(o3))
 	r.NoError(err)
 
-	for i := 0; i < 12; i++ {
-		err = ct.AppendBlock()
-		r.NoError(err)
-	}
+	incrementBlock(r, ct, 12)
 
 	n, err := ct.NodeAt(ct.height, []byte("test"))
 	r.NoError(err)
@@ -881,27 +908,23 @@ func TestStableTrieHash(t *testing.T) {
 	err = ct.AddClaim([]byte("test"), o1, change.NewClaimID(o1), 1)
 	r.NoError(err)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	h := ct.MerkleHash()
 	r.NotEqual(merkletrie.EmptyTrieHash.String(), h.String())
 
 	for i := 0; i < 6; i++ {
-		err = ct.AppendBlock()
-		r.NoError(err)
+		incrementBlock(r, ct, 1)
 		r.Equal(h.String(), ct.MerkleHash().String())
 	}
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	r.NotEqual(h.String(), ct.MerkleHash())
 	h = ct.MerkleHash()
 
 	for i := 0; i < 16; i++ {
-		err = ct.AppendBlock()
-		r.NoError(err)
+		incrementBlock(r, ct, 1)
 		r.Equal(h.String(), ct.MerkleHash().String())
 	}
 }
@@ -977,8 +1000,7 @@ func TestBlock884431(t *testing.T) {
 	update("test", o4a, 40)
 	update("tester", o5, 30)
 
-	err = ct.AppendBlock()
-	r.NoError(err)
+	incrementBlock(r, ct, 1)
 
 	n, err = ct.NodeAt(ct.height, []byte("go"))
 	r.NoError(err)

@@ -90,6 +90,10 @@ func (repo *Pebble) DropChanges(name []byte, finalHeight int32) error {
 		if changes[i].Height > finalHeight {
 			break
 		}
+		if changes[i].VisibleHeight > finalHeight { // created after this height has to be deleted
+			changes = append(changes[:i], changes[i+1:]...)
+			i--
+		}
 	}
 	// making a performance assumption that DropChanges won't happen often:
 	err = repo.db.Set(name, []byte{}, pebble.NoSync)

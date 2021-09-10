@@ -28,7 +28,7 @@ type Change struct {
 	Amount   int64
 
 	ActiveHeight  int32
-	VisibleHeight int32 // for normalization fork
+	VisibleHeight int32 // aka, CreatedAt; used for normalization fork
 
 	SpentChildren map[string]bool
 }
