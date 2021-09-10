@@ -3,7 +3,7 @@ package cmd
 import (
 	"path/filepath"
 
-	"github.com/btcsuite/btcd/claimtrie/temporal/temporalrepo"
+	"github.com/lbryio/lbcd/claimtrie/temporal/temporalrepo"
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"

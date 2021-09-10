@@ -10,21 +10,21 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/btcsuite/btcd/claimtrie/block"
-	"github.com/btcsuite/btcd/claimtrie/block/blockrepo"
-	"github.com/btcsuite/btcd/claimtrie/change"
-	"github.com/btcsuite/btcd/claimtrie/config"
-	"github.com/btcsuite/btcd/claimtrie/merkletrie"
-	"github.com/btcsuite/btcd/claimtrie/merkletrie/merkletrierepo"
-	"github.com/btcsuite/btcd/claimtrie/node"
-	"github.com/btcsuite/btcd/claimtrie/node/noderepo"
-	"github.com/btcsuite/btcd/claimtrie/normalization"
-	"github.com/btcsuite/btcd/claimtrie/param"
-	"github.com/btcsuite/btcd/claimtrie/temporal"
-	"github.com/btcsuite/btcd/claimtrie/temporal/temporalrepo"
+	"github.com/lbryio/lbcd/claimtrie/block"
+	"github.com/lbryio/lbcd/claimtrie/block/blockrepo"
+	"github.com/lbryio/lbcd/claimtrie/change"
+	"github.com/lbryio/lbcd/claimtrie/config"
+	"github.com/lbryio/lbcd/claimtrie/merkletrie"
+	"github.com/lbryio/lbcd/claimtrie/merkletrie/merkletrierepo"
+	"github.com/lbryio/lbcd/claimtrie/node"
+	"github.com/lbryio/lbcd/claimtrie/node/noderepo"
+	"github.com/lbryio/lbcd/claimtrie/normalization"
+	"github.com/lbryio/lbcd/claimtrie/param"
+	"github.com/lbryio/lbcd/claimtrie/temporal"
+	"github.com/lbryio/lbcd/claimtrie/temporal/temporalrepo"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/lbryio/lbcd/chaincfg/chainhash"
+	"github.com/lbryio/lbcd/wire"
 )
 
 // ClaimTrie implements a Merkle Trie supporting linear history of commits.

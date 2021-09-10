@@ -1,8 +1,8 @@
 package node
 
 import (
-	"github.com/btcsuite/btcd/claimtrie/change"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/lbryio/lbcd/claimtrie/change"
+	"github.com/lbryio/lbcd/wire"
 )
 
 type ClaimList []*Claim

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/btcsuite/btcd/claimtrie/merkletrie"
-	"github.com/btcsuite/btcd/claimtrie/merkletrie/merkletrierepo"
-	"github.com/btcsuite/btcd/claimtrie/temporal/temporalrepo"
+	"github.com/lbryio/lbcd/claimtrie/merkletrie"
+	"github.com/lbryio/lbcd/claimtrie/merkletrie/merkletrierepo"
+	"github.com/lbryio/lbcd/claimtrie/temporal/temporalrepo"
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"

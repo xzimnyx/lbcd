@@ -1,8 +1,8 @@
 package node
 
 import (
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/claimtrie/param"
+	"github.com/lbryio/lbcd/chaincfg/chainhash"
+	"github.com/lbryio/lbcd/claimtrie/param"
 )
 
 type HashV2Manager struct {

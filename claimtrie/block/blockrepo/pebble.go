@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"github.com/pkg/errors"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/lbryio/lbcd/chaincfg/chainhash"
 
 	"github.com/cockroachdb/pebble"
 )

@@ -1,7 +1,7 @@
 package normalization
 
 import (
-	"github.com/btcsuite/btcd/claimtrie/param"
+	"github.com/lbryio/lbcd/claimtrie/param"
 	"golang.org/x/text/unicode/norm"
 )
 

@@ -3,7 +3,7 @@ package config
 import (
 	"path/filepath"
 
-	"github.com/btcsuite/btcd/claimtrie/param"
+	"github.com/lbryio/lbcd/claimtrie/param"
 	"github.com/btcsuite/btcutil"
 )
 

@@ -3,7 +3,7 @@ package temporalrepo
 import (
 	"testing"
 
-	"github.com/btcsuite/btcd/claimtrie/temporal"
+	"github.com/lbryio/lbcd/claimtrie/temporal"
 
 	"github.com/stretchr/testify/require"
 )

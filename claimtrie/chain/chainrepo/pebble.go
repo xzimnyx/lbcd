@@ -5,7 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/btcsuite/btcd/claimtrie/change"
+	"github.com/lbryio/lbcd/claimtrie/change"
 	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/cockroachdb/pebble"

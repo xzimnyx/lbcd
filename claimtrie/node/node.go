@@ -5,8 +5,8 @@ import (
 	"math"
 	"sort"
 
-	"github.com/btcsuite/btcd/claimtrie/change"
-	"github.com/btcsuite/btcd/claimtrie/param"
+	"github.com/lbryio/lbcd/claimtrie/change"
+	"github.com/lbryio/lbcd/claimtrie/param"
 )
 
 type Node struct {

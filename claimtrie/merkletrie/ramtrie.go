@@ -6,8 +6,8 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/claimtrie/node"
+	"github.com/lbryio/lbcd/chaincfg/chainhash"
+	"github.com/lbryio/lbcd/claimtrie/node"
 )
 
 type MerkleTrie interface {

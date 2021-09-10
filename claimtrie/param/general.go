@@ -1,6 +1,6 @@
 package param
 
-import "github.com/btcsuite/btcd/wire"
+import "github.com/lbryio/lbcd/wire"
 
 type ClaimTrieParams struct {
 	MaxActiveDelay    int32

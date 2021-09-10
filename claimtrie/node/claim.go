@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/claimtrie/change"
-	"github.com/btcsuite/btcd/claimtrie/param"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/lbryio/lbcd/chaincfg/chainhash"
+	"github.com/lbryio/lbcd/claimtrie/change"
+	"github.com/lbryio/lbcd/claimtrie/param"
+	"github.com/lbryio/lbcd/wire"
 )
 
 type Status int

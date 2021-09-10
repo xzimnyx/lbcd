@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/claimtrie/change"
-	"github.com/btcsuite/btcd/claimtrie/config"
-	"github.com/btcsuite/btcd/claimtrie/merkletrie"
-	"github.com/btcsuite/btcd/claimtrie/param"
+	"github.com/lbryio/lbcd/claimtrie/change"
+	"github.com/lbryio/lbcd/claimtrie/config"
+	"github.com/lbryio/lbcd/claimtrie/merkletrie"
+	"github.com/lbryio/lbcd/claimtrie/param"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/lbryio/lbcd/chaincfg/chainhash"
+	"github.com/lbryio/lbcd/wire"
 
 	"github.com/stretchr/testify/require"
 )

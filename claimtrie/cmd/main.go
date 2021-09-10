@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/btcsuite/btcd/claimtrie/cmd/cmd"
+	"github.com/lbryio/lbcd/claimtrie/cmd/cmd"
 )
 
 func main() {

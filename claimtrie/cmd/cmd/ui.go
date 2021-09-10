@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/btcsuite/btcd/claimtrie/change"
-	"github.com/btcsuite/btcd/claimtrie/node"
+	"github.com/lbryio/lbcd/claimtrie/change"
+	"github.com/lbryio/lbcd/claimtrie/node"
 )
 
 var status = map[node.Status]string{

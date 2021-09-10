@@ -1,7 +1,7 @@
 package node
 
 import (
-	"github.com/btcsuite/btcd/claimtrie/change"
+	"github.com/lbryio/lbcd/claimtrie/change"
 )
 
 // Repo defines APIs for Node to access persistence layer.

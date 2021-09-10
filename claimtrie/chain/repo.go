@@ -1,6 +1,6 @@
 package chain
 
-import "github.com/btcsuite/btcd/claimtrie/change"
+import "github.com/lbryio/lbcd/claimtrie/change"
 
 type Repo interface {
 	Save(height int32, changes []change.Change) error

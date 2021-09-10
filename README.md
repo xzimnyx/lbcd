@@ -4,7 +4,7 @@ lbcd
 [![Build Status](https://github.com/lbryio/lbcd/workflows/Build%20and%20Test/badge.svg)](https://github.com/lbryio/lbcd/actions)
 [![Coverage Status](https://coveralls.io/repos/github/lbryio/lbcd/badge.svg?branch=master)](https://coveralls.io/github/lbryio/lbcd?branch=master)
 [![ISC License](https://img.shields.io/badge/license-ISC-blue.svg)](http://copyfree.org)
-<!--[![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://pkg.go.dev/github.com/btcsuite/btcd)-->
+<!--[![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://pkg.go.dev/github.com/lbryio/lbcd)-->
 
 lbcd is a full node implementation of LBRY's blockchain written in Go (golang).
 
@@ -70,7 +70,7 @@ is used for this project. All pull requests will be considered.
 
 <!-- ## Release Verification
 Please see our [documentation on the current build/verification
-process](https://github.com/btcsuite/btcd/tree/master/release) for all our
+process](https://github.com/lbryio/lbcd/tree/master/release) for all our
 releases for information on how to verify the integrity of published releases
 using our reproducible build system.
 -->

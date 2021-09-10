@@ -3,9 +3,9 @@ package node
 import (
 	"bytes"
 
-	"github.com/btcsuite/btcd/claimtrie/change"
-	"github.com/btcsuite/btcd/claimtrie/normalization"
-	"github.com/btcsuite/btcd/claimtrie/param"
+	"github.com/lbryio/lbcd/claimtrie/change"
+	"github.com/lbryio/lbcd/claimtrie/normalization"
+	"github.com/lbryio/lbcd/claimtrie/param"
 )
 
 type NormalizingManager struct { // implements Manager

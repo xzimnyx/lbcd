@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/btcsuite/btcd/claimtrie/change"
+	"github.com/lbryio/lbcd/claimtrie/change"
 	"github.com/cockroachdb/pebble"
 	"github.com/pkg/errors"
 )

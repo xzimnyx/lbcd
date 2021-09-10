@@ -1,7 +1,7 @@
 package block
 
 import (
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/lbryio/lbcd/chaincfg/chainhash"
 )
 
 // Repo defines APIs for Block to access persistence layer.

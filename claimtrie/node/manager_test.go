@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/btcsuite/btcd/claimtrie/change"
-	"github.com/btcsuite/btcd/claimtrie/node/noderepo"
-	"github.com/btcsuite/btcd/claimtrie/param"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/lbryio/lbcd/claimtrie/change"
+	"github.com/lbryio/lbcd/claimtrie/node/noderepo"
+	"github.com/lbryio/lbcd/claimtrie/param"
+	"github.com/lbryio/lbcd/wire"
 
 	"github.com/stretchr/testify/require"
 )

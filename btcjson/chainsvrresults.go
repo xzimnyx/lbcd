@@ -9,9 +9,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/lbryio/lbcd/chaincfg/chainhash"
 
-	"github.com/btcsuite/btcd/wire"
+	"github.com/lbryio/lbcd/wire"
 	"github.com/btcsuite/btcutil"
 )
 
