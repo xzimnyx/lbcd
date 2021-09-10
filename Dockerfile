@@ -16,7 +16,7 @@
 
 ARG ARCH=amd64
 
-FROM golang:1.14-alpine3.12 AS build-container
+FROM golang:1.16-alpine3.14 AS build-container
 
 ARG ARCH
 ENV GO111MODULE=on
@@ -25,17 +25,16 @@ ADD . /app
 WORKDIR /app
 RUN set -ex \
   && if [ "${ARCH}" = "amd64" ]; then export GOARCH=amd64; fi \
-  && if [ "${ARCH}" = "arm32v7" ]; then export GOARCH=arm; fi \
   && if [ "${ARCH}" = "arm64v8" ]; then export GOARCH=arm64; fi \
   && echo "Compiling for $GOARCH" \
   && go install -v . ./cmd/...
 
-FROM $ARCH/alpine:3.12
+FROM $ARCH/alpine:3.14
 
 COPY --from=build-container /go/bin /bin
 
-VOLUME ["/root/.btcd"]
+VOLUME ["/root/.lbcd"]
 
-EXPOSE 8333 8334
+EXPOSE 9245 9246
 
 ENTRYPOINT ["lbcd"]
