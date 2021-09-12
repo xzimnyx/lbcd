@@ -8,6 +8,7 @@ import (
 	"github.com/lbryio/lbcd/claimtrie/change"
 	"github.com/lbryio/lbcd/claimtrie/config"
 	"github.com/lbryio/lbcd/claimtrie/merkletrie"
+	"github.com/lbryio/lbcd/claimtrie/node"
 	"github.com/lbryio/lbcd/claimtrie/param"
 
 	"github.com/lbryio/lbcd/chaincfg/chainhash"
