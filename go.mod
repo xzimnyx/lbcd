@@ -15,7 +15,7 @@ require (
 	github.com/felixge/fgprof v0.9.1
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/jrick/logrotate v1.0.0
-	github.com/lbryio/lbcutil v1.0.200
+	github.com/lbryio/lbcutil v1.0.201
 	github.com/pkg/errors v0.9.1
 	github.com/shirou/gopsutil/v3 v3.21.7
 	github.com/spf13/cobra v1.1.3
