@@ -1382,6 +1382,7 @@ func dial(config *ConnConfig) (*websocket.Conn, error) {
 		// cases above apply.
 		return nil, errors.New(resp.Status)
 	}
+	resp.Body.Close()
 	return wsConn, nil
 }
 
