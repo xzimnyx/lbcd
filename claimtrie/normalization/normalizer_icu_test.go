@@ -1,3 +1,4 @@
+//go:build use_icu_normalization
 // +build use_icu_normalization
 
 package normalization
