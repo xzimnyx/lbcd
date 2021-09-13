@@ -69,7 +69,7 @@ func loadBlocks(filename string) (blocks []*btcutil.Block, err error) {
 
 	fi, err = os.Open(filename)
 	if err != nil {
-		return
+		return blocks, err
 	}
 
 	if strings.HasSuffix(filename, ".bz2") {
@@ -107,12 +107,12 @@ func loadBlocks(filename string) (blocks []*btcutil.Block, err error) {
 
 		block, err = btcutil.NewBlockFromBytes(rbytes)
 		if err != nil {
-			return
+			return blocks, err
 		}
 		blocks = append(blocks, block)
 	}
 
-	return
+	return blocks, err
 }
 
 // chainSetup is used to create a new db and chain instance with the genesis
