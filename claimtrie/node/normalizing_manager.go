@@ -14,6 +14,7 @@ type NormalizingManager struct { // implements Manager
 }
 
 func NewNormalizingManager(baseManager Manager) Manager {
+	log.Info(normalization.NormalizeTitle)
 	return &NormalizingManager{
 		Manager:      baseManager,
 		normalizedAt: -1,

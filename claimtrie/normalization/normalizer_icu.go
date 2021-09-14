@@ -37,6 +37,7 @@ import (
 
 func init() {
 	Normalize = normalizeICU
+	NormalizeTitle = "Normalizing strings via ICU. ICU version = " + IcuVersion()
 }
 
 func IcuVersion() string {

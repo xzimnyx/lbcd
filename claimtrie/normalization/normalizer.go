@@ -6,6 +6,7 @@ import (
 )
 
 var Normalize = normalizeGo
+var NormalizeTitle = "Normalizing strings via Go. Casefold table version = 11.0.0, NFD version = " + norm.Version
 
 func NormalizeIfNecessary(name []byte, height int32) []byte {
 	if height < param.ActiveParams.NormalizedNameForkHeight {

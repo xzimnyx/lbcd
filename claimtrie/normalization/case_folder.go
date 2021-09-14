@@ -20,14 +20,20 @@ func init() {
 	matches := r.FindAllStringSubmatch(v11, 1000000000)
 	for i := range matches {
 		if matches[i][2] == "C" || matches[i][2] == "F" {
-			key, _ := strconv.Unquote(`"\u` + matches[i][1] + `"`)
+			key, err := strconv.ParseUint(matches[i][1], 16, len(matches[i][1])*4)
+			if err != nil {
+				panic(err)
+			}
 			splits := strings.Split(matches[i][3], " ")
 			var values []rune
 			for j := range splits {
-				value, _ := strconv.Unquote(`"\u` + splits[j] + `"`)
-				values = append(values, []rune(value)[0])
+				value, err := strconv.ParseUint(splits[j], 16, len(splits[j])*4)
+				if err != nil {
+					panic(err)
+				}
+				values = append(values, rune(value))
 			}
-			foldMap[[]rune(key)[0]] = values
+			foldMap[rune(key)] = values
 		}
 	}
 }
