@@ -9,12 +9,8 @@
 
 set -ex
 
+# Automatic checks
+golangci-lint run
+
 env GORACE="halt_on_error=1" go test -race -tags="rpctest" -covermode atomic -coverprofile=profile.cov ./...
 go test -bench=. -benchtime=4000x ./claimtrie/
-
-# Automatic checks
-golangci-lint run --deadline=10m --disable-all \
---enable=gofmt \
---enable=vet \
---enable=gosimple \
---enable=unconvert
