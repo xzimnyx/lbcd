@@ -2,10 +2,32 @@ package config
 
 import (
 	"path/filepath"
+	"syscall"
 
 	"github.com/lbryio/lbcd/claimtrie/param"
 	btcutil "github.com/lbryio/lbcutil"
 )
+
+func init() {
+	// ensure that we have enough file handles
+	var rLimit syscall.Rlimit
+	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		panic("Error getting File Handle RLimit: " + err.Error())
+	}
+	minRequiredFileHandles := uint64(24000) // seven databases and they each require ~2000, plus a few more to be safe
+	if rLimit.Max < minRequiredFileHandles {
+		panic("Error increasing File Handle RLimit: increasing file handle limit requires " +
+			"unavailable privileges. Allow at least 24000 handles.")
+	}
+	if rLimit.Cur < minRequiredFileHandles {
+		rLimit.Cur = minRequiredFileHandles
+		err := syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+		if err != nil {
+			panic("Error setting File Handle RLimit to 24000: " + err.Error())
+		}
+	}
+}
 
 var DefaultConfig = Config{
 	Params: param.MainNet,

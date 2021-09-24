@@ -31,7 +31,7 @@ func NewPebble(path string) (*Pebble, error) {
 	//	}
 	//}()
 
-	db, err := pebble.Open(path, &pebble.Options{Cache: cache, BytesPerSync: 32 << 20})
+	db, err := pebble.Open(path, &pebble.Options{Cache: cache, BytesPerSync: 32 << 20, MaxOpenFiles: 2000})
 	repo := &Pebble{db: db}
 
 	return repo, errors.Wrapf(err, "unable to open %s", path)

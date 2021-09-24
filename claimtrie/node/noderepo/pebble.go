@@ -15,7 +15,7 @@ type Pebble struct {
 
 func NewPebble(path string) (*Pebble, error) {
 
-	db, err := pebble.Open(path, &pebble.Options{Cache: pebble.NewCache(64 << 20), BytesPerSync: 4 << 20})
+	db, err := pebble.Open(path, &pebble.Options{Cache: pebble.NewCache(64 << 20), BytesPerSync: 8 << 20, MaxOpenFiles: 2000})
 	repo := &Pebble{db: db}
 
 	return repo, errors.Wrapf(err, "unable to open %s", path)

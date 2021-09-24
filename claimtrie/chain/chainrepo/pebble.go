@@ -17,7 +17,7 @@ type Pebble struct {
 
 func NewPebble(path string) (*Pebble, error) {
 
-	db, err := pebble.Open(path, &pebble.Options{BytesPerSync: 64 << 20})
+	db, err := pebble.Open(path, &pebble.Options{BytesPerSync: 64 << 20, MaxOpenFiles: 2000})
 	repo := &Pebble{db: db}
 
 	return repo, errors.Wrapf(err, "open %s", path)
