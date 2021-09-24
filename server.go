@@ -1330,24 +1330,26 @@ func (sp *serverPeer) OnNotFound(p *peer.Peer, msg *wire.MsgNotFound) {
 		case wire.InvTypeWitnessTx:
 			numTxns++
 		default:
-			peerLog.Debugf("Invalid inv type '%d' in notfound message from %s",
-				inv.Type, sp)
+			peerLog.Infof("Invalid inv type '%d' in NotFound message from %s. Disconnecting...", inv.Type, sp)
 			sp.Disconnect()
 			return
 		}
 	}
 	if numBlocks > 0 {
 		blockStr := pickNoun(uint64(numBlocks), "block", "blocks")
-		reason := fmt.Sprintf("%d %v not found", numBlocks, blockStr)
-		if sp.addBanScore(20*numBlocks, 0, reason) {
-			return
+		reason := fmt.Sprintf("%d %v not found on %s", numBlocks, blockStr, sp)
+		if sp.addBanScore(20, 0, reason) {
+			return // once they fail to return us five block requests they're gone for good
 		}
 	}
 	if numTxns > 0 {
+		// This is an expected situation if transactions in the mempool make it into a block before
+		// this node knows about said block. We don't want to ban them for that alone
+		peerLog.Debugf("%d transactions not found on %s", numTxns, sp)
 		txStr := pickNoun(uint64(numTxns), "transaction", "transactions")
-		reason := fmt.Sprintf("%d %v not found", numBlocks, txStr)
-		if sp.addBanScore(0, 10*numTxns, reason) {
-			return
+		reason := fmt.Sprintf("%d %v not found on %s", numTxns, txStr, sp)
+		if sp.addBanScore(0, 25, reason) {
+			return // if they fail us four times in one minute, they're gone -- hitting them at new-block should be rare
 		}
 	}
 
