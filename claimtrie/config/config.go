@@ -40,6 +40,8 @@ type Config struct {
 	NodeRepoPebble       pebbleConfig
 	TemporalRepoPebble   pebbleConfig
 	MerkleTrieRepoPebble pebbleConfig
+
+	Interrupt <-chan struct{}
 }
 
 type pebbleConfig struct {

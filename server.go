@@ -2729,6 +2729,7 @@ func newServer(listenAddrs, agentBlacklist, agentWhitelist []string,
 
 	claimTrieCfg := claimtrieconfig.DefaultConfig
 	claimTrieCfg.DataDir = cfg.DataDir
+	claimTrieCfg.Interrupt = interrupt
 
 	var ct *claimtrie.ClaimTrie
 

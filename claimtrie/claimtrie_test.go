@@ -240,7 +240,7 @@ func TestRebuild(t *testing.T) {
 	r.NotEqual(*merkletrie.EmptyTrieHash, *m)
 
 	ct.merkleTrie = merkletrie.NewRamTrie()
-	ct.runFullTrieRebuild(nil)
+	ct.runFullTrieRebuild(nil, nil)
 
 	m2 := ct.MerkleHash()
 	r.NotNil(m2)
@@ -432,7 +432,7 @@ func TestNormalizationRollbackFuzz(t *testing.T) {
 			}
 		}
 		if j > 7 {
-			ct.runFullTrieRebuild(nil)
+			ct.runFullTrieRebuild(nil, nil)
 			h := ct.MerkleHash()
 			r.True(h.IsEqual(hashes[len(hashes)-1]))
 		}
