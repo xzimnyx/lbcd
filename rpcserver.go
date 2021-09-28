@@ -1188,12 +1188,16 @@ func handleGetBlock(s *rpcServer, cmd interface{}, closeChan <-chan struct{}) (i
 
 	params := s.cfg.ChainParams
 	blockHeader := &blk.MsgBlock().Header
+	var prevHashString string
+	if blockHeight > 0 {
+		prevHashString = blockHeader.PrevBlock.String()
+	}
 	blockReply := btcjson.GetBlockVerboseResult{
 		Hash:          c.Hash,
 		Version:       blockHeader.Version,
 		VersionHex:    fmt.Sprintf("%08x", blockHeader.Version),
 		MerkleRoot:    blockHeader.MerkleRoot.String(),
-		PreviousHash:  blockHeader.PrevBlock.String(),
+		PreviousHash:  prevHashString,
 		Nonce:         blockHeader.Nonce,
 		Time:          blockHeader.Timestamp.Unix(),
 		Confirmations: int64(1 + best.Height - blockHeight),
@@ -1204,6 +1208,7 @@ func handleGetBlock(s *rpcServer, cmd interface{}, closeChan <-chan struct{}) (i
 		Bits:          strconv.FormatInt(int64(blockHeader.Bits), 16),
 		Difficulty:    getDifficultyRatio(blockHeader.Bits, params),
 		NextHash:      nextHashString,
+		ClaimTrie:     blockHeader.ClaimTrie.String(),
 	}
 
 	if *c.Verbosity == 1 {
