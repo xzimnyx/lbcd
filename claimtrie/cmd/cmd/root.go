@@ -6,6 +6,7 @@ import (
 	"github.com/btcsuite/btclog"
 	"github.com/lbryio/lbcd/claimtrie/config"
 	"github.com/lbryio/lbcd/claimtrie/param"
+	"github.com/lbryio/lbcd/limits"
 	"github.com/lbryio/lbcd/wire"
 
 	"github.com/spf13/cobra"
@@ -50,6 +51,11 @@ func Execute() {
 	defer os.Stdout.Sync()
 	log = backendLogger.Logger("CMDL")
 	log.SetLevel(btclog.LevelDebug)
+
+	// Up some limits.
+	if err := limits.SetLimits(); err != nil {
+		log.Errorf("failed to set limits: %v\n", err)
+	}
 
 	rootCmd.Execute() // nolint : errchk
 }

@@ -31,7 +31,11 @@ func NewTemporalCommand() *cobra.Command {
 				return errors.Wrapf(err, "open temporal repo")
 			}
 
-			for ht := fromHeight; ht < toHeight; ht++ {
+			if toHeight <= 0 {
+				toHeight = fromHeight
+			}
+
+			for ht := fromHeight; ht <= toHeight; ht++ {
 				names, err := repo.NodesAt(ht)
 				if err != nil {
 					return errors.Wrapf(err, "get node names from temporal")
