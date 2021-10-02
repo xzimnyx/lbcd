@@ -46,24 +46,43 @@ func TestInsertAndErase(t *testing.T) {
 	assert.Equal(t, 1, trie.NodeCount())
 }
 
+type testPayload struct {
+	modifies int
+	full     bool
+}
+
+func (t *testPayload) clear() {
+	t.full = false
+}
+
+func (t *testPayload) childModified() {
+	t.modifies++
+}
+
+func (t *testPayload) isEmpty() bool {
+	return !t.full
+}
+
+var _ VertexPayload = &testPayload{}
+
 func TestNilNameHandling(t *testing.T) {
 	trie := NewCollapsedTrie()
 	inserted, n := trie.InsertOrFind([]byte("test"))
 	assert.True(t, inserted)
-	n.claimHash = EmptyTrieHash
+	p := testPayload{}
 	inserted, n = trie.InsertOrFind(nil)
 	assert.False(t, inserted)
-	n.claimHash = EmptyTrieHash
-	n.merkleHash = EmptyTrieHash
+	n.payload = &p
+	p.full = true
 	inserted, n = trie.InsertOrFind(nil)
 	assert.False(t, inserted)
-	assert.NotNil(t, n.claimHash)
-	assert.Nil(t, n.merkleHash)
+	assert.NotNil(t, n.payload)
+	assert.True(t, p.modifies > 0)
 	nodeRemoved := trie.Erase(nil)
 	assert.False(t, nodeRemoved)
 	inserted, n = trie.InsertOrFind(nil)
 	assert.False(t, inserted)
-	assert.Nil(t, n.claimHash)
+	assert.True(t, n.payload.isEmpty())
 }
 
 func TestCollapsedTriePerformance(t *testing.T) {

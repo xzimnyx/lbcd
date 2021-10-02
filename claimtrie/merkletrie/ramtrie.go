@@ -34,10 +34,39 @@ func NewRamTrie() *RamTrie {
 	}
 }
 
+type ramTriePayload struct {
+	merkleHash *chainhash.Hash
+	claimHash  *chainhash.Hash
+}
+
+func (r *ramTriePayload) clear() {
+	r.claimHash = nil
+	r.merkleHash = nil
+}
+
+func (r *ramTriePayload) childModified() {
+	r.merkleHash = nil
+}
+
+func (r *ramTriePayload) isEmpty() bool {
+	return r.claimHash == nil
+}
+
+func getOrMakePayload(v *collapsedVertex) *ramTriePayload {
+	if v.payload == nil {
+		r := &ramTriePayload{}
+		v.payload = r
+		return r
+	}
+	return v.payload.(*ramTriePayload)
+}
+
+var _ VertexPayload = &ramTriePayload{}
+
 var ErrFullRebuildRequired = errors.New("a full rebuild is required")
 
 func (rt *RamTrie) SetRoot(h *chainhash.Hash) error {
-	if rt.Root.merkleHash.IsEqual(h) {
+	if getOrMakePayload(rt.Root).merkleHash.IsEqual(h) {
 		runtime.GC()
 		return nil
 	}
@@ -51,7 +80,7 @@ func (rt *RamTrie) Update(name []byte, h *chainhash.Hash, _ bool) {
 		rt.Erase(name)
 	} else {
 		_, n := rt.InsertOrFind(name)
-		n.claimHash = h
+		getOrMakePayload(n).claimHash = h
 	}
 }
 
@@ -59,12 +88,13 @@ func (rt *RamTrie) MerkleHash() *chainhash.Hash {
 	if h := rt.merkleHash(rt.Root); h == nil {
 		return EmptyTrieHash
 	}
-	return rt.Root.merkleHash
+	return getOrMakePayload(rt.Root).merkleHash
 }
 
 func (rt *RamTrie) merkleHash(v *collapsedVertex) *chainhash.Hash {
-	if v.merkleHash != nil {
-		return v.merkleHash
+	p := getOrMakePayload(v)
+	if p.merkleHash != nil {
+		return p.merkleHash
 	}
 
 	b := rt.bufs.Get().(*bytes.Buffer)
@@ -77,16 +107,16 @@ func (rt *RamTrie) merkleHash(v *collapsedVertex) *chainhash.Hash {
 		b.Write(rt.completeHash(h, ch.key)) // nolint : errchk
 	}
 
-	if v.claimHash != nil {
-		b.Write(v.claimHash[:])
+	if p.claimHash != nil {
+		b.Write(p.claimHash[:])
 	}
 
 	if b.Len() > 0 {
 		h := chainhash.DoubleHashH(b.Bytes())
-		v.merkleHash = &h
+		p.merkleHash = &h
 	}
 
-	return v.merkleHash
+	return p.merkleHash
 }
 
 func (rt *RamTrie) completeHash(h *chainhash.Hash, childKey KeyType) []byte {
@@ -103,12 +133,13 @@ func (rt *RamTrie) MerkleHashAllClaims() *chainhash.Hash {
 	if h := rt.merkleHashAllClaims(rt.Root); h == nil {
 		return EmptyTrieHash
 	}
-	return rt.Root.merkleHash
+	return getOrMakePayload(rt.Root).merkleHash
 }
 
 func (rt *RamTrie) merkleHashAllClaims(v *collapsedVertex) *chainhash.Hash {
-	if v.merkleHash != nil {
-		return v.merkleHash
+	p := getOrMakePayload(v)
+	if p.merkleHash != nil {
+		return p.merkleHash
 	}
 
 	childHashes := make([]*chainhash.Hash, 0, len(v.children))
@@ -118,8 +149,8 @@ func (rt *RamTrie) merkleHashAllClaims(v *collapsedVertex) *chainhash.Hash {
 	}
 
 	claimHash := NoClaimsHash
-	if v.claimHash != nil {
-		claimHash = v.claimHash
+	if p.claimHash != nil {
+		claimHash = p.claimHash
 	} else if len(childHashes) == 0 {
 		return nil
 	}
@@ -130,8 +161,8 @@ func (rt *RamTrie) merkleHashAllClaims(v *collapsedVertex) *chainhash.Hash {
 		childHash = node.ComputeMerkleRoot(childHashes)
 	}
 
-	v.merkleHash = node.HashMerkleBranches(childHash, claimHash)
-	return v.merkleHash
+	p.merkleHash = node.HashMerkleBranches(childHash, claimHash)
+	return p.merkleHash
 }
 
 func (rt *RamTrie) Flush() error {

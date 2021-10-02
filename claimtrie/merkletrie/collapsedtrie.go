@@ -1,16 +1,17 @@
 package merkletrie
 
-import (
-	"github.com/lbryio/lbcd/chaincfg/chainhash"
-)
-
 type KeyType []byte
 
+type VertexPayload interface {
+	clear()
+	childModified()
+	isEmpty() bool
+}
+
 type collapsedVertex struct {
-	children   []*collapsedVertex
-	key        KeyType
-	merkleHash *chainhash.Hash
-	claimHash  *chainhash.Hash
+	children []*collapsedVertex
+	key      KeyType
+	payload  VertexPayload // TODO: remove all stupid null checks on this once we have generics
 }
 
 // insertAt inserts v into s at index i and returns the new slice.
@@ -96,7 +97,9 @@ func (pt *collapsedTrie) insert(value KeyType, node *collapsedVertex) (bool, *co
 	index, child := node.findNearest(value)
 	match := 0
 	if index >= 0 { // if we found a child
-		child.merkleHash = nil
+		if child.payload != nil {
+			child.payload.childModified()
+		}
 		match = matchLength(value, child.key)
 		if len(value) == match && len(child.key) == match {
 			return false, child
@@ -107,8 +110,7 @@ func (pt *collapsedTrie) insert(value KeyType, node *collapsedVertex) (bool, *co
 		return true, node.Insert(&collapsedVertex{key: value})
 	}
 	if match < len(child.key) {
-		grandChild := collapsedVertex{key: child.key[match:], children: child.children,
-			claimHash: child.claimHash, merkleHash: child.merkleHash}
+		grandChild := collapsedVertex{key: child.key[match:], children: child.children, payload: child.payload}
 		newChild := collapsedVertex{key: child.key[0:match], children: []*collapsedVertex{&grandChild}}
 		child = &newChild
 		node.children[index] = child
@@ -121,7 +123,9 @@ func (pt *collapsedTrie) insert(value KeyType, node *collapsedVertex) (bool, *co
 }
 
 func (pt *collapsedTrie) InsertOrFind(value KeyType) (bool, *collapsedVertex) {
-	pt.Root.merkleHash = nil
+	if pt.Root.payload != nil {
+		pt.Root.payload.childModified()
+	}
 	if len(value) <= 0 {
 		return false, pt.Root
 	}
@@ -200,27 +204,30 @@ func iterateFrom(name KeyType, node *collapsedVertex, handler func(name KeyType,
 func (pt *collapsedTrie) Erase(value KeyType) bool {
 	indexes, path := pt.FindPath(value)
 	if path == nil || len(path) <= 1 {
-		if len(path) == 1 {
-			path[0].merkleHash = nil
-			path[0].claimHash = nil
+		if len(path) == 1 && path[0].payload != nil {
+			path[0].payload.clear()
 		}
 		return false
 	}
 	nodes := pt.Nodes
 	i := len(path) - 1
-	path[i].claimHash = nil // this is the thing we are erasing; the rest is book-keeping
+	if path[i].payload != nil {
+		path[i].payload.clear() // this is the thing we are erasing; the rest is book-keeping
+	}
 	for ; i > 0; i-- {
 		childCount := len(path[i].children)
-		noClaimData := path[i].claimHash == nil
-		path[i].merkleHash = nil
-		if childCount == 1 && noClaimData {
+		emptyPayload := path[i].payload == nil || path[i].payload.isEmpty()
+		if path[i].payload != nil {
+			path[i].payload.childModified()
+		}
+		if childCount == 1 && emptyPayload {
 			path[i].key = append(path[i].key, path[i].children[0].key...)
-			path[i].claimHash = path[i].children[0].claimHash
+			path[i].payload = path[i].children[0].payload
 			path[i].children = path[i].children[0].children
 			pt.Nodes--
 			continue
 		}
-		if childCount == 0 && noClaimData {
+		if childCount == 0 && emptyPayload {
 			index := indexes[i]
 			path[i-1].children = append(path[i-1].children[:index], path[i-1].children[index+1:]...)
 			pt.Nodes--
@@ -229,7 +236,9 @@ func (pt *collapsedTrie) Erase(value KeyType) bool {
 		break
 	}
 	for ; i >= 0; i-- {
-		path[i].merkleHash = nil
+		if path[i].payload != nil {
+			path[i].payload.childModified()
+		}
 	}
 	return nodes > pt.Nodes
 }
