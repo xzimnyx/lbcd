@@ -1192,7 +1192,8 @@ func handleGetBlock(s *rpcServer, cmd interface{}, closeChan <-chan struct{}) (i
 	if blockHeight > 0 {
 		prevHashString = blockHeader.PrevBlock.String()
 	}
-	blockReply := btcjson.GetBlockVerboseResult{
+
+	base := btcjson.GetBlockVerboseResultBase{
 		Hash:          c.Hash,
 		Version:       blockHeader.Version,
 		VersionHex:    fmt.Sprintf("%08x", blockHeader.Version),
@@ -1218,20 +1219,29 @@ func handleGetBlock(s *rpcServer, cmd interface{}, closeChan <-chan struct{}) (i
 			txNames[i] = tx.Hash().String()
 		}
 
-		blockReply.Tx = txNames
-	} else {
-		txns := blk.Transactions()
-		rawTxns := make([]btcjson.TxRawResult, len(txns))
-		for i, tx := range txns {
-			rawTxn, err := createTxRawResult(params, tx.MsgTx(),
-				tx.Hash().String(), blockHeader, hash.String(),
-				blockHeight, best.Height)
-			if err != nil {
-				return nil, err
-			}
-			rawTxns[i] = *rawTxn
+		base.TxCount = len(txNames)
+		blockReply := btcjson.GetBlockVerboseResult{
+			GetBlockVerboseResultBase: base,
+			Tx:                        txNames,
 		}
-		blockReply.RawTx = rawTxns
+		return blockReply, nil
+	}
+
+	txns := blk.Transactions()
+	rawTxns := make([]btcjson.TxRawResult, len(txns))
+	for i, tx := range txns {
+		rawTxn, err := createTxRawResult(params, tx.MsgTx(),
+			tx.Hash().String(), blockHeader, hash.String(),
+			blockHeight, best.Height)
+		if err != nil {
+			return nil, err
+		}
+		rawTxns[i] = *rawTxn
+	}
+	base.TxCount = len(rawTxns)
+	blockReply := btcjson.GetBlockVerboseTxResult{
+		GetBlockVerboseResultBase: base,
+		Tx:                        rawTxns,
 	}
 
 	return blockReply, nil
