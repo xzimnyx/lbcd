@@ -176,6 +176,8 @@ func NewNodeStatsCommand() *cobra.Command {
 
 			n := 0
 			c := 0
+			withUpdates := 0
+			changeGap := 0
 			err = repo.IterateChildren([]byte{}, func(changes []change.Change) bool {
 				c += len(changes)
 				n++
@@ -183,9 +185,14 @@ func NewNodeStatsCommand() *cobra.Command {
 					fmt.Printf("Name: %s, Hex: %s, Changes: %d\n", string(changes[0].Name),
 						hex.EncodeToString(changes[0].Name), len(changes))
 				}
+				if len(changes) > 3 {
+					withUpdates++
+					changeGap += int(changes[3].Height - changes[0].Height)
+				}
 				return true
 			})
 			fmt.Printf("\nNames: %d, Average changes: %.2f\n", n, float64(c)/float64(n))
+			fmt.Printf("\nNames with updates: %d, Average 1st change gap: %.2f\n", withUpdates, float64(changeGap)/float64(withUpdates))
 			return errors.Wrapf(err, "iterate node repo")
 		},
 	}

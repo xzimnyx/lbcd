@@ -57,7 +57,7 @@ func sortSearch(nodes []*collapsedVertex, b byte) int {
 }
 
 func (ptn *collapsedVertex) findNearest(key KeyType) (int, *collapsedVertex) {
-	// none of the children overlap on the first char or we would have a parent node with that char
+	// none of the children overlap on the first char, or we would have a parent node with that char
 	index := sortSearch(ptn.children, key[0])
 	hits := ptn.children[index:]
 	if len(hits) > 0 {
@@ -67,13 +67,18 @@ func (ptn *collapsedVertex) findNearest(key KeyType) (int, *collapsedVertex) {
 }
 
 type collapsedTrie struct {
-	Root  *collapsedVertex
-	Nodes int
+	Root   *collapsedVertex
+	Nodes  int
+	Reload func(prefix KeyType, child *collapsedVertex)
 }
 
 func NewCollapsedTrie() *collapsedTrie {
 	// we never delete the Root node
-	return &collapsedTrie{Root: &collapsedVertex{key: make(KeyType, 0)}, Nodes: 1}
+	return &collapsedTrie{
+		Root:   &collapsedVertex{key: make(KeyType, 0)},
+		Nodes:  1,
+		Reload: func(_ KeyType, child *collapsedVertex) {},
+	}
 }
 
 func (pt *collapsedTrie) NodeCount() int {
@@ -93,7 +98,8 @@ func matchLength(a, b KeyType) int {
 	return minLen
 }
 
-func (pt *collapsedTrie) insert(value KeyType, node *collapsedVertex) (bool, *collapsedVertex) {
+func (pt *collapsedTrie) insert(master, value KeyType, node *collapsedVertex) (bool, *collapsedVertex) {
+	pt.Reload(master[0:len(master)-len(value)], node)
 	index, child := node.findNearest(value)
 	match := 0
 	if index >= 0 { // if we found a child
@@ -119,7 +125,7 @@ func (pt *collapsedTrie) insert(value KeyType, node *collapsedVertex) (bool, *co
 			return true, child
 		}
 	}
-	return pt.insert(value[match:], child)
+	return pt.insert(master, value[match:], child)
 }
 
 func (pt *collapsedTrie) InsertOrFind(value KeyType) (bool, *collapsedVertex) {
@@ -130,14 +136,15 @@ func (pt *collapsedTrie) InsertOrFind(value KeyType) (bool, *collapsedVertex) {
 		return false, pt.Root
 	}
 
-	// we store the name so we need to make our own copy of it
+	// we store the name, so we need to make our own copy of it.
 	// this avoids errors where this function is called via the DB iterator
 	v2 := make([]byte, len(value))
 	copy(v2, value)
-	return pt.insert(v2, pt.Root)
+	return pt.insert(v2, v2, pt.Root)
 }
 
-func find(value KeyType, node *collapsedVertex, pathIndexes *[]int, path *[]*collapsedVertex) *collapsedVertex {
+func (pt *collapsedTrie) find(master, value KeyType, node *collapsedVertex, pathIndexes *[]int, path *[]*collapsedVertex) *collapsedVertex {
+	pt.Reload(master[0:len(master)-len(value)], node)
 	index, child := node.findNearest(value)
 	if index < 0 {
 		return nil
@@ -161,22 +168,22 @@ func find(value KeyType, node *collapsedVertex, pathIndexes *[]int, path *[]*col
 	if path != nil {
 		*path = append(*path, child)
 	}
-	return find(value[match:], child, pathIndexes, path)
+	return pt.find(master, value[match:], child, pathIndexes, path)
 }
 
 func (pt *collapsedTrie) Find(value KeyType) *collapsedVertex {
 	if len(value) <= 0 {
 		return pt.Root
 	}
-	return find(value, pt.Root, nil, nil)
+	return pt.find(value, value, pt.Root, nil, nil)
 }
 
 func (pt *collapsedTrie) FindPath(value KeyType) ([]int, []*collapsedVertex) {
 	pathIndexes := []int{-1}
 	path := []*collapsedVertex{pt.Root}
 	if len(value) > 0 {
-		result := find(value, pt.Root, &pathIndexes, &path)
-		if result == nil { // not sure I want this line
+		result := pt.find(value, value, pt.Root, &pathIndexes, &path)
+		if result == nil { // not sure that I want this line
 			return nil, nil
 		}
 	}
@@ -186,7 +193,7 @@ func (pt *collapsedTrie) FindPath(value KeyType) ([]int, []*collapsedVertex) {
 // IterateFrom can be used to find a value and run a function on that value.
 // If the handler returns true it continues to iterate through the children of value.
 func (pt *collapsedTrie) IterateFrom(start KeyType, handler func(name KeyType, value *collapsedVertex) bool) {
-	node := find(start, pt.Root, nil, nil)
+	node := pt.find(start, start, pt.Root, nil, nil)
 	if node == nil {
 		return
 	}

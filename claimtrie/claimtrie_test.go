@@ -239,7 +239,10 @@ func TestRebuild(t *testing.T) {
 	r.NotNil(m)
 	r.NotEqual(*merkletrie.EmptyTrieHash, *m)
 
-	ct.merkleTrie = merkletrie.NewRamTrie()
+	ct.merkleTrie = merkletrie.NewRamTrie(func(name merkletrie.KeyType) ([]merkletrie.KeyType, []*chainhash.Hash) {
+		r.Fail("Unexpected entrance on %s", string(name))
+		return nil, nil
+	})
 	ct.runFullTrieRebuild(nil, nil)
 
 	m2 := ct.MerkleHash()

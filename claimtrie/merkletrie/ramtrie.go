@@ -23,20 +23,49 @@ type RamTrie struct {
 	bufs *sync.Pool
 }
 
-func NewRamTrie() *RamTrie {
+func NewRamTrie(f func(name KeyType) ([]KeyType, []*chainhash.Hash)) *RamTrie {
 	return &RamTrie{
 		bufs: &sync.Pool{
 			New: func() interface{} {
 				return new(bytes.Buffer)
 			},
 		},
-		collapsedTrie: collapsedTrie{Root: &collapsedVertex{}},
+		collapsedTrie: collapsedTrie{
+			Root:  &collapsedVertex{},
+			Nodes: 1,
+			Reload: func(prefix KeyType, v *collapsedVertex) {
+				// Reload is always called before the node is used
+				if len(prefix) <= 0 {
+					return
+				}
+				p := getOrMakePayload(v)
+				if p.pruned { // it's been pruned
+					names, hashes := f(prefix)
+					for i, name := range names {
+						cv := &collapsedVertex{
+							children: nil,
+							key:      name[len(prefix):],
+							payload: &ramTriePayload{
+								merkleHash: nil,
+								claimHash:  hashes[i],
+								hit:        1,
+							},
+						}
+						// assuming that names come out in order:
+						v.children = append(v.children, cv)
+					}
+					p.pruned = false
+				}
+			},
+		},
 	}
 }
 
 type ramTriePayload struct {
 	merkleHash *chainhash.Hash
 	claimHash  *chainhash.Hash
+	hit        int32
+	pruned     bool
 }
 
 func (r *ramTriePayload) clear() {
@@ -85,6 +114,7 @@ func (rt *RamTrie) Update(name []byte, h *chainhash.Hash, _ bool) {
 }
 
 func (rt *RamTrie) MerkleHash() *chainhash.Hash {
+	rootHashCalls++
 	if h := rt.merkleHash(rt.Root); h == nil {
 		return EmptyTrieHash
 	}
@@ -94,8 +124,10 @@ func (rt *RamTrie) MerkleHash() *chainhash.Hash {
 func (rt *RamTrie) merkleHash(v *collapsedVertex) *chainhash.Hash {
 	p := getOrMakePayload(v)
 	if p.merkleHash != nil {
+		runCleanup(v)
 		return p.merkleHash
 	}
+	p.hit++
 
 	b := rt.bufs.Get().(*bytes.Buffer)
 	defer rt.bufs.Put(b)
@@ -130,17 +162,37 @@ func (rt *RamTrie) completeHash(h *chainhash.Hash, childKey KeyType) []byte {
 }
 
 func (rt *RamTrie) MerkleHashAllClaims() *chainhash.Hash {
+	rootHashCalls++
 	if h := rt.merkleHashAllClaims(rt.Root); h == nil {
 		return EmptyTrieHash
 	}
 	return getOrMakePayload(rt.Root).merkleHash
 }
 
+var rootHashCalls = 0 // TODO: put this in rt
+const cleanupMod = 1024
+const threshold = 42 // have to be used 4% of time to stay in cache
+
+func runCleanup(v *collapsedVertex) {
+	if (rootHashCalls % cleanupMod) == cleanupMod-1 {
+		for _, c := range v.children {
+			if c.payload != nil && c.payload.(*ramTriePayload).hit > threshold {
+				return
+			}
+		}
+		v.children = nil
+		p := getOrMakePayload(v)
+		p.pruned = true
+	}
+}
+
 func (rt *RamTrie) merkleHashAllClaims(v *collapsedVertex) *chainhash.Hash {
 	p := getOrMakePayload(v)
 	if p.merkleHash != nil {
+		runCleanup(v)
 		return p.merkleHash
 	}
+	p.hit++
 
 	childHashes := make([]*chainhash.Hash, 0, len(v.children))
 	for _, ch := range v.children {

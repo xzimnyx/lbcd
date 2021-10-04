@@ -94,7 +94,23 @@ func New(cfg config.Config) (*ClaimTrie, error) {
 
 	var trie merkletrie.MerkleTrie
 	if cfg.RamTrie {
-		trie = merkletrie.NewRamTrie()
+		f := func(prefix merkletrie.KeyType) ([]merkletrie.KeyType, []*chainhash.Hash) {
+			var names []merkletrie.KeyType
+			var hashes []*chainhash.Hash
+			_ = nodeRepo.IterateChildren(prefix, func(changes []change.Change) bool {
+				if len(changes) <= 0 {
+					return true
+				}
+				childName := make(merkletrie.KeyType, len(changes[0].Name))
+				copy(childName, changes[0].Name)
+				names = append(names, childName)
+				hash, _ := nodeManager.Hash(childName)
+				hashes = append(hashes, hash)
+				return true
+			})
+			return names, hashes
+		}
+		trie = merkletrie.NewRamTrie(f)
 	} else {
 
 		// Initialize repository for MerkleTrie. The cleanup is delegated to MerkleTrie.
