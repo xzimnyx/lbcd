@@ -87,6 +87,8 @@ var helpDescsEnUS = map[string]string{
 	"scriptpubkeyresult-reqSigs":   "The number of required signatures",
 	"scriptpubkeyresult-type":      "The type of the script (e.g. 'pubkeyhash')",
 	"scriptpubkeyresult-addresses": "The bitcoin addresses associated with this script",
+	"scriptpubkeyresult-issupport": "Creates a support",
+	"scriptpubkeyresult-isclaim":   "Creates or updates a claim",
 
 	// Vout help.
 	"vout-value":        "The amount in LBC",
@@ -286,6 +288,7 @@ var helpDescsEnUS = map[string]string{
 	"getblockheaderverboseresult-difficulty":        "The proof-of-work difficulty as a multiple of the minimum difficulty",
 	"getblockheaderverboseresult-previousblockhash": "The hash of the previous block",
 	"getblockheaderverboseresult-nextblockhash":     "The hash of the next block (only if there is one)",
+	"getblockheaderverboseresult-claimtrie":         "The hash of the root of the claim trie",
 
 	// TemplateRequest help.
 	"templaterequest-mode":         "This is 'template', 'proposal', or omitted",
@@ -337,6 +340,8 @@ var helpDescsEnUS = map[string]string{
 	"getblocktemplateresult-reject-reason":              "Reason the proposal was invalid as-is (only applies to proposal responses)",
 	"getblocktemplateresult-default_witness_commitment": "The witness commitment itself. Will be populated if the block has witness data",
 	"getblocktemplateresult-weightlimit":                "The current limit on the max allowed weight of a block",
+	"getblocktemplateresult-rules":                      "Rules that are required to process the output",
+	"getblocktemplateresult-claimtrie":                  "The hash of the root of the claim trie - a necessary block header",
 
 	// GetBlockTemplateCmd help.
 	"getblocktemplate--synopsis": "Returns a JSON object with information necessary to construct a block to mine or accepts a proposal to validate.\n" +
@@ -706,6 +711,14 @@ var helpDescsEnUS = map[string]string{
 	"versionresult-patch":         "The patch component of the JSON-RPC API version",
 	"versionresult-prerelease":    "Prerelease info about the current build",
 	"versionresult-buildmetadata": "Metadata about the current build",
+
+	"getclaimsfornameresult-claims":  "All the active claims on the given name",
+	"getchangesinblockresult-names":  "Names that changed (or were at least checked for change) on the given height",
+	"getchangesinblockresult-height": "Height that was requested",
+	"getchangesinblockresult-hash":   "Hash of the block at the height requested",
+	"scriptpubkeyresult-subtype":     "Claims return Non-standard address types, but they use standard address types internally exposed here",
+	"claimresult-value":              "This is the metadata given as part of the claim",
+	"claimresult-address":            "The destination address for the claim",
 }
 
 // rpcResultTypes specifies the result types that each RPC command can return.
@@ -719,6 +732,7 @@ var rpcResultTypes = map[string][]interface{}{
 	"decodescript":           {(*btcjson.DecodeScriptResult)(nil)},
 	"estimatefee":            {(*float64)(nil)},
 	"generate":               {(*[]string)(nil)},
+	"generatetoaddress":      {(*[]string)(nil)},
 	"getaddednodeinfo":       {(*[]string)(nil), (*[]btcjson.GetAddedNodeInfoResult)(nil)},
 	"getbestblock":           {(*btcjson.GetBestBlockResult)(nil)},
 	"getbestblockhash":       {(*string)(nil)},
@@ -774,6 +788,14 @@ var rpcResultTypes = map[string][]interface{}{
 	"stopnotifyspent":           nil,
 	"rescan":                    nil,
 	"rescanblocks":              {(*[]btcjson.RescannedBlock)(nil)},
+
+	// ClaimTrie
+	"getclaimsforname":      {(*btcjson.GetClaimsForNameResult)(nil)},
+	"getclaimsfornamebyid":  {(*btcjson.GetClaimsForNameResult)(nil)},
+	"getclaimsfornamebybid": {(*btcjson.GetClaimsForNameResult)(nil)},
+	"getclaimsfornamebyseq": {(*btcjson.GetClaimsForNameResult)(nil)},
+	"normalize":             {(*string)(nil)},
+	"getchangesinblock":     {(*btcjson.GetChangesInBlockResult)(nil)},
 }
 
 // helpCacher provides a concurrent safe type that provides help and usage for

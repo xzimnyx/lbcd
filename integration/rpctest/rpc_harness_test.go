@@ -106,7 +106,7 @@ func assertConnectedTo(t *testing.T, nodeA *Harness, nodeB *Harness) {
 
 func testConnectNode(r *Harness, t *testing.T) {
 	// Create a fresh test harness.
-	harness, err := New(&chaincfg.SimNetParams, nil, nil, "")
+	harness, err := New(&chaincfg.RegressionNetParams, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -567,7 +567,7 @@ const (
 
 func TestMain(m *testing.M) {
 	var err error
-	mainHarness, err = New(&chaincfg.RegressionNetParams, nil, nil, "")
+	mainHarness, err = New(&chaincfg.SimNetParams, nil, nil, "")
 	if err != nil {
 		fmt.Println("unable to create main harness: ", err)
 		os.Exit(1)
@@ -602,9 +602,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestHarness(t *testing.T) {
-	// We should have (numMatureOutputs * 50 BTC) of mature unspendable
-	// outputs.
-	expectedBalance := btcutil.Amount(numMatureOutputs * 50 * btcutil.SatoshiPerBitcoin)
+	expectedBalance := btcutil.Amount(numMatureOutputs * btcutil.SatoshiPerBitcoin)
 	harnessBalance := mainHarness.ConfirmedBalance()
 	if harnessBalance != expectedBalance {
 		t.Fatalf("expected wallet balance of %v instead have %v",

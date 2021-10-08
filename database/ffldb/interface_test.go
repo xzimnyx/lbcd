@@ -62,13 +62,11 @@ func loadBlocks(t *testing.T, dataFile string, network wire.BitcoinNet) ([]*btcu
 
 	// Set the first block as the genesis block.
 	blocks := make([]*btcutil.Block, 0, 257)
-	total := uint32(0)
 
 	// Load the remaining blocks.
 	for {
 		var net uint32
 		err := binary.Read(dr, binary.LittleEndian, &net)
-		total += 4
 		if err == io.EOF {
 			// Hit end of file at the expected offset.  No error.
 			break
@@ -84,7 +82,6 @@ func loadBlocks(t *testing.T, dataFile string, network wire.BitcoinNet) ([]*btcu
 
 		var blockLen uint32
 		err = binary.Read(dr, binary.LittleEndian, &blockLen)
-		total += 4
 		if err != nil {
 			t.Errorf("Failed to load block size for block %d: %v",
 				len(blocks), err)
@@ -94,7 +91,6 @@ func loadBlocks(t *testing.T, dataFile string, network wire.BitcoinNet) ([]*btcu
 		// Read the block.
 		blockBytes := make([]byte, blockLen)
 		_, err = io.ReadFull(dr, blockBytes)
-		total += blockLen
 		if err != nil {
 			t.Errorf("Failed to load block %d: %v", len(blocks), err)
 			return nil, err
@@ -106,12 +102,13 @@ func loadBlocks(t *testing.T, dataFile string, network wire.BitcoinNet) ([]*btcu
 			t.Errorf("Failed to parse block %v: %v", len(blocks), err)
 			return nil, err
 		}
+		// NOTE: there's a bug here in that it doesn't read the checksum;
+		// we account for that by checking the network above; it probably skips every other block
 		blocks = append(blocks, block)
 		if len(blocks) == 257 {
 			break
 		}
 	}
-	fmt.Errorf("READ %d bytes!\n", total)
 
 	return blocks, nil
 }

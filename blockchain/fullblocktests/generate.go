@@ -31,7 +31,7 @@ const (
 	// Intentionally defined here rather than using constants from codebase
 	// to ensure consensus changes are detected.
 	maxBlockSigOps       = 20000
-	maxBlockSize         = 2000000
+	maxBlockSize         = 8000000
 	minCoinbaseScriptLen = 2
 	maxCoinbaseScriptLen = 100
 	medianTimeBlocks     = 11
@@ -811,7 +811,7 @@ func Generate(includeLargeReorg bool) (tests [][]TestInstance, err error) {
 
 	// Create a test generator instance initialized with the genesis block
 	// as the tip.
-	g, err := makeTestGenerator(regressionNetParams)
+	g, err := makeTestGenerator(FbRegressionNetParams)
 	if err != nil {
 		return nil, err
 	}

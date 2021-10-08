@@ -57,7 +57,7 @@ func loadBlocks(t *testing.T, dataFile string, network wire.BitcoinNet) ([]*btcu
 	blocks := make([]*btcutil.Block, 0, 257)
 
 	// Load the remaining blocks.
-	for height := 1; height <= 256; height++ {
+	for {
 		var net uint32
 		err := binary.Read(dr, binary.LittleEndian, &net)
 		if err == io.EOF {
@@ -66,7 +66,7 @@ func loadBlocks(t *testing.T, dataFile string, network wire.BitcoinNet) ([]*btcu
 		}
 		if err != nil {
 			t.Errorf("Failed to load network type for block %d: %v",
-				height, err)
+				len(blocks), err)
 			return nil, err
 		}
 		if net != uint32(network) {
@@ -77,7 +77,7 @@ func loadBlocks(t *testing.T, dataFile string, network wire.BitcoinNet) ([]*btcu
 		err = binary.Read(dr, binary.LittleEndian, &blockLen)
 		if err != nil {
 			t.Errorf("Failed to load block size for block %d: %v",
-				height, err)
+				len(blocks), err)
 			return nil, err
 		}
 
@@ -85,17 +85,22 @@ func loadBlocks(t *testing.T, dataFile string, network wire.BitcoinNet) ([]*btcu
 		blockBytes := make([]byte, blockLen)
 		_, err = io.ReadFull(dr, blockBytes)
 		if err != nil {
-			t.Errorf("Failed to load block %d: %v", height, err)
+			t.Errorf("Failed to load block %d: %v", len(blocks), err)
 			return nil, err
 		}
 
 		// Deserialize and store the block.
 		block, err := btcutil.NewBlockFromBytes(blockBytes)
 		if err != nil {
-			t.Errorf("Failed to parse block %v: %v", height, err)
+			t.Errorf("Failed to parse block %v: %v", len(blocks), err)
 			return nil, err
 		}
+		// there's a bug here in that it doesn't read the checksum
+		// and then it maybe ends up skipping a block
 		blocks = append(blocks, block)
+		if len(blocks) == 257 {
+			break
+		}
 	}
 
 	return blocks, nil
