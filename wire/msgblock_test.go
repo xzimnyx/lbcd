@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/lbryio/lbcd/chaincfg/chainhash"
 )
 
 // TestBlock tests the MsgBlock API.
@@ -24,7 +24,7 @@ func TestBlock(t *testing.T) {
 	merkleHash := &blockOne.Header.MerkleRoot
 	bits := blockOne.Header.Bits
 	nonce := blockOne.Header.Nonce
-	bh := NewBlockHeader(1, prevHash, merkleHash, bits, nonce)
+	bh := NewBlockHeader(1, prevHash, merkleHash, merkleHash, bits, nonce)
 
 	// Ensure the command is expected value.
 	wantCmd := "block"

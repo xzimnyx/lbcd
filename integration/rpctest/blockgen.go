@@ -205,6 +205,7 @@ func CreateBlock(prevBlock *btcutil.Block, inclusionTxs []*btcutil.Tx,
 		MerkleRoot: *merkles[len(merkles)-1],
 		Timestamp:  ts,
 		Bits:       net.PowLimitBits,
+		ClaimTrie:  chainhash.Hash{1}, // EmptyTrieHash
 	}
 	for _, tx := range blockTxns {
 		if err := block.AddTransaction(tx.MsgTx()); err != nil {

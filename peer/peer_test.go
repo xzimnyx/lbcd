@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/peer"
-	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/go-socks/socks"
+	"github.com/lbryio/lbcd/chaincfg"
+	"github.com/lbryio/lbcd/chaincfg/chainhash"
+	"github.com/lbryio/lbcd/peer"
+	"github.com/lbryio/lbcd/wire"
 )
 
 // conn mocks a network connection by implementing the net.Conn interface.  It
@@ -519,7 +519,7 @@ func TestPeerListeners(t *testing.T) {
 		{
 			"OnBlock",
 			wire.NewMsgBlock(wire.NewBlockHeader(1,
-				&chainhash.Hash{}, &chainhash.Hash{}, 1, 1)),
+				&chainhash.Hash{}, &chainhash.Hash{}, &chainhash.Hash{}, 1, 1)),
 		},
 		{
 			"OnInv",
@@ -585,7 +585,7 @@ func TestPeerListeners(t *testing.T) {
 		{
 			"OnMerkleBlock",
 			wire.NewMsgMerkleBlock(wire.NewBlockHeader(1,
-				&chainhash.Hash{}, &chainhash.Hash{}, 1, 1)),
+				&chainhash.Hash{}, &chainhash.Hash{}, &chainhash.Hash{}, 1, 1)),
 		},
 		// only one version message is allowed
 		// only one verack message is allowed

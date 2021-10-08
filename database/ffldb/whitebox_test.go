@@ -17,12 +17,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/database"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/goleveldb/leveldb"
 	ldberrors "github.com/btcsuite/goleveldb/leveldb/errors"
+	"github.com/lbryio/lbcd/database"
+	"github.com/lbryio/lbcd/wire"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 var (
@@ -55,12 +54,10 @@ func loadBlocks(t *testing.T, dataFile string, network wire.BitcoinNet) ([]*btcu
 	dr := bzip2.NewReader(fi)
 
 	// Set the first block as the genesis block.
-	blocks := make([]*btcutil.Block, 0, 256)
-	genesis := btcutil.NewBlock(chaincfg.MainNetParams.GenesisBlock)
-	blocks = append(blocks, genesis)
+	blocks := make([]*btcutil.Block, 0, 257)
 
 	// Load the remaining blocks.
-	for height := 1; ; height++ {
+	for height := 1; height <= 256; height++ {
 		var net uint32
 		err := binary.Read(dr, binary.LittleEndian, &net)
 		if err == io.EOF {
@@ -73,9 +70,7 @@ func loadBlocks(t *testing.T, dataFile string, network wire.BitcoinNet) ([]*btcu
 			return nil, err
 		}
 		if net != uint32(network) {
-			t.Errorf("Block doesn't match network: %v expects %v",
-				net, network)
-			return nil, err
+			continue
 		}
 
 		var blockLen uint32

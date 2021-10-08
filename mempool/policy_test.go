@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
+	"github.com/lbryio/lbcd/btcec"
+	"github.com/lbryio/lbcd/chaincfg"
+	"github.com/lbryio/lbcd/chaincfg/chainhash"
+	"github.com/lbryio/lbcd/txscript"
+	"github.com/lbryio/lbcd/wire"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 // TestCalcMinRequiredTxRelayFee tests the calcMinRequiredTxRelayFee API.
@@ -48,7 +48,7 @@ func TestCalcMinRequiredTxRelayFee(t *testing.T) {
 		{
 			"max standard tx size with max satoshi relay fee",
 			maxStandardTxWeight / 4,
-			btcutil.MaxSatoshi,
+			btcutil.MaxSatoshi / 100, // overflow on purpose
 			btcutil.MaxSatoshi,
 		},
 		{
@@ -252,11 +252,11 @@ func TestDust(t *testing.T) {
 			false,
 		},
 		{
-			// Maximum int64 value causes overflow.
+			// Maximum int64 value causes overflow if we're not careful
 			"maximum int64 value",
 			wire.TxOut{Value: 1<<63 - 1, PkScript: pkScript},
 			1<<63 - 1,
-			true,
+			false,
 		},
 		{
 			// Unspendable pkScript due to an invalid public key
@@ -268,7 +268,7 @@ func TestDust(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		res := isDust(&test.txOut, test.relayFee)
+		res := IsDust(&test.txOut, test.relayFee)
 		if res != test.isDust {
 			t.Fatalf("Dust test '%s' failed: want %v got %v",
 				test.name, test.isDust, res)

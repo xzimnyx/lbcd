@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // This file is ignored during the regular tests due to the following build tag.
+//go:build rpctest
 // +build rpctest
 
 package integration
@@ -13,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/blockchain"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/integration/rpctest"
+	"github.com/lbryio/lbcd/blockchain"
+	"github.com/lbryio/lbcd/chaincfg"
+	"github.com/lbryio/lbcd/chaincfg/chainhash"
+	"github.com/lbryio/lbcd/integration/rpctest"
 )
 
 const (

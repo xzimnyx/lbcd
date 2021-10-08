@@ -7,7 +7,7 @@ package blockchain
 import (
 	"testing"
 
-	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/lbryio/lbcd/chaincfg"
 )
 
 // TestNotifications ensures that notification callbacks are fired on events.
@@ -37,6 +37,10 @@ func TestNotifications(t *testing.T) {
 	const numSubscribers = 3
 	for i := 0; i < numSubscribers; i++ {
 		chain.Subscribe(callback)
+	}
+
+	if len(blocks) < 2 {
+		t.Fatalf("Not enough blocks read")
 	}
 
 	_, _, err = chain.ProcessBlock(blocks[1], BFNone)

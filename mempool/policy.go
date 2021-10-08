@@ -6,6 +6,7 @@ package mempool
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/lbryio/lbcd/blockchain"
@@ -172,6 +173,8 @@ func checkPkScriptStandard(pkScript []byte, scriptClass txscript.ScriptClass) er
 	return nil
 }
 
+const dustCap = math.MaxInt64 / 1001
+
 // IsDust returns whether or not the passed transaction output amount is
 // considered dust or not based on the passed minimum transaction relay fee.
 // Dust is defined in terms of the minimum transaction relay fee.  In
@@ -265,6 +268,9 @@ func IsDust(txOut *wire.TxOut, minRelayTxFee btcutil.Amount) bool {
 	//
 	// The following is equivalent to (value/totalSize) * (1/3) * 1000
 	// without needing to do floating point math.
+	if txOut.Value > dustCap {
+		return false
+	}
 	return txOut.Value*1000/(3*int64(totalSize)) < int64(minRelayTxFee)
 }
 

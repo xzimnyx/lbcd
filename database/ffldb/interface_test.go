@@ -25,7 +25,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lbryio/lbcd/chaincfg"
 	"github.com/lbryio/lbcd/chaincfg/chainhash"
 	"github.com/lbryio/lbcd/database"
 	"github.com/lbryio/lbcd/wire"
@@ -62,53 +61,57 @@ func loadBlocks(t *testing.T, dataFile string, network wire.BitcoinNet) ([]*btcu
 	dr := bzip2.NewReader(fi)
 
 	// Set the first block as the genesis block.
-	blocks := make([]*btcutil.Block, 0, 256)
-	genesis := btcutil.NewBlock(chaincfg.MainNetParams.GenesisBlock)
-	blocks = append(blocks, genesis)
+	blocks := make([]*btcutil.Block, 0, 257)
+	total := uint32(0)
 
 	// Load the remaining blocks.
-	for height := 1; ; height++ {
+	for {
 		var net uint32
 		err := binary.Read(dr, binary.LittleEndian, &net)
+		total += 4
 		if err == io.EOF {
 			// Hit end of file at the expected offset.  No error.
 			break
 		}
 		if err != nil {
 			t.Errorf("Failed to load network type for block %d: %v",
-				height, err)
+				len(blocks), err)
 			return nil, err
 		}
 		if net != uint32(network) {
-			t.Errorf("Block doesn't match network: %v expects %v",
-				net, network)
-			return nil, err
+			continue
 		}
 
 		var blockLen uint32
 		err = binary.Read(dr, binary.LittleEndian, &blockLen)
+		total += 4
 		if err != nil {
 			t.Errorf("Failed to load block size for block %d: %v",
-				height, err)
+				len(blocks), err)
 			return nil, err
 		}
 
 		// Read the block.
 		blockBytes := make([]byte, blockLen)
 		_, err = io.ReadFull(dr, blockBytes)
+		total += blockLen
 		if err != nil {
-			t.Errorf("Failed to load block %d: %v", height, err)
+			t.Errorf("Failed to load block %d: %v", len(blocks), err)
 			return nil, err
 		}
 
 		// Deserialize and store the block.
 		block, err := btcutil.NewBlockFromBytes(blockBytes)
 		if err != nil {
-			t.Errorf("Failed to parse block %v: %v", height, err)
+			t.Errorf("Failed to parse block %v: %v", len(blocks), err)
 			return nil, err
 		}
 		blocks = append(blocks, block)
+		if len(blocks) == 257 {
+			break
+		}
 	}
+	fmt.Errorf("READ %d bytes!\n", total)
 
 	return blocks, nil
 }

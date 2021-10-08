@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/lbryio/lbcd/chaincfg/chainhash"
 )
 
 // makeHeader is a convenience function to make a message header in the form of
@@ -66,7 +66,7 @@ func TestMessage(t *testing.T) {
 	msgFilterAdd := NewMsgFilterAdd([]byte{0x01})
 	msgFilterClear := NewMsgFilterClear()
 	msgFilterLoad := NewMsgFilterLoad([]byte{0x01}, 10, 0, BloomUpdateNone)
-	bh := NewBlockHeader(1, &chainhash.Hash{}, &chainhash.Hash{}, 0, 0)
+	bh := NewBlockHeader(1, &chainhash.Hash{}, &chainhash.Hash{}, &chainhash.Hash{}, 0, 0)
 	msgMerkleBlock := NewMsgMerkleBlock(bh)
 	msgReject := NewMsgReject("block", RejectDuplicate, "duplicate block")
 	msgGetCFilters := NewMsgGetCFilters(GCSFilterRegular, 0, &chainhash.Hash{})

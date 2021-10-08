@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
+	"github.com/lbryio/lbcd/chaincfg"
+	"github.com/lbryio/lbcd/chaincfg/chainhash"
+	"github.com/lbryio/lbcd/txscript"
+	"github.com/lbryio/lbcd/wire"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 func testSendOutputs(r *Harness, t *testing.T) {
@@ -567,7 +567,7 @@ const (
 
 func TestMain(m *testing.M) {
 	var err error
-	mainHarness, err = New(&chaincfg.SimNetParams, nil, nil, "")
+	mainHarness, err = New(&chaincfg.RegressionNetParams, nil, nil, "")
 	if err != nil {
 		fmt.Println("unable to create main harness: ", err)
 		os.Exit(1)

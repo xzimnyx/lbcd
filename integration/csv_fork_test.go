@@ -15,14 +15,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/blockchain"
-	"github.com/btcsuite/btcd/btcec"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/integration/rpctest"
-	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
+	"github.com/lbryio/lbcd/blockchain"
+	"github.com/lbryio/lbcd/btcec"
+	"github.com/lbryio/lbcd/chaincfg"
+	"github.com/lbryio/lbcd/chaincfg/chainhash"
+	"github.com/lbryio/lbcd/integration/rpctest"
+	"github.com/lbryio/lbcd/txscript"
+	"github.com/lbryio/lbcd/wire"
+	btcutil "github.com/lbryio/lbcutil"
 )
 
 const (
@@ -110,11 +110,11 @@ func TestBIP0113Activation(t *testing.T) {
 	t.Parallel()
 
 	btcdCfg := []string{"--rejectnonstd"}
-	r, err := rpctest.New(&chaincfg.SimNetParams, nil, btcdCfg, "")
+	r, err := rpctest.New(&chaincfg.RegressionNetParams, nil, btcdCfg, "")
 	if err != nil {
 		t.Fatal("unable to create primary harness: ", err)
 	}
-	if err := r.SetUp(true, 1); err != nil {
+	if err := r.SetUp(true, 110); err != nil {
 		t.Fatalf("unable to setup test chain: %v", err)
 	}
 	defer r.TearDown()
