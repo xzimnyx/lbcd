@@ -30,7 +30,7 @@ func NewRamTrie() *RamTrie {
 				return new(bytes.Buffer)
 			},
 		},
-		collapsedTrie: collapsedTrie{Root: &collapsedVertex{}},
+		collapsedTrie: collapsedTrie{Root: &collapsedVertex{merkleHash: EmptyTrieHash}},
 	}
 }
 

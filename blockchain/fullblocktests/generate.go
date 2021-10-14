@@ -342,10 +342,8 @@ func solveBlock(header *wire.BlockHeader) bool {
 				return
 			default:
 				hdr.Nonce = i
-				hash := hdr.BlockHash()
-				if blockchain.HashToBig(&hash).Cmp(
-					targetDifficulty) <= 0 {
-
+				hash := hdr.BlockPoWHash()
+				if blockchain.HashToBig(&hash).Cmp(targetDifficulty) <= 0 {
 					results <- sbResult{true, i}
 					return
 				}
@@ -1444,7 +1442,7 @@ func Generate(includeLargeReorg bool) (tests [][]TestInstance, err error) {
 			// Keep incrementing the nonce until the hash treated as
 			// a uint256 is higher than the limit.
 			b46.Header.Nonce++
-			blockHash := b46.BlockHash()
+			blockHash := b46.Header.BlockPoWHash()
 			hashNum := blockchain.HashToBig(&blockHash)
 			if hashNum.Cmp(g.params.PowLimit) >= 0 {
 				break

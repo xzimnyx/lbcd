@@ -64,7 +64,7 @@ func testSendOutputs(r *Harness, t *testing.T) {
 
 	// First, generate a small spend which will require only a single
 	// input.
-	txid := genSpend(btcutil.Amount(5 * btcutil.SatoshiPerBitcoin))
+	txid := genSpend(btcutil.Amount(btcutil.SatoshiPerBitcoin))
 
 	// Generate a single block, the transaction the wallet created should
 	// be found in this block.
@@ -76,7 +76,7 @@ func testSendOutputs(r *Harness, t *testing.T) {
 
 	// Next, generate a spend much greater than the block reward. This
 	// transaction should also have been mined properly.
-	txid = genSpend(btcutil.Amount(500 * btcutil.SatoshiPerBitcoin))
+	txid = genSpend(btcutil.Amount(10 * btcutil.SatoshiPerBitcoin))
 	blockHashes, err = r.Client.Generate(1)
 	if err != nil {
 		t.Fatalf("unable to generate single block: %v", err)
@@ -154,7 +154,7 @@ func testActiveHarnesses(r *Harness, t *testing.T) {
 	numInitialHarnesses := len(ActiveHarnesses())
 
 	// Create a single test harness.
-	harness1, err := New(&chaincfg.SimNetParams, nil, nil, "")
+	harness1, err := New(&chaincfg.RegressionNetParams, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func testJoinMempools(r *Harness, t *testing.T) {
 	// Create a local test harness with only the genesis block.  The nodes
 	// will be synced below so the same transaction can be sent to both
 	// nodes without it being an orphan.
-	harness, err := New(&chaincfg.SimNetParams, nil, nil, "")
+	harness, err := New(&chaincfg.RegressionNetParams, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +282,7 @@ func testJoinMempools(r *Harness, t *testing.T) {
 func testJoinBlocks(r *Harness, t *testing.T) {
 	// Create a second harness with only the genesis block so it is behind
 	// the main harness.
-	harness, err := New(&chaincfg.SimNetParams, nil, nil, "")
+	harness, err := New(&chaincfg.RegressionNetParams, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -336,7 +336,7 @@ func testGenerateAndSubmitBlock(r *Harness, t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to create script: %v", err)
 	}
-	output := wire.NewTxOut(btcutil.SatoshiPerBitcoin, pkScript)
+	output := wire.NewTxOut(btcutil.SatoshiPerBitcoin/50, pkScript)
 
 	const numTxns = 5
 	txns := make([]*btcutil.Tx, 0, numTxns)
@@ -470,7 +470,7 @@ func testGenerateAndSubmitBlockWithCustomCoinbaseOutputs(r *Harness,
 func testMemWalletReorg(r *Harness, t *testing.T) {
 	// Create a fresh harness, we'll be using the main harness to force a
 	// re-org on this local harness.
-	harness, err := New(&chaincfg.SimNetParams, nil, nil, "")
+	harness, err := New(&chaincfg.RegressionNetParams, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -479,8 +479,8 @@ func testMemWalletReorg(r *Harness, t *testing.T) {
 	}
 	defer harness.TearDown()
 
-	// The internal wallet of this harness should now have 250 BTC.
-	expectedBalance := btcutil.Amount(250 * btcutil.SatoshiPerBitcoin)
+	// The internal wallet of this harness should now have 250 BTC, but BTC is 50x LBC per generated coin.
+	expectedBalance := btcutil.Amount(5 * btcutil.SatoshiPerBitcoin)
 	walletBalance := harness.ConfirmedBalance()
 	if expectedBalance != walletBalance {
 		t.Fatalf("wallet balance incorrect: expected %v, got %v",
@@ -521,7 +521,7 @@ func testMemWalletLockedOutputs(r *Harness, t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to create script: %v", err)
 	}
-	outputAmt := btcutil.Amount(50 * btcutil.SatoshiPerBitcoin)
+	outputAmt := btcutil.Amount(btcutil.SatoshiPerBitcoin)
 	output := wire.NewTxOut(int64(outputAmt), pkScript)
 	tx, err := r.CreateTransaction([]*wire.TxOut{output}, 10, true)
 	if err != nil {
@@ -567,7 +567,7 @@ const (
 
 func TestMain(m *testing.M) {
 	var err error
-	mainHarness, err = New(&chaincfg.SimNetParams, nil, nil, "")
+	mainHarness, err = New(&chaincfg.RegressionNetParams, nil, nil, "")
 	if err != nil {
 		fmt.Println("unable to create main harness: ", err)
 		os.Exit(1)

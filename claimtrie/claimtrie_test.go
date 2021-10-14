@@ -70,6 +70,22 @@ func TestFixedHashes(t *testing.T) {
 	r.Equal(expected[:], ct.MerkleHash()[:])
 }
 
+func TestEmptyHashFork(t *testing.T) {
+	r := require.New(t)
+
+	setup(t)
+	param.ActiveParams.AllClaimsInMerkleForkHeight = 2
+	ct, err := New(cfg)
+	r.NoError(err)
+	r.NotNil(ct)
+	defer ct.Close()
+
+	for i := 0; i < 5; i++ {
+		err := ct.AppendBlock()
+		r.NoError(err)
+	}
+}
+
 func TestNormalizationFork(t *testing.T) {
 	r := require.New(t)
 

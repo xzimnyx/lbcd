@@ -25,7 +25,7 @@ type GetBlockHeaderVerboseResult struct {
 	Version       int32   `json:"version"`
 	VersionHex    string  `json:"versionHex"`
 	MerkleRoot    string  `json:"merkleroot"`
-	ClaimTrie     string  `json:"claimtrie,omitempty"`
+	ClaimTrie     string  `json:"nameclaimroot,omitempty"`
 	Time          int64   `json:"time"`
 	Nonce         uint64  `json:"nonce"`
 	Bits          string  `json:"bits"`
@@ -83,7 +83,7 @@ type GetBlockVerboseResultBase struct {
 	PreviousHash  string  `json:"previousblockhash,omitempty"`
 	NextHash      string  `json:"nextblockhash,omitempty"`
 
-	ClaimTrie string `json:"claimTrie,omitempty"`
+	ClaimTrie string `json:"nameclaimroot,omitempty"`
 	TxCount   int    `json:"nTx"` // For backwards compatibility only
 }
 

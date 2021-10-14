@@ -247,8 +247,9 @@ var helpDescsEnUS = map[string]string{
 	"getblockverboseresult-version":           "The block version",
 	"getblockverboseresult-versionHex":        "The block version in hexadecimal",
 	"getblockverboseresult-merkleroot":        "Root hash of the merkle tree",
+	"getblockverboseresult-nameclaimroot":     "Root hash of the claim trie",
 	"getblockverboseresult-tx":                "The transaction hashes (only when verbosity=1)",
-	"getblockverboseresult-rawtx":             "The transactions as JSON objects (only when verbosity=2)",
+	"getblockverboseresult-nTx":               "The number of transactions (aka, count of TX)",
 	"getblockverboseresult-time":              "The block time in seconds since 1 Jan 1970 GMT",
 	"getblockverboseresult-nonce":             "The block nonce",
 	"getblockverboseresult-bits":              "The bits which represent the block difficulty",
@@ -288,7 +289,7 @@ var helpDescsEnUS = map[string]string{
 	"getblockheaderverboseresult-difficulty":        "The proof-of-work difficulty as a multiple of the minimum difficulty",
 	"getblockheaderverboseresult-previousblockhash": "The hash of the previous block",
 	"getblockheaderverboseresult-nextblockhash":     "The hash of the next block (only if there is one)",
-	"getblockheaderverboseresult-claimtrie":         "The hash of the root of the claim trie",
+	"getblockheaderverboseresult-nameclaimroot":     "The hash of the root of the claim trie",
 
 	// TemplateRequest help.
 	"templaterequest-mode":         "This is 'template', 'proposal', or omitted",
@@ -712,13 +713,76 @@ var helpDescsEnUS = map[string]string{
 	"versionresult-prerelease":    "Prerelease info about the current build",
 	"versionresult-buildmetadata": "Metadata about the current build",
 
-	"getclaimsfornameresult-claims":  "All the active claims on the given name",
+	"getclaimsforname--synopsis":      "Look up claims for the given name as they stand at a give block",
+	"getclaimsfornamebyid--synopsis":  "Look up claims for the given name as they stand at a give block",
+	"getclaimsfornamebybid--synopsis": "Look up claims for the given name as they stand at a give block",
+	"getclaimsfornamebyseq--synopsis": "Look up claims for the given name as they stand at a give block",
+
+	"getclaimsforname-hashorheight":      "Requested block hash or height; default to tip",
+	"getclaimsfornamebyid-hashorheight":  "Requested block hash or height; default to tip",
+	"getclaimsfornamebybid-hashorheight": "Requested block hash or height; default to tip",
+	"getclaimsfornamebyseq-hashorheight": "Requested block hash or height; default to tip",
+
+	"getclaimsforname-name":      "Requested name for lookup",
+	"getclaimsfornamebyid-name":  "Requested name for lookup",
+	"getclaimsfornamebybid-name": "Requested name for lookup",
+	"getclaimsfornamebyseq-name": "Requested name for lookup",
+
+	"getclaimsfornamebyid-partialclaimids": "Limit the returned claims to those with matching (partial) claimIDs in this list",
+	"getclaimsfornamebybid-bids":           "Limit the returned claims to those with bids to this list",
+	"getclaimsfornamebyseq-sequences":      "Limit the returned claims to those with bids to this list",
+
+	"getclaimsforname-includevalues":      "Return the metadata and address",
+	"getclaimsfornamebyseq-includevalues": "Return the metadata and address",
+	"getclaimsfornamebybid-includevalues": "Return the metadata and address",
+	"getclaimsfornamebyid-includevalues":  "Return the metadata and address",
+
+	"getclaimsfornameresult-claims":         "All the active claims on the given name",
+	"getclaimsfornameresult-normalizedname": "Lower-case version of the passed-in name",
+	"getclaimsfornameresult-height":         "Height of the requested block",
+	"getclaimsfornameresult-hash":           "Hash of the requested block",
+
+	"getchangesinblock--synopsis":    "Returns a list of names affected by a given block",
 	"getchangesinblockresult-names":  "Names that changed (or were at least checked for change) on the given height",
 	"getchangesinblockresult-height": "Height that was requested",
 	"getchangesinblockresult-hash":   "Hash of the block at the height requested",
-	"scriptpubkeyresult-subtype":     "Claims return Non-standard address types, but they use standard address types internally exposed here",
-	"claimresult-value":              "This is the metadata given as part of the claim",
-	"claimresult-address":            "The destination address for the claim",
+
+	"scriptpubkeyresult-subtype": "Claims return Non-standard address types, but they use standard address types internally exposed here",
+
+	"supportresult-value":         "This is the metadata given as part of the support",
+	"supportresult-txid":          "The hash of the transaction",
+	"supportresult-n":             "The output (TXO) index",
+	"supportresult-address":       "The destination address for the support",
+	"supportresult-amount":        "LBC staked",
+	"supportresult-height":        "The height when the stake was created or updated",
+	"supportresult-validatheight": "The height when the stake becomes valid",
+	"claimresult-value":           "This is the metadata given as part of the claim",
+	"claimresult-txid":            "The hash of the transaction",
+	"claimresult-n":               "The output (TXO) index",
+	"claimresult-address":         "The destination address for the claim",
+	"claimresult-supports":        "The list of supports active on the claim",
+	"claimresult-amount":          "LBC staked",
+	"claimresult-validatheight":   "The height when the stake becomes valid",
+	"claimresult-height":          "The height when the stake was created or updated",
+	"claimresult-effectiveamount": "The stake amount plus the active supports' amounts",
+	"claimresult-sequence":        "The order this claim was created compared to other claims on this name",
+	"claimresult-bid":             "Bid of 0 means that this claim currently owns the name",
+	"claimresult-claimid":         "20-byte hash of TXID:N, often used in indexes for the claims",
+
+	"generatetoaddress--synopsis":    "Mine blocks and send their reward to a given address",
+	"generatetoaddress--result0":     "The list of generated blocks' hashes",
+	"generatetoaddress-maxtries":     "The maximum number of hashes to attempt",
+	"generatetoaddress-address":      "The destination -- the place where the LBC will be sent",
+	"generatetoaddress-numblocks":    "The number of blocks to mine",
+	"getchangesinblock-hashorheight": "The requested height or block hash whose changes are of interest",
+
+	"normalize--synopsis": "Used to show how lbcd will normalize a string",
+	"normalize--result0":  "The normalized name",
+	"normalize-name":      "The string to be normalized",
+
+	"getblockverboseresult-getblockverboseresultbase": "",
+	"prevout-issupport": "Previous output created a support",
+	"prevout-isclaim":   "Previous output created or updated a claim",
 }
 
 // rpcResultTypes specifies the result types that each RPC command can return.
