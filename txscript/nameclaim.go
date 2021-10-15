@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"unicode/utf8"
 
-	"github.com/btcsuite/btcd/wire"
+	"github.com/lbryio/lbcd/wire"
 )
 
 const (
