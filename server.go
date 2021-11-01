@@ -2628,6 +2628,8 @@ func newServer(listenAddrs, agentBlacklist, agentWhitelist []string,
 	db database.DB, chainParams *chaincfg.Params,
 	interrupt <-chan struct{}) (*server, error) {
 
+	startupTime := time.Now()
+
 	services := defaultServices
 	if cfg.NoPeerBloomFilters {
 		services &^= wire.SFNodeBloom
@@ -2971,7 +2973,7 @@ func newServer(listenAddrs, agentBlacklist, agentWhitelist []string,
 
 		s.rpcServer, err = newRPCServer(&rpcserverConfig{
 			Listeners:    rpcListeners,
-			StartupTime:  time.Now().Unix(),
+			StartupTime:  startupTime.Unix(),
 			ConnMgr:      &rpcConnManager{&s},
 			SyncMgr:      &rpcSyncMgr{&s, s.syncManager},
 			TimeSource:   s.timeSource,
